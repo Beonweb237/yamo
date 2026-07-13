@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   Star,
   Clock,
@@ -14,50 +15,102 @@ import {
   Share2,
   Circle,
 } from 'lucide-react';
-import { restaurants, menuItems } from '../data/mockData';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog';
 import { useCart } from '../contexts/CartContext';
+import { useRestaurant, useMenuItems, useRestaurants } from '../hooks/useCatalog';
+import { restaurantMenuCategories } from '../data/mockData';
 import type { MenuItem } from '../data/mockData';
 
-const menuCategories = [
-  'Populaires',
-  'Entr\u00e9es',
+const categoryOrder = [
   'Plats Principaux',
   'Grillades',
-  'Accompagnements',
-  'Boissons',
-  'Desserts',
+  ...restaurantMenuCategories.filter((cat) => !['Plats Principaux', 'Grillades'].includes(cat)),
 ];
 
 export default function RestaurantDetail() {
   const { id } = useParams<{ id: string }>();
-  const restaurant = restaurants.find((r) => r.id === id) || restaurants[0];
+  const navigate = useNavigate();
+  const { restaurant: fetchedRestaurant } = useRestaurant(id);
+  const { restaurants } = useRestaurants();
+  const restaurant = fetchedRestaurant ?? restaurants[0];
+  const { items: menuItems } = useMenuItems(restaurant?.id);
   const [activeTab, setActiveTab] = useState('Populaires');
   const [isFav, setIsFav] = useState(false);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const { items, addToCart, updateQuantity, totalItems, totalPrice } = useCart();
 
+  // C4: customization modal
+  const [customizing, setCustomizing] = useState<MenuItem | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState(0);
+  const [selectedSupplements, setSelectedSupplements] = useState<Set<number>>(new Set());
+
+  const customPrice = customizing
+    ? customizing.price + (customizing.variants?.[selectedVariant]?.price ?? 0) +
+    [...selectedSupplements].reduce((s, i) => s + (customizing.supplements?.[i]?.price ?? 0), 0)
+    : 0;
+
+  const handleAdd = (item: MenuItem) => {
+    if (item.variants?.length || item.supplements?.length) {
+      setCustomizing(item);
+      setSelectedVariant(0);
+      setSelectedSupplements(new Set());
+      return;
+    }
+    addToCart(item);
+    toast.success(`${item.name} ajouté au panier`);
+  };
+
+  const confirmCustomized = () => {
+    if (!customizing) return;
+    const variant = customizing.variants?.[selectedVariant];
+    const suppNames = [...selectedSupplements].map((i) => customizing.supplements?.[i]?.name).filter(Boolean).join(', ');
+    const fullName = [customizing.name, variant?.name, suppNames].filter(Boolean).join(' + ');
+    addToCart({ ...customizing, name: fullName, price: customPrice });
+    toast.success(`${fullName} ajouté au panier`);
+    setCustomizing(null);
+  };
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
-  const filteredItems = useMemo(() => {
-    const restoItems = menuItems.filter((m) => m.restaurantId === restaurant.id);
-    if (activeTab === 'Populaires') {
-      return restoItems.filter((m) => m.isPopular);
-    }
-    return restoItems.filter((m) => m.category === activeTab);
-  }, [activeTab, restaurant.id]);
-
   const menuItemsByCategory = useMemo(() => {
     const restoItems = menuItems.filter((m) => m.restaurantId === restaurant.id);
     const groups: Record<string, MenuItem[]> = {};
-    const cats = ['Plats Principaux', 'Grillades', 'Entr\u00e9es', 'Accompagnements', 'Boissons', 'Desserts'];
-    cats.forEach((cat) => {
+    categoryOrder.forEach((cat) => {
       const items = restoItems.filter((m) => m.category === cat);
       if (items.length) groups[cat] = items;
     });
     return groups;
-  }, [restaurant.id]);
+  }, [restaurant.id, menuItems]);
+
+  const hasPopularItems = useMemo(
+    () => menuItems.some((m) => m.restaurantId === restaurant.id && m.isPopular),
+    [restaurant.id, menuItems]
+  );
+
+  const availableTabs = useMemo(
+    () => [...(hasPopularItems ? ['Populaires'] : []), ...Object.keys(menuItemsByCategory)],
+    [hasPopularItems, menuItemsByCategory]
+  );
+
+  // Derived instead of synced via effect: falls back to the first available
+  // tab if the stored selection no longer exists for this restaurant's menu.
+  const currentTab = availableTabs.includes(activeTab) ? activeTab : (availableTabs[0] ?? 'Populaires');
+
+  const filteredItems = useMemo(() => {
+    const restoItems = menuItems.filter((m) => m.restaurantId === restaurant.id);
+    if (currentTab === 'Populaires') {
+      return restoItems.filter((m) => m.isPopular);
+    }
+    return restoItems.filter((m) => m.category === currentTab);
+  }, [currentTab, restaurant.id, menuItems]);
 
   const getItemQuantity = (itemId: string) => {
     const found = items.find((i) => i.item.id === itemId);
@@ -171,15 +224,14 @@ export default function RestaurantDetail() {
         {/* Menu Tabs */}
         <div className="sticky top-[72px] z-30 bg-bg-secondary border-b border-border-custom mb-6 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:-mx-12 xl:px-12">
           <div className="flex gap-1 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
-            {menuCategories.map((cat) => (
+            {availableTabs.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveTab(cat)}
-                className={`snap-start shrink-0 px-4 py-3 font-inter text-sm font-medium whitespace-nowrap border-b-2 transition-colors cursor-pointer ${
-                  cat === activeTab
-                    ? 'text-green-primary border-green-primary'
-                    : 'text-text-secondary border-transparent hover:text-text-primary'
-                }`}
+                className={`snap-start shrink-0 px-4 py-3 font-inter text-sm font-medium whitespace-nowrap border-b-2 transition-colors cursor-pointer ${cat === currentTab
+                  ? 'text-green-primary border-green-primary'
+                  : 'text-text-secondary border-transparent hover:text-text-primary'
+                  }`}
               >
                 {cat}
               </button>
@@ -191,7 +243,7 @@ export default function RestaurantDetail() {
         <div className="flex flex-col lg:flex-row gap-8 pb-16">
           {/* Menu Items */}
           <div className="flex-1">
-            {activeTab === 'Populaires' ? (
+            {currentTab === 'Populaires' ? (
               // Show popular items first, then other categories
               <>
                 <motion.div
@@ -208,7 +260,7 @@ export default function RestaurantDetail() {
                 </motion.div>
                 <div className="bg-white rounded-xl border border-border-custom overflow-hidden divide-y divide-border-light mb-8">
                   {filteredItems.map((item, i) => (
-                    <MenuRow key={item.id} item={item} index={i} getQty={getItemQuantity} onAdd={addToCart} onUpdate={updateQuantity} />
+                    <MenuRow key={item.id} item={item} index={i} getQty={getItemQuantity} onAdd={handleAdd} onUpdate={updateQuantity} />
                   ))}
                 </div>
                 {/* Other categories */}
@@ -222,7 +274,7 @@ export default function RestaurantDetail() {
                     </div>
                     <div className="bg-white rounded-xl border border-border-custom overflow-hidden divide-y divide-border-light">
                       {items.map((item, i) => (
-                        <MenuRow key={item.id} item={item} index={i} getQty={getItemQuantity} onAdd={addToCart} onUpdate={updateQuantity} />
+                        <MenuRow key={item.id} item={item} index={i} getQty={getItemQuantity} onAdd={handleAdd} onUpdate={updateQuantity} />
                       ))}
                     </div>
                   </div>
@@ -237,7 +289,7 @@ export default function RestaurantDetail() {
                 >
                   <div className="flex items-center gap-3 mb-4">
                     <h2 className="font-poppins font-semibold text-text-primary text-xl">
-                      {activeTab}
+                      {currentTab}
                     </h2>
                     <div className="w-10 h-[3px] bg-green-primary rounded-full" />
                   </div>
@@ -245,7 +297,7 @@ export default function RestaurantDetail() {
                 <div className="bg-white rounded-xl border border-border-custom overflow-hidden divide-y divide-border-light">
                   {filteredItems.length > 0 ? (
                     filteredItems.map((item, i) => (
-                      <MenuRow key={item.id} item={item} index={i} getQty={getItemQuantity} onAdd={addToCart} onUpdate={updateQuantity} />
+                      <MenuRow key={item.id} item={item} index={i} getQty={getItemQuantity} onAdd={handleAdd} onUpdate={updateQuantity} />
                     ))
                   ) : (
                     <div className="p-8 text-center text-text-secondary font-inter">
@@ -260,7 +312,7 @@ export default function RestaurantDetail() {
           {/* Cart Sidebar - Desktop */}
           <div className="hidden lg:block w-[380px] shrink-0">
             <div className="sticky top-[140px] bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-5">
-              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} onUpdate={updateQuantity} />
+              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} onUpdate={updateQuantity} onCheckout={() => navigate('/checkout')} />
             </div>
           </div>
         </div>
@@ -278,7 +330,7 @@ export default function RestaurantDetail() {
                 className="md:w-[280px] shrink-0"
               >
                 <div className="flex items-end gap-2 mb-2">
-                  <span className="font-poppins font-extrabold text-text-primary text-5xl">
+                  <span className="font-poppins font-bold text-text-primary text-5xl">
                     {restaurant.rating}
                   </span>
                   <span className="text-text-secondary font-inter text-base mb-1">sur 5</span>
@@ -287,13 +339,12 @@ export default function RestaurantDetail() {
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star
                       key={i}
-                      className={`w-5 h-5 ${
-                        i < Math.floor(restaurant.rating)
-                          ? 'fill-gold-accent text-gold-accent'
-                          : i < restaurant.rating
+                      className={`w-5 h-5 ${i < Math.floor(restaurant.rating)
+                        ? 'fill-gold-accent text-gold-accent'
+                        : i < restaurant.rating
                           ? 'fill-gold-accent/50 text-gold-accent'
                           : 'text-border-custom'
-                      }`}
+                        }`}
                     />
                   ))}
                 </div>
@@ -456,11 +507,60 @@ export default function RestaurantDetail() {
                   <ChevronDown className="w-6 h-6 text-text-secondary" />
                 </button>
               </div>
-              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} onUpdate={updateQuantity} />
+              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} onUpdate={updateQuantity} onCheckout={() => navigate('/checkout')} />
             </motion.div>
           </>
         )}
       </AnimatePresence>
+
+      {/* C4: Customization dialog */}
+      <Dialog open={!!customizing} onOpenChange={(open) => { if (!open) setCustomizing(null); }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="font-poppins text-lg">{customizing?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {customizing?.variants?.length ? (
+              <div>
+                <p className="text-sm font-inter font-medium text-text-primary mb-2">Taille / Portion</p>
+                <div className="space-y-2">
+                  {customizing.variants.map((v, i) => (
+                    <label key={i} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${selectedVariant === i ? 'border-green-primary bg-green-light' : 'border-border-custom hover:bg-bg-secondary'}`}>
+                      <div className="flex items-center gap-2">
+                        <input type="radio" name="variant" checked={selectedVariant === i} onChange={() => setSelectedVariant(i)} className="accent-green-primary" />
+                        <span className="text-sm font-inter text-text-primary">{v.name}</span>
+                      </div>
+                      <span className="text-sm font-inter font-medium text-text-primary">{v.price > 0 ? `+${v.price.toLocaleString()} FCFA` : 'Inclus'}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {customizing?.supplements?.length ? (
+              <div>
+                <p className="text-sm font-inter font-medium text-text-primary mb-2">Suppléments</p>
+                <div className="space-y-2">
+                  {customizing.supplements.map((s, i) => (
+                    <label key={i} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${selectedSupplements.has(i) ? 'border-green-primary bg-green-light' : 'border-border-custom hover:bg-bg-secondary'}`}>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" checked={selectedSupplements.has(i)} onChange={() => { const next = new Set(selectedSupplements); next.has(i) ? next.delete(i) : next.add(i); setSelectedSupplements(next); }} className="accent-green-primary" />
+                        <span className="text-sm font-inter text-text-primary">{s.name}</span>
+                      </div>
+                      <span className="text-sm font-inter font-medium text-text-primary">+{s.price.toLocaleString()} FCFA</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <button onClick={() => setCustomizing(null)} className="px-4 h-10 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">Annuler</button>
+            <button onClick={confirmCustomized} className="px-5 h-10 rounded-lg bg-green-primary text-white font-inter font-medium text-sm hover:bg-green-dark transition-colors">
+              Ajouter — {customPrice.toLocaleString()} FCFA
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -538,12 +638,13 @@ function MenuRow({
 
 /* Cart Content Component */
 function CartContent({
-  items, totalItems, totalPrice, onUpdate,
+  items, totalItems, totalPrice, onUpdate, onCheckout,
 }: {
   items: { item: MenuItem; quantity: number }[];
   totalItems: number;
   totalPrice: number;
   onUpdate: (id: string, qty: number) => void;
+  onCheckout: () => void;
 }) {
   if (totalItems === 0) {
     return (
@@ -610,7 +711,10 @@ function CartContent({
           <span className="text-text-primary font-bold text-lg">{totalPrice.toLocaleString()} FCFA</span>
         </div>
       </div>
-      <button className="w-full mt-4 bg-green-primary text-white font-inter font-semibold h-[52px] rounded-lg hover:bg-green-dark transition-colors">
+      <button
+        onClick={onCheckout}
+        className="w-full mt-4 bg-green-primary text-white font-inter font-semibold h-[52px] rounded-lg hover:bg-green-dark transition-colors"
+      >
         Commander &mdash; {totalPrice.toLocaleString()} FCFA
       </button>
     </div>

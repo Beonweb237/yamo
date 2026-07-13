@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   TrendingUp,
@@ -11,6 +12,8 @@ import {
   Quote,
 } from 'lucide-react';
 import { partnerReviews, partnerFAQ } from '../data/mockData';
+import ApplicationForm from '../components/ApplicationForm';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 const benefits = [
   {
@@ -103,10 +106,10 @@ export default function Partenaires() {
   }, []);
 
   return (
-    <div className="pt-[72px]">
+    <div className="pt-0">
       {/* Hero */}
       <section className="bg-bg-dark min-h-[80vh] flex items-center relative overflow-hidden">
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 w-full py-20">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 w-full py-20 pt-28">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
             <motion.div
               initial={{ opacity: 0 }}
@@ -117,7 +120,7 @@ export default function Partenaires() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.3 }}
-                className="text-gold-accent text-xs font-inter font-semibold tracking-[0.15em] uppercase"
+                className="text-gold-accent text-xs font-inter font-semibold tracking-normal uppercase"
               >
                 Espace Restaurateur
               </motion.span>
@@ -125,7 +128,7 @@ export default function Partenaires() {
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                className="font-poppins font-bold text-white text-3xl sm:text-4xl lg:text-[52px] leading-[1.1] mt-4 mb-5"
+                className="font-poppins font-semibold text-white text-[34px]/[1.18] sm:text-[40px]/[1.16] lg:text-[44px]/[1.16] tracking-normal mt-4 mb-5 max-w-[560px]"
               >
                 D&eacute;veloppez Votre Activit&eacute; avec Yamo
               </motion.h1>
@@ -149,6 +152,11 @@ export default function Partenaires() {
                 <a href="#howitworks" className="border border-white text-white font-inter font-medium text-sm px-6 h-12 rounded-lg hover:bg-white/10 transition-colors inline-flex items-center">
                   En Savoir Plus
                 </a>
+                {!isSupabaseConfigured && (
+                  <Link to="/partenaires/dashboard" className="border border-white/40 text-white/80 font-inter font-medium text-sm px-6 h-12 rounded-lg hover:bg-white/10 transition-colors inline-flex items-center">
+                    Accéder à l'espace restaurant (démo)
+                  </Link>
+                )}
               </motion.div>
               <motion.div
                 initial={{ opacity: 0 }}
@@ -159,7 +167,7 @@ export default function Partenaires() {
                 {[
                   { num: '500+', label: 'Restaurants Partenaires' },
                   { num: '50K+', label: 'Commandes par Mois' },
-                  { num: '2', label: 'Villes Couvertes' },
+                  { num: '27', label: 'Villes Couvertes' },
                 ].map((stat, i) => (
                   <div key={i}>
                     <div className="font-poppins font-bold text-gold-accent text-2xl sm:text-3xl">
@@ -197,7 +205,7 @@ export default function Partenaires() {
             transition={{ duration: 0.5 }}
             className="text-center mb-12"
           >
-            <h2 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight mb-3">
+            <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
               Pourquoi Rejoindre Yamo ?
             </h2>
             <p className="text-text-secondary font-inter text-base">
@@ -239,7 +247,7 @@ export default function Partenaires() {
             transition={{ duration: 0.5 }}
             className="text-center mb-12"
           >
-            <h2 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight mb-3">
+            <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
               Comment &Ccedil;a Marche ?
             </h2>
             <p className="text-text-secondary font-inter text-base">
@@ -280,7 +288,7 @@ export default function Partenaires() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight text-center mb-12"
+            className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal text-center mb-12"
           >
             Ils Nous Font Confiance
           </motion.h2>
@@ -330,7 +338,7 @@ export default function Partenaires() {
             transition={{ duration: 0.5 }}
             className="text-center mb-10"
           >
-            <h2 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight mb-3">
+            <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
               Une Commission Transparente
             </h2>
             <p className="text-text-secondary font-inter text-base">
@@ -345,7 +353,7 @@ export default function Partenaires() {
             className="max-w-[480px] mx-auto bg-white rounded-2xl border-2 border-green-primary p-8 shadow-[0_8px_32px_rgba(21,127,61,0.10)]"
           >
             <div className="text-center mb-4">
-              <span className="font-poppins font-extrabold text-green-primary text-6xl sm:text-7xl">
+              <span className="font-poppins font-bold text-green-primary text-5xl sm:text-6xl">
                 15%
               </span>
               <p className="text-text-secondary font-inter text-base mt-1">
@@ -386,7 +394,7 @@ export default function Partenaires() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="font-poppins font-bold text-white text-2xl sm:text-3xl lg:text-[48px] leading-tight mb-4"
+            className="font-poppins font-semibold text-white text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-4"
           >
             Pr&ecirc;t &agrave; Faire Cro&icirc;tre Votre Restaurant ?
           </motion.h2>
@@ -404,11 +412,9 @@ export default function Partenaires() {
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ delay: 0.3, duration: 0.4 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center mb-6"
+            className="mb-6"
           >
-            <button className="bg-white text-green-primary font-inter font-semibold text-sm h-12 px-8 rounded-lg hover:bg-green-light transition-colors">
-              Devenir Partenaire Maintenant
-            </button>
+            <ApplicationForm type="restaurant" />
           </motion.div>
           <motion.p
             initial={{ opacity: 0 }}
@@ -431,7 +437,7 @@ export default function Partenaires() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight text-center mb-10"
+            className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal text-center mb-10"
           >
             Questions Fr&eacute;quentes
           </motion.h2>
@@ -456,3 +462,5 @@ function Star(props: { className?: string }) {
     </svg>
   );
 }
+
+

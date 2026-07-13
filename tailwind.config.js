@@ -55,7 +55,8 @@ module.exports = {
         'success': '#10B981',
       },
       fontFamily: {
-        'poppins': ['Poppins', 'sans-serif'],
+        'poppins': ['Source Sans 3', 'sans-serif'],
+        'heading': ['Source Sans 3', 'sans-serif'],
         'inter': ['Inter', 'sans-serif'],
       },
       borderRadius: {

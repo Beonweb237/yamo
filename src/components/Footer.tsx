@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
-import { Mail, Phone, MapPin, Facebook, Instagram, Twitter, Leaf } from 'lucide-react';
+import { Mail, Phone, MapPin, Facebook, Instagram, Twitter } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { cuisineCategories } from '../data/mockData';
 
 const quickLinks = [
   { name: 'Accueil', path: '/' },
@@ -9,16 +10,6 @@ const quickLinks = [
   { name: 'Livreurs', path: '/livreurs' },
   { name: 'Contact', path: '/contact' },
   { name: 'FAQ', path: '/contact' },
-];
-
-const categories = [
-  'Cuisine Camerounaise',
-  'Fast-Food',
-  'Pizza & Burgers',
-  'Grillades',
-  'Fruits de Mer',
-  'P\u00e2tisseries',
-  'Boissons & Jus',
 ];
 
 export default function Footer() {
@@ -34,9 +25,9 @@ export default function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-6">
           {/* Brand Column */}
           <div>
-            <Link to="/" className="flex items-center gap-1.5 mb-4">
-              <Leaf className="w-5 h-5 text-green-primary" />
-              <span className="font-poppins font-extrabold text-xl text-green-primary">
+            <Link to="/" className="flex items-center gap-2 mb-4">
+              <img src="/logo.png" alt="Yamo Logo" className="w-8 h-8 object-contain rounded-lg shadow-sm bg-white" />
+              <span className="font-inter font-semibold text-lg tracking-normal text-green-primary">
                 Yamo
               </span>
             </Link>
@@ -81,13 +72,13 @@ export default function Footer() {
               Cat\u00e9gories
             </h4>
             <ul className="space-y-2.5">
-              {categories.map((cat) => (
-                <li key={cat}>
+              {cuisineCategories.map((cat) => (
+                <li key={cat.id}>
                   <Link
-                    to="/restaurants"
+                    to={`/restaurants?category=${encodeURIComponent(cat.name)}`}
                     className="text-text-secondary text-sm font-inter hover:text-green-primary hover:translate-x-1 transition-all inline-block"
                   >
-                    {cat}
+                    {cat.name}
                   </Link>
                 </li>
               ))}
@@ -137,3 +128,4 @@ export default function Footer() {
     </footer>
   );
 }
+

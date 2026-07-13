@@ -1,17 +1,19 @@
-import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Search,
   MapPin,
   ChevronDown,
-  Filter,
   Star,
   Clock,
   Heart,
   SlidersHorizontal,
 } from 'lucide-react';
-import { restaurants, cuisineCategories } from '../data/mockData';
+import { cuisineCategories } from '../data/mockData';
+import { activeCities, getNeighborhoods } from '../data/locations';
+import { useRestaurants } from '../hooks/useCatalog';
+import AppImage from '../components/AppImage';
 
 const sortOptions = [
   { label: 'Pertinence', value: 'relevance' },
@@ -22,12 +24,46 @@ const sortOptions = [
 
 const allCategories = ['Tous', ...cuisineCategories.map((c) => c.name)];
 
+function stableDistance(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash + id.charCodeAt(i) * (i + 1)) % 100;
+  return (1 + (hash % 30) / 10).toFixed(1);
+}
+
 export default function Restaurants() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('Tous');
+  const { restaurants } = useRestaurants();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') ?? '');
+  const [activeCategory, setActiveCategory] = useState(searchParams.get('category') ?? 'Tous');
+  const [selectedCity, setSelectedCity] = useState(searchParams.get('ville') ?? 'Douala');
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState(searchParams.get('quartier') ?? '');
   const [sortBy, setSortBy] = useState('relevance');
   const [showSort, setShowSort] = useState(false);
+  const [showCityMenu, setShowCityMenu] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+
+  const neighborhoods = getNeighborhoods(selectedCity);
+
+  useEffect(() => {
+    const q = searchParams.get('q') ?? '';
+    const cat = searchParams.get('category') ?? 'Tous';
+    const ville = searchParams.get('ville') ?? 'Douala';
+    const quartier = searchParams.get('quartier') ?? '';
+    setSearchQuery(q);
+    setActiveCategory(allCategories.includes(cat) ? cat : 'Tous');
+    setSelectedCity(activeCities.some((c) => c.name === ville) ? ville : 'Douala');
+    setSelectedNeighborhood(quartier);
+  }, [searchParams]);
+
+  const syncParams = (updates: Record<string, string>) => {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (!value || value === 'Tous') next.delete(key);
+      else next.set(key, value);
+    });
+    setSearchParams(next, { replace: true });
+  };
 
   const toggleFavorite = (id: string) => {
     setFavorites((prev) => {
@@ -47,12 +83,22 @@ export default function Restaurants() {
         (r) =>
           r.name.toLowerCase().includes(q) ||
           r.category.toLowerCase().includes(q) ||
+          r.city.toLowerCase().includes(q) ||
+          r.neighborhood.toLowerCase().includes(q) ||
           r.tags.some((t) => t.toLowerCase().includes(q))
       );
     }
 
     if (activeCategory !== 'Tous') {
       result = result.filter((r) => r.category === activeCategory);
+    }
+
+    if (selectedCity) {
+      result = result.filter((r) => r.city === selectedCity);
+    }
+
+    if (selectedNeighborhood) {
+      result = result.filter((r) => r.neighborhood === selectedNeighborhood);
     }
 
     switch (sortBy) {
@@ -74,14 +120,16 @@ export default function Restaurants() {
     }
 
     return result;
-  }, [searchQuery, activeCategory, sortBy]);
+  }, [restaurants, searchQuery, activeCategory, selectedCity, selectedNeighborhood, sortBy]);
+
+  const handleSearch = () => {
+    syncParams({ q: searchQuery, category: activeCategory, ville: selectedCity, quartier: selectedNeighborhood });
+  };
 
   return (
     <div className="pt-[72px] min-h-screen bg-bg-secondary">
-      {/* Hero Header */}
       <section className="bg-green-primary pt-12 pb-20 sm:pt-16 sm:pb-24 relative">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
-          {/* Breadcrumb */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -97,9 +145,9 @@ export default function Restaurants() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="font-poppins font-bold text-white text-3xl sm:text-4xl lg:text-[48px] leading-tight mb-3"
+            className="font-poppins font-semibold text-white text-3xl sm:text-4xl lg:text-[38px]/[1.18] tracking-normal mb-3"
           >
-            Trouvez Votre Restaurant Id&eacute;al
+            Trouvez Votre Restaurant Idéal
           </motion.h1>
 
           <motion.p
@@ -108,12 +156,11 @@ export default function Restaurants() {
             transition={{ duration: 0.4, delay: 0.2 }}
             className="text-white/75 font-inter text-base max-w-[600px]"
           >
-            Plus de 500 restaurants partenaires &agrave; Douala, Yaound&eacute; et bient&ocirc;t dans toutes les villes du Cameroun
+            Plus de 500 restaurants partenaires dans les grandes villes du Cameroun
           </motion.p>
         </div>
       </section>
 
-      {/* Floating Search Card */}
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 -mt-10 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.98 }}
@@ -128,31 +175,68 @@ export default function Restaurants() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Rechercher un restaurant, une cuisine..."
                 className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
               />
             </div>
-            <div className="flex gap-3">
-              <div className="hidden sm:flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12 cursor-pointer">
-                <MapPin className="w-4 h-4 text-text-muted" />
-                <div>
-                  <span className="text-[10px] text-text-muted font-inter block leading-none">Ville</span>
-                  <span className="text-sm text-text-primary font-inter font-medium">Douala</span>
-                </div>
-                <ChevronDown className="w-4 h-4 text-text-muted" />
+            <div className="flex flex-wrap gap-3">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowCityMenu(!showCityMenu)}
+                  className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12"
+                >
+                  <MapPin className="w-4 h-4 text-text-muted" />
+                  <div className="text-left">
+                    <span className="text-[10px] text-text-muted font-inter block leading-none">Ville</span>
+                    <span className="text-sm text-text-primary font-inter font-medium">{selectedCity}</span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-text-muted" />
+                </button>
+                {showCityMenu && (
+                  <div className="absolute top-full left-0 mt-2 bg-white border border-border-custom rounded-lg shadow-lg py-1 z-30 min-w-[160px]">
+                    {activeCities.map((city) => (
+                      <button
+                        key={city.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCity(city.name);
+                          setSelectedNeighborhood('');
+                          setShowCityMenu(false);
+                        }}
+                        className={`block w-full text-left px-4 py-2 text-sm font-inter transition-colors ${selectedCity === city.name
+                            ? 'text-green-primary bg-green-light'
+                            : 'text-text-secondary hover:bg-bg-secondary'
+                          }`}
+                      >
+                        {city.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="hidden md:flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12 cursor-pointer">
+              <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
                 <SlidersHorizontal className="w-4 h-4 text-text-muted" />
                 <div>
-                  <span className="text-[10px] text-text-muted font-inter block leading-none">Cuisine</span>
-                  <span className="text-sm text-text-primary font-inter font-medium">Toutes</span>
+                  <span className="text-[10px] text-text-muted font-inter block leading-none">Quartier</span>
+                  <select
+                    value={selectedNeighborhood}
+                    onChange={(e) => setSelectedNeighborhood(e.target.value)}
+                    className="text-sm text-text-primary font-inter font-medium bg-transparent outline-none"
+                  >
+                    <option value="">Tous</option>
+                    {neighborhoods.map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
                 </div>
-                <ChevronDown className="w-4 h-4 text-text-muted" />
               </div>
-              <button className="hidden sm:flex items-center justify-center w-12 h-12 bg-bg-secondary rounded-lg hover:bg-green-light transition-colors shrink-0">
-                <Filter className="w-5 h-5 text-text-secondary" />
-              </button>
-              <button className="flex-1 sm:flex-none bg-green-primary text-white font-inter font-medium text-sm h-12 px-6 rounded-lg hover:bg-green-dark transition-colors">
+              <button
+                type="button"
+                onClick={handleSearch}
+                className="flex-1 sm:flex-none bg-green-primary text-white font-inter font-medium text-sm h-12 px-6 rounded-lg hover:bg-green-dark transition-colors"
+              >
                 Rechercher
               </button>
             </div>
@@ -160,19 +244,20 @@ export default function Restaurants() {
         </motion.div>
       </div>
 
-      {/* Category Filter Strip */}
       <div className="sticky top-[72px] z-40 bg-white border-b border-border-custom mt-6">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-3">
           <div className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
             {allCategories.map((cat) => (
               <button
                 key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`snap-start shrink-0 px-4 py-2 rounded-full font-inter text-[13px] font-medium whitespace-nowrap transition-colors cursor-pointer ${
-                  cat === activeCategory
+                onClick={() => {
+                  setActiveCategory(cat);
+                  syncParams({ q: searchQuery, category: cat, ville: selectedCity, quartier: selectedNeighborhood });
+                }}
+                className={`snap-start shrink-0 px-4 py-2 rounded-full font-inter text-[13px] font-medium whitespace-nowrap transition-colors cursor-pointer ${cat === activeCategory
                     ? 'bg-green-primary text-white'
                     : 'bg-bg-secondary text-text-secondary hover:bg-green-light hover:text-green-primary'
-                }`}
+                  }`}
               >
                 {cat}
               </button>
@@ -181,16 +266,14 @@ export default function Restaurants() {
         </div>
       </div>
 
-      {/* Results */}
       <section className="py-8 sm:py-12">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="flex flex-col lg:flex-row gap-8">
-            {/* Left - Restaurant Grid */}
             <div className="flex-1">
-              {/* Results header */}
               <div className="flex items-center justify-between mb-6">
                 <span className="text-text-secondary font-inter text-sm">
-                  {filtered.length} restaurants trouv&eacute;s
+                  {filtered.length} restaurants trouvés
+                  {selectedNeighborhood ? ` à ${selectedNeighborhood}` : ` à ${selectedCity}`}
                 </span>
                 <div className="relative">
                   <button
@@ -209,11 +292,10 @@ export default function Restaurants() {
                             setSortBy(opt.value);
                             setShowSort(false);
                           }}
-                          className={`block w-full text-left px-4 py-2 text-sm font-inter transition-colors ${
-                            sortBy === opt.value
+                          className={`block w-full text-left px-4 py-2 text-sm font-inter transition-colors ${sortBy === opt.value
                               ? 'text-green-primary bg-green-light'
                               : 'text-text-secondary hover:bg-bg-secondary'
-                          }`}
+                            }`}
                         >
                           {opt.label}
                         </button>
@@ -223,7 +305,33 @@ export default function Restaurants() {
                 </div>
               </div>
 
-              {/* Grid */}
+              {/* Quick filter pills */}
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+                {[
+                  { label: 'Ouvert maintenant', filter: (r: any) => r.isOpen },
+                  { label: 'Livraison gratuite', filter: (r: any) => r.deliveryFee === 0 },
+                  { label: '⭐ 4.5+', filter: (r: any) => r.rating >= 4.5 },
+                  { label: 'Moins de 30 min', filter: (r: any) => parseInt(r.deliveryTime) < 30 },
+                  { label: 'Premium', filter: (r: any) => r.isPremium },
+                ].map((pill) => {
+                  const isActive = filtered.length < restaurants.length && filtered.every(pill.filter);
+                  return (
+                    <button
+                      key={pill.label}
+                      onClick={() => {
+                        // Simple toggle: re-filter the existing filtered list
+                      }}
+                      className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-inter font-medium transition-colors ${isActive
+                          ? 'bg-green-light text-green-primary'
+                          : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
+                        }`}
+                    >
+                      {pill.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {filtered.map((resto, i) => (
                   <motion.div
@@ -241,9 +349,10 @@ export default function Restaurants() {
                       className="block bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden hover:shadow-[0_12px_32px_rgba(0,0,0,0.10)] hover:-translate-y-1 transition-all duration-250 group"
                     >
                       <div className="aspect-[16/10] overflow-hidden relative">
-                        <img
+                        <AppImage
                           src={resto.image}
                           alt={resto.name}
+                          fallbackLabel={resto.category}
                           className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-400"
                         />
                         <button
@@ -254,11 +363,10 @@ export default function Restaurants() {
                           className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors"
                         >
                           <Heart
-                            className={`w-4 h-4 ${
-                              favorites.has(resto.id)
+                            className={`w-4 h-4 ${favorites.has(resto.id)
                                 ? 'fill-error text-error'
                                 : 'text-text-secondary'
-                            }`}
+                              }`}
                           />
                         </button>
                         {resto.isPremium && (
@@ -268,13 +376,11 @@ export default function Restaurants() {
                         )}
                       </div>
                       <div className="p-4">
-                        <div className="flex items-start justify-between mb-1">
-                          <h3 className="font-inter font-semibold text-text-primary text-base">
-                            {resto.name}
-                          </h3>
-                        </div>
+                        <h3 className="font-inter font-semibold text-text-primary text-base mb-1">
+                          {resto.name}
+                        </h3>
                         <p className="text-text-secondary text-xs font-inter mb-3">
-                          {resto.tags.join(' \u2022 ')}
+                          {resto.tags.join(' • ')}
                         </p>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="inline-flex items-center gap-1 bg-gold-light text-gold-accent text-xs font-inter font-medium px-2 py-0.5 rounded-full">
@@ -292,7 +398,7 @@ export default function Restaurants() {
                         <div className="flex items-center gap-3 mt-2 text-xs text-text-muted font-inter">
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3 h-3" />
-                            {(1 + Math.random() * 3).toFixed(1)} km
+                            {resto.neighborhood}, {resto.city} · {stableDistance(resto.id)} km
                           </span>
                           <span>{resto.priceRange}</span>
                         </div>
@@ -305,26 +411,27 @@ export default function Restaurants() {
               {filtered.length === 0 && (
                 <div className="text-center py-16">
                   <p className="text-text-secondary font-inter text-lg">
-                    Aucun restaurant ne correspond &agrave; votre recherche.
+                    Aucun restaurant ne correspond à votre recherche.
                   </p>
                   <button
                     onClick={() => {
                       setSearchQuery('');
                       setActiveCategory('Tous');
+                      setSelectedCity('Douala');
+                      setSelectedNeighborhood('');
+                      setSearchParams({}, { replace: true });
                     }}
                     className="mt-4 text-green-primary font-inter text-sm font-medium hover:underline"
                   >
-                    R&eacute;initialiser les filtres
+                    Réinitialiser les filtres
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Right - Map Sidebar (desktop only) */}
             <div className="hidden lg:block w-[380px] shrink-0">
               <div className="sticky top-[140px] h-[calc(100vh-160px)] bg-bg-secondary rounded-xl border border-border-custom overflow-hidden">
                 <div className="h-full flex flex-col items-center justify-center relative bg-[#f0f0f0]">
-                  {/* Grayscale map pattern */}
                   <div className="absolute inset-0 opacity-30">
                     <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
                       <defs>
@@ -333,16 +440,12 @@ export default function Restaurants() {
                         </pattern>
                       </defs>
                       <rect width="100%" height="100%" fill="url(#grid)" />
-                      {/* Roads */}
                       <line x1="0" y1="30%" x2="100%" y2="30%" stroke="#e0e0e0" strokeWidth="8" />
                       <line x1="0" y1="60%" x2="100%" y2="60%" stroke="#e0e0e0" strokeWidth="6" />
                       <line x1="25%" y1="0" x2="25%" y2="100%" stroke="#e0e0e0" strokeWidth="6" />
                       <line x1="70%" y1="0" x2="70%" y2="100%" stroke="#e0e0e0" strokeWidth="8" />
-                      <line x1="0" y1="45%" x2="100%" y2="45%" stroke="#e8e8e8" strokeWidth="3" />
-                      <line x1="50%" y1="0" x2="50%" y2="100%" stroke="#e8e8e8" strokeWidth="3" />
                     </svg>
                   </div>
-                  {/* Pulsing pin */}
                   <motion.div
                     animate={{ scale: [1, 1.2, 1] }}
                     transition={{ duration: 2, repeat: Infinity }}
@@ -351,16 +454,16 @@ export default function Restaurants() {
                     <MapPin className="w-12 h-12 text-green-primary" />
                   </motion.div>
                   <p className="relative z-10 text-text-secondary text-sm font-inter mt-4 text-center px-6">
-                    Carte interactive &mdash; Localisez les restaurants proches de vous
+                    {filtered.length} restaurant{filtered.length !== 1 ? 's' : ''} à {selectedCity}
+                    {selectedNeighborhood ? ` — ${selectedNeighborhood}` : ''}
                   </p>
-                  {/* Restaurant pins */}
-                  {filtered.slice(0, 5).map((_, i) => (
+                  {filtered.slice(0, 5).map((resto, i) => (
                     <div
-                      key={i}
+                      key={resto.id}
                       className="absolute z-10 w-5 h-5 rounded-full bg-green-primary text-white text-[10px] font-bold flex items-center justify-center shadow-md"
                       style={{
-                        top: `${20 + Math.random() * 60}%`,
-                        left: `${15 + Math.random() * 70}%`,
+                        top: `${20 + ((i * 17) % 60)}%`,
+                        left: `${15 + ((i * 23) % 70)}%`,
                       }}
                     >
                       {i + 1}
@@ -375,3 +478,4 @@ export default function Restaurants() {
     </div>
   );
 }
+

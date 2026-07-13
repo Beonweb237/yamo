@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   MapPin,
@@ -10,7 +10,10 @@ import {
   Check,
   Quote,
 } from 'lucide-react';
-import { cuisineCategories, restaurants, customerReviews } from '../data/mockData';
+import { cuisineCategories, customerReviews } from '../data/mockData';
+import { matchLocationQuery } from '../data/locations';
+import { useRestaurants } from '../hooks/useCatalog';
+import AppImage from '../components/AppImage';
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 30 },
@@ -23,11 +26,22 @@ const stagger = {
 };
 
 export default function Home() {
+  const { restaurants } = useRestaurants();
+  const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState('');
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  const handleExplore = () => {
+    const match = matchLocationQuery(searchValue);
+    const params = new URLSearchParams();
+    if (searchValue.trim()) params.set('q', searchValue.trim());
+    if (match.city) params.set('ville', match.city);
+    if (match.neighborhood) params.set('quartier', match.neighborhood);
+    navigate(`/restaurants${params.toString() ? `?${params}` : ''}`);
+  };
 
   return (
     <div className="pt-0">
@@ -39,6 +53,13 @@ export default function Home() {
             src="/hero-bg.jpg"
             alt="Cameroonian food spread"
             className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                'data:image/svg+xml,' +
+                encodeURIComponent(
+                  '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><rect fill="#1a1a1a" width="100%" height="100%"/><text x="50%" y="50%" fill="#2d6a4f" font-size="48" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Yamo</text></svg>'
+                );
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-[rgba(26,26,26,0.92)] via-[rgba(26,26,26,0.7)] to-[rgba(26,26,26,0.2)]" />
         </div>
@@ -52,7 +73,7 @@ export default function Home() {
               transition={{ duration: 0.4, delay: 0.2 }}
               className="inline-block mb-5"
             >
-              <span className="inline-flex items-center px-3 py-1.5 border border-gold-accent rounded-full text-gold-accent text-xs font-inter font-semibold tracking-[0.15em] uppercase">
+              <span className="inline-flex items-center px-3 py-1.5 border border-gold-accent rounded-full text-gold-accent text-xs font-inter font-semibold tracking-normal uppercase">
                 Livraison de repas au Cameroun
               </span>
             </motion.div>
@@ -62,8 +83,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="font-poppins font-extrabold text-white leading-[1.1] mb-5"
-              style={{ fontSize: 'clamp(36px, 5vw, 64px)' }}
+              className="font-poppins font-semibold text-white text-[38px]/[1.15] sm:text-[46px]/[1.13] lg:text-[52px]/[1.12] tracking-normal mb-5 max-w-[620px]"
             >
               D&eacute;couvrez les Meilleures Saveurs du Cameroun, Livr&eacute;es Chez Vous
             </motion.h1>
@@ -75,7 +95,7 @@ export default function Home() {
               transition={{ duration: 0.5, delay: 0.9 }}
               className="text-white/75 font-inter text-base sm:text-lg leading-relaxed mb-8 max-w-[520px]"
             >
-              De Douala &agrave; Yaound&eacute;, de la cuisine camerounaise authentique aux saveurs internationales &mdash; commandez en quelques clics et savourez sans attendre.
+              Dans les grandes villes du Cameroun, de la cuisine camerounaise authentique aux saveurs internationales &mdash; commandez en quelques clics et savourez sans attendre.
             </motion.p>
 
             {/* Search Bar */}
@@ -95,13 +115,14 @@ export default function Home() {
                   className="flex-1 text-text-primary font-inter text-base bg-transparent outline-none placeholder:text-text-muted h-11"
                 />
               </div>
-              <Link
-                to="/restaurants"
+              <button
+                type="button"
+                onClick={handleExplore}
                 className="shrink-0 bg-green-primary text-white font-inter font-medium text-sm px-5 h-11 rounded-lg hover:bg-green-dark transition-colors flex items-center gap-2"
               >
                 <Search className="w-4 h-4" />
                 <span className="hidden sm:inline">Explorer</span>
-              </Link>
+              </button>
             </motion.div>
 
             {/* Trust Indicators */}
@@ -132,7 +153,7 @@ export default function Home() {
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="mb-10"
           >
-            <h2 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight mb-3">
+            <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
               Explorez par Type de Cuisine
             </h2>
             <p className="text-text-secondary font-inter text-base">
@@ -157,16 +178,22 @@ export default function Home() {
                 transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                 className="flex flex-col items-center gap-3 min-w-[72px] cursor-pointer group shrink-0"
               >
-                <div className="w-[72px] h-[72px] sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full overflow-hidden shadow-md group-hover:shadow-lg transition-shadow">
-                  <img
-                    src={cat.image}
-                    alt={cat.name}
-                    className="w-full h-full object-cover group-hover:scale-[1.08] transition-transform duration-200"
-                  />
-                </div>
-                <span className="text-text-primary font-inter text-sm font-medium group-hover:text-green-primary transition-colors text-center leading-tight">
-                  {cat.name}
-                </span>
+                <Link
+                  to={`/restaurants?category=${encodeURIComponent(cat.name)}`}
+                  className="flex flex-col items-center gap-3"
+                >
+                  <div className="w-[72px] h-[72px] sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full overflow-hidden shadow-md group-hover:shadow-lg transition-shadow">
+                    <AppImage
+                      src={cat.image}
+                      alt={cat.name}
+                      fallbackLabel={cat.name}
+                      className="w-full h-full object-cover group-hover:scale-[1.08] transition-transform duration-200"
+                    />
+                  </div>
+                  <span className="text-text-primary font-inter text-sm font-medium group-hover:text-green-primary transition-colors text-center leading-tight">
+                    {cat.name}
+                  </span>
+                </Link>
               </motion.div>
             ))}
           </motion.div>
@@ -184,7 +211,7 @@ export default function Home() {
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="flex items-baseline justify-between mb-10"
           >
-            <h2 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight">
+            <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal">
               Restaurants Populaires
             </h2>
             <Link
@@ -217,9 +244,10 @@ export default function Home() {
                   className="block bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden hover:shadow-[0_12px_32px_rgba(0,0,0,0.10)] hover:-translate-y-1 transition-all duration-250"
                 >
                   <div className="aspect-[16/10] overflow-hidden relative">
-                    <img
+                    <AppImage
                       src={resto.image}
                       alt={resto.name}
+                      fallbackLabel={resto.name}
                       className="w-full h-full object-cover hover:scale-[1.05] transition-transform duration-400"
                     />
                     {resto.isPremium && (
@@ -267,7 +295,7 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="text-center mb-12"
           >
-            <h2 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight mb-3">
+            <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
               Commandez en 3 &Eacute;tapes Simples
             </h2>
             <p className="text-text-secondary font-inter text-base">
@@ -345,10 +373,10 @@ export default function Home() {
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
               className="flex-1 text-center lg:text-left"
             >
-              <span className="text-gold-accent text-xs font-inter font-semibold tracking-[0.15em] uppercase">
+              <span className="text-gold-accent text-xs font-inter font-semibold tracking-normal uppercase">
                 Application Mobile
               </span>
-              <h2 className="font-poppins font-bold text-white text-2xl sm:text-3xl lg:text-[48px] leading-tight mt-3 mb-4">
+              <h2 className="font-poppins font-semibold text-white text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mt-3 mb-4">
                 Commandez O&ugrave; Que Vous Soyez
               </h2>
               <p className="text-white/70 font-inter text-base leading-relaxed max-w-[480px] mx-auto lg:mx-0 mb-6">
@@ -414,7 +442,7 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="text-center mb-12"
           >
-            <h2 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight mb-3">
+            <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
               Ils Nous Font Confiance
             </h2>
             <p className="text-text-secondary font-inter text-base">
@@ -491,3 +519,4 @@ function ShoppingCart2(props: { className?: string }) {
     </svg>
   );
 }
+

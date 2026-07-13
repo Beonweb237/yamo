@@ -113,7 +113,7 @@ export default function Contact() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="font-poppins font-bold text-white text-3xl sm:text-4xl lg:text-[48px] leading-tight mb-3"
+            className="font-poppins font-semibold text-white text-3xl sm:text-4xl lg:text-[38px]/[1.18] tracking-normal mb-3"
           >
             Nous Sommes L&agrave; pour Vous Aider
           </motion.h1>
@@ -383,7 +383,7 @@ export default function Contact() {
             transition={{ duration: 0.5 }}
             className="text-center mb-10"
           >
-            <h2 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight mb-3">
+            <h2 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[44px] leading-[1.14] tracking-normal mb-3">
               Questions Fr&eacute;quentes
             </h2>
             <p className="text-text-secondary font-inter text-base">

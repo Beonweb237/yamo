@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Clock,
@@ -16,6 +17,9 @@ import {
   Quote,
 } from 'lucide-react';
 import { driverReviews, driverFAQ } from '../data/mockData';
+import { cities } from '../data/locations';
+import ApplicationForm from '../components/ApplicationForm';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 const benefits = [
   {
@@ -98,18 +102,18 @@ export default function Livreurs() {
     window.scrollTo(0, 0);
   }, []);
 
-  const hourlyRate = city === 'Douala' ? 750 : 650;
+  const hourlyRate = city === 'Douala' ? 750 : city === 'Yaoundé' ? 650 : 550;
   const peakBonus = Math.round(hours * 225);
   const tips = Math.round(hours * 150);
   const weekly = hours * hourlyRate + peakBonus + tips;
   const monthly = weekly * 4;
 
   return (
-    <div className="pt-[72px]">
+    <div className="pt-0">
       {/* Hero */}
       <section className="bg-bg-dark min-h-[85vh] flex items-center relative overflow-hidden">
         <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-green-primary/10 rounded-full blur-3xl" />
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 w-full py-20 relative z-10">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 w-full py-20 pt-28 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
             <motion.div
               initial={{ opacity: 0 }}
@@ -120,7 +124,7 @@ export default function Livreurs() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.3 }}
-                className="text-gold-accent text-xs font-inter font-semibold tracking-[0.15em] uppercase"
+                className="text-gold-accent text-xs font-inter font-semibold tracking-normal uppercase"
               >
                 Devenez Livreur Yamo
               </motion.span>
@@ -128,7 +132,7 @@ export default function Livreurs() {
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.35, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                className="font-poppins font-extrabold text-white text-3xl sm:text-4xl lg:text-[56px] leading-[1.1] mt-4 mb-5"
+                className="font-poppins font-semibold text-white text-[34px]/[1.18] sm:text-[40px]/[1.16] lg:text-[44px]/[1.16] tracking-normal mt-4 mb-5 max-w-[560px]"
               >
                 Gagnez de l&apos;Argent en Livrant de D&eacute;licieux Repas
               </motion.h1>
@@ -151,6 +155,14 @@ export default function Livreurs() {
                 >
                   Devenir Livreur
                 </a>
+                {!isSupabaseConfigured && (
+                  <Link
+                    to="/livreurs/dashboard"
+                    className="inline-flex items-center border border-white/40 text-white/80 font-inter font-medium text-sm px-6 h-12 rounded-lg hover:bg-white/10 transition-colors ml-3"
+                  >
+                    Accéder à l'espace livreur (démo)
+                  </Link>
+                )}
                 <p className="text-white/50 text-xs font-inter mt-2">
                   C&apos;est gratuit et rapide
                 </p>
@@ -217,7 +229,7 @@ export default function Livreurs() {
             transition={{ duration: 0.5 }}
             className="text-center mb-12"
           >
-            <h2 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight mb-3">
+            <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
               Pourquoi Livrer avec Yamo ?
             </h2>
             <p className="text-text-secondary font-inter text-base">
@@ -257,7 +269,7 @@ export default function Livreurs() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight text-center mb-10"
+            className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal text-center mb-10"
           >
             Calculez Vos Revenus Potentiels
           </motion.h2>
@@ -301,9 +313,11 @@ export default function Livreurs() {
                     onChange={(e) => setCity(e.target.value)}
                     className="w-full h-12 px-4 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/15"
                   >
-                    <option value="Douala">Douala</option>
-                    <option value="Yaound&eacute;">Yaound&eacute;</option>
-                    <option value="Bafoussam">Bafoussam</option>
+                    {cities.map((c) => (
+                      <option key={c.id} value={c.name} disabled={!c.isActive}>
+                        {c.name}{!c.isActive ? ' (bientôt)' : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -316,7 +330,7 @@ export default function Livreurs() {
                     initial={{ scale: 1.1 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.2 }}
-                    className="font-poppins font-extrabold text-green-primary text-4xl sm:text-5xl"
+                    className="font-poppins font-bold text-green-primary text-4xl sm:text-5xl"
                   >
                     {weekly.toLocaleString()} FCFA
                   </motion.div>
@@ -362,7 +376,7 @@ export default function Livreurs() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight text-center mb-12"
+            className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal text-center mb-12"
           >
             Comment Commencer ?
           </motion.h2>
@@ -431,7 +445,7 @@ export default function Livreurs() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight text-center mb-12"
+            className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal text-center mb-12"
           >
             Le Mot de Nos Livreurs
           </motion.h2>
@@ -483,68 +497,7 @@ export default function Livreurs() {
             <h2 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl text-center mb-8">
               Inscrivez-Vous comme Livreur
             </h2>
-            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-              <div>
-                <label className="font-inter font-medium text-text-primary text-sm mb-1.5 block">
-                  Nom complet *
-                </label>
-                <input
-                  type="text"
-                  placeholder="Votre nom et pr&eacute;nom"
-                  className="w-full h-12 px-4 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/15 placeholder:text-text-muted"
-                />
-              </div>
-              <div>
-                <label className="font-inter font-medium text-text-primary text-sm mb-1.5 block">
-                  T&eacute;l&eacute;phone *
-                </label>
-                <input
-                  type="tel"
-                  placeholder="+237 6XX XXX XXX"
-                  className="w-full h-12 px-4 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/15 placeholder:text-text-muted"
-                />
-              </div>
-              <div>
-                <label className="font-inter font-medium text-text-primary text-sm mb-1.5 block">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  placeholder="votre@email.com"
-                  className="w-full h-12 px-4 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/15 placeholder:text-text-muted"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="font-inter font-medium text-text-primary text-sm mb-1.5 block">
-                    Ville *
-                  </label>
-                  <select className="w-full h-12 px-4 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/15">
-                    <option value="">S&eacute;lectionnez</option>
-                    <option value="douala">Douala</option>
-                    <option value="yaounde">Yaound&eacute;</option>
-                    <option value="bafoussam">Bafoussam</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="font-inter font-medium text-text-primary text-sm mb-1.5 block">
-                    Type de v&eacute;hicule *
-                  </label>
-                  <select className="w-full h-12 px-4 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/15">
-                    <option value="">S&eacute;lectionnez</option>
-                    <option value="moto">Moto</option>
-                    <option value="velo">V&eacute;lo</option>
-                    <option value="voiture">Voiture</option>
-                  </select>
-                </div>
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-green-primary text-white font-inter font-semibold h-12 rounded-lg hover:bg-green-dark transition-colors mt-2"
-              >
-                S&apos;inscrire
-              </button>
-            </form>
+            <ApplicationForm type="livreur" />
           </motion.div>
         </div>
       </section>
@@ -557,7 +510,7 @@ export default function Livreurs() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[48px] leading-tight text-center mb-10"
+            className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal text-center mb-10"
           >
             Questions Fr&eacute;quentes
           </motion.h2>
@@ -573,7 +526,7 @@ export default function Livreurs() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.4 }}
-            className="font-poppins font-bold text-white text-2xl sm:text-3xl lg:text-[48px] leading-tight mb-4"
+            className="font-poppins font-semibold text-white text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-4"
           >
             Pr&ecirc;t &agrave; Rouler avec Yamo ?
           </motion.h2>
@@ -623,3 +576,4 @@ function Star(props: { className?: string }) {
     </svg>
   );
 }
+
