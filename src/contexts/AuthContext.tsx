@@ -125,15 +125,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isSupabaseConfigured) seedLocalRegistry();
 
+    // Try Supabase session first, fall back to localStorage
     if (isSupabaseConfigured && supabase) {
-      loadSupabaseSession().then(() => setLoading(false));
+      loadSupabaseSession()
+        .then(() => {
+          // Check if Supabase gave us a user; if not, fall back to localStorage
+          const raw = localStorage.getItem(LOCAL_SESSION_KEY);
+          if (raw) {
+            const session: AuthUser = JSON.parse(raw);
+            const { isSuspended, reason } = getLocalSuspensionInfo(session.id);
+            setUser((prev) => prev || { ...session, isSuspended, suspensionReason: reason ?? null });
+          }
+        })
+        .finally(() => setLoading(false));
       const { data: sub } = supabase.auth.onAuthStateChange(() => {
         loadSupabaseSession();
       });
       return () => sub.subscription.unsubscribe();
     }
 
-    // No backend configured yet: restore a locally simulated session.
+    // No backend or Supabase failed: restore a locally simulated session.
     const raw = localStorage.getItem(LOCAL_SESSION_KEY);
     if (raw) {
       const session: AuthUser = JSON.parse(raw);
