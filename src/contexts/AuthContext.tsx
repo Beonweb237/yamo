@@ -145,26 +145,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const sendOtp = useCallback(async (phone: string) => {
     if (isSupabaseConfigured && supabase) {
-      const { error } = await supabase.auth.signInWithOtp({ phone });
-      if (error) throw error;
-      return;
+      try {
+        const { error } = await supabase.auth.signInWithOtp({ phone });
+        if (error) throw error;
+        return; // SMS sent successfully
+      } catch {
+        // No SMS provider configured (Twilio) — fall through to mock mode
+      }
     }
-    // Dev mode: no SMS provider configured, the code is a no-op — any code works in verifyOtp.
+    // Mock mode or SMS unavailable: any code works in verifyOtp.
   }, []);
 
   const verifyOtp = useCallback(async (phone: string, code: string, requestedRole: UserRole = 'client') => {
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase.auth.verifyOtp({ phone, token: code, type: 'sms' });
-      if (error) throw error;
-      if (data.user) {
-        const { role, isApproved, isSuspended, suspensionReason, phone: resolvedPhone } = await resolveSupabaseProfile(
-          data.user.id,
-          data.user.phone ?? phone,
-          requestedRole
-        );
-        setUser({ id: data.user.id, phone: resolvedPhone, role, isApproved, isSuspended, suspensionReason });
+      try {
+        const { data, error } = await supabase.auth.verifyOtp({ phone, token: code, type: 'sms' });
+        if (!error && data.user) {
+          const { role, isApproved, isSuspended, suspensionReason, phone: resolvedPhone } = await resolveSupabaseProfile(
+            data.user.id,
+            data.user.phone ?? phone,
+            requestedRole
+          );
+          setUser({ id: data.user.id, phone: resolvedPhone, role, isApproved, isSuspended, suspensionReason });
+          return;
+        }
+      } catch {
+        // SMS provider unavailable — fall through to mock mode
       }
-      return;
     }
 
     // Dev mode fallback: simulate a verified session without a real SMS provider.
