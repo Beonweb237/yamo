@@ -1,99 +1,41 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Bike, Send, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Clock, XCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { submitApplication, fetchMyApplications, type ApplicationType, type Application } from '../lib/applications';
-
-const typeConfig = {
-  restaurant: {
-    icon: Store,
-    title: 'Devenir Partenaire Restaurant',
-    description: 'Rejoignez Yamo et développez votre activité de restauration.',
-  },
-  livreur: {
-    icon: Bike,
-    title: 'Devenir Livreur Yamo',
-    description: "Gagnez de l'argent en livrant quand vous voulez.",
-  },
-} as const;
+import { fetchMyApplications, type Application } from '../lib/applications';
+import ApplicationForm from '../components/ApplicationForm';
 
 export default function Candidature() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [type, setType] = useState<ApplicationType>('restaurant');
-  const [restaurantName, setRestaurantName] = useState('');
-  const [city, setCity] = useState('Douala');
-  const [address, setAddress] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
-  const [notes, setNotes] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
 
-  // Existing candidacy check — avoids duplicate submissions and shows the
-  // real status (pending/rejected) instead of a fresh empty form.
-  const [checkingStatus, setCheckingStatus] = useState(true);
-  const [existingApplication, setExistingApplication] = useState<Application | null>(null);
+  const [checking, setChecking] = useState(true);
+  const [existingApp, setExistingApp] = useState<Application | null>(null);
 
-  // The candidacy type is locked to the account's role once it's restaurant/livreur
-  // (that role was already chosen at signup) — only truly role-less accounts
-  // (shouldn't normally happen here) can still switch between the two.
-  const typeLocked = user?.role === 'restaurant' || user?.role === 'livreur';
+  const type = user?.role === 'restaurant' ? 'restaurant' : user?.role === 'livreur' ? 'livreur' : null;
 
+  // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/connexion', { state: { from: '/candidature' } });
     }
   }, [authLoading, user, navigate]);
 
+  // Check for existing application
   useEffect(() => {
-    if (user) {
-      setContactPhone(user.phone);
-      if (user.role === 'restaurant' || user.role === 'livreur') setType(user.role);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (!user) return;
+    if (!user || !type) { setChecking(false); return; }
     let cancelled = false;
-    setCheckingStatus(true);
+    setChecking(true);
     fetchMyApplications(user.id)
       .then((apps) => {
         if (cancelled) return;
-        const relevant = apps.find((a) => a.type === type);
-        setExistingApplication(relevant ?? null);
+        setExistingApp(apps.find((a) => a.type === type) ?? null);
       })
-      .finally(() => {
-        if (!cancelled) setCheckingStatus(false);
-      });
+      .finally(() => { if (!cancelled) setChecking(false); });
     return () => { cancelled = true; };
   }, [user, type]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    setError('');
-    setSubmitting(true);
-    try {
-      await submitApplication(user.id, {
-        type,
-        restaurantName: type === 'restaurant' ? restaurantName : undefined,
-        city,
-        address,
-        contactPhone,
-        notes,
-      });
-      setSuccess(true);
-    } catch {
-      setError('Erreur lors de l\'envoi. Réessayez.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const config = typeConfig[type];
-
-  if (authLoading || checkingStatus) {
+  if (authLoading || checking) {
     return (
       <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
         <p className="text-text-secondary font-inter text-sm">Vérification de votre dossier...</p>
@@ -101,79 +43,31 @@ export default function Candidature() {
     );
   }
 
-  if (success) {
-    return (
-      <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
-        <div className="w-full max-w-[480px] bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-8 text-center my-12">
-          <CheckCircle2 className="w-14 h-14 text-success mx-auto mb-4" />
-          <h1 className="font-poppins font-bold text-text-primary text-2xl mb-2">
-            Candidature envoyée !
-          </h1>
-          <p className="text-text-secondary font-inter text-sm mb-6">
-            Votre candidature {type === 'restaurant' ? 'restaurant' : 'livreur'} est en cours d'examen.
-            Notre équipe vous contactera sous 24-48h pour la suite.
-          </p>
-          <button
-            onClick={() => navigate('/')}
-            className="bg-green-primary text-white font-inter font-semibold px-6 h-11 rounded-lg hover:bg-green-dark transition-colors"
-          >
-            Retour à l'accueil
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // A candidacy already exists for this type — show its real status instead
-  // of letting the user submit a duplicate.
-  if (existingApplication) {
-    const statusConfig = {
-      pending: {
-        icon: Clock,
-        color: 'text-gold-accent',
-        bg: 'bg-gold-light',
-        title: 'Candidature en cours d\'examen',
-        message: 'Votre candidature a bien été reçue. Notre équipe vous contactera sous 24-48h.',
-      },
-      rejected: {
-        icon: XCircle,
-        color: 'text-error',
-        bg: 'bg-error/10',
-        title: 'Candidature rejetée',
-        message: existingApplication.rejectionReason
-          ? `Motif : ${existingApplication.rejectionReason}`
-          : 'Contactez notre support pour plus de détails.',
-      },
-      approved: {
-        icon: CheckCircle2,
-        color: 'text-success',
-        bg: 'bg-green-light',
-        title: 'Candidature approuvée',
-        message: 'Votre compte est déjà validé.',
-      },
-    }[existingApplication.status];
-    const StatusIcon = statusConfig.icon;
+  // Already has an application → show status
+  if (existingApp) {
+    const cfg = {
+      pending: { icon: Clock, color: 'text-gold-accent', bg: 'bg-gold-light', title: "Candidature en cours d'examen", msg: 'Notre équipe vous contactera sous 24-48h.' },
+      rejected: { icon: XCircle, color: 'text-error', bg: 'bg-error/10', title: 'Candidature rejetée', msg: existingApp.rejectionReason ? `Motif : ${existingApp.rejectionReason}` : 'Contactez notre support.' },
+      approved: { icon: CheckCircle2, color: 'text-success', bg: 'bg-green-light', title: 'Candidature approuvée', msg: 'Votre compte est déjà validé.' },
+    }[existingApp.status];
+    const Icon = cfg.icon;
 
     return (
       <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
-        <div className="w-full max-w-[480px] bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-8 text-center my-12">
-          <div className={`w-14 h-14 rounded-full ${statusConfig.bg} flex items-center justify-center mx-auto mb-4`}>
-            <StatusIcon className={`w-7 h-7 ${statusConfig.color}`} />
+        <div className="w-full max-w-[480px] bg-white rounded-xl border border-border-custom p-8 text-center my-12">
+          <div className={`w-14 h-14 rounded-full ${cfg.bg} flex items-center justify-center mx-auto mb-4`}>
+            <Icon className={`w-7 h-7 ${cfg.color}`} />
           </div>
-          <h1 className="font-poppins font-bold text-text-primary text-2xl mb-2">{statusConfig.title}</h1>
-          <p className="text-text-secondary font-inter text-sm mb-6">{statusConfig.message}</p>
-          {existingApplication.status === 'approved' ? (
-            <button
-              onClick={() => navigate(type === 'restaurant' ? '/partenaires/dashboard' : '/livreurs/dashboard')}
-              className="bg-green-primary text-white font-inter font-semibold px-6 h-11 rounded-lg hover:bg-green-dark transition-colors"
-            >
+          <h1 className="font-poppins font-bold text-text-primary text-2xl mb-2">{cfg.title}</h1>
+          <p className="text-text-secondary font-inter text-sm mb-6">{cfg.msg}</p>
+          {existingApp.status === 'approved' ? (
+            <button onClick={() => navigate(type === 'restaurant' ? '/partenaires/dashboard' : '/livreurs/dashboard')}
+              className="bg-green-primary text-white font-inter font-semibold px-6 h-11 rounded-lg hover:bg-green-dark">
               Accéder à mon espace
             </button>
           ) : (
-            <button
-              onClick={() => navigate('/')}
-              className="bg-green-primary text-white font-inter font-semibold px-6 h-11 rounded-lg hover:bg-green-dark transition-colors"
-            >
+            <button onClick={() => navigate('/')}
+              className="bg-green-primary text-white font-inter font-semibold px-6 h-11 rounded-lg hover:bg-green-dark">
               Retour à l'accueil
             </button>
           )}
@@ -182,137 +76,19 @@ export default function Candidature() {
     );
   }
 
+  // No existing application → show the form
+  if (!type) {
+    return (
+      <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
+        <p className="text-text-secondary font-inter text-sm">Rôle non reconnu.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="pt-[72px] min-h-screen bg-bg-secondary">
-      <div className="max-w-[600px] mx-auto px-4 sm:px-6 py-10">
-        {/* Type selector — hidden once the account's role fixes the candidacy type */}
-        {!typeLocked && (
-          <div className="flex gap-1 bg-white rounded-lg border border-border-custom p-1 mb-6 w-fit">
-            <button
-              onClick={() => setType('restaurant')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-inter font-medium transition-colors ${type === 'restaurant'
-                  ? 'bg-green-primary text-white'
-                  : 'text-text-secondary hover:text-text-primary'
-                }`}
-            >
-              <Store className="w-4 h-4" />
-              Restaurant
-            </button>
-            <button
-              onClick={() => setType('livreur')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-inter font-medium transition-colors ${type === 'livreur'
-                  ? 'bg-green-primary text-white'
-                  : 'text-text-secondary hover:text-text-primary'
-                }`}
-            >
-              <Bike className="w-4 h-4" />
-              Livreur
-            </button>
-          </div>
-        )}
-
-        <div className="bg-white rounded-xl border border-border-custom p-6 sm:p-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-full bg-green-light flex items-center justify-center">
-              <config.icon className="w-5 h-5 text-green-primary" />
-            </div>
-            <div>
-              <h1 className="font-poppins font-bold text-text-primary text-xl">{config.title}</h1>
-              <p className="text-text-secondary text-sm font-inter">{config.description}</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            {type === 'restaurant' && (
-              <div>
-                <label className="block text-text-secondary font-inter text-sm mb-1.5">
-                  Nom du restaurant
-                </label>
-                <input
-                  type="text"
-                  value={restaurantName}
-                  onChange={(e) => setRestaurantName(e.target.value)}
-                  placeholder="Ex. Chez Mama"
-                  className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
-                  required
-                />
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-text-secondary font-inter text-sm mb-1.5">Ville</label>
-                <select
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none"
-                >
-                  <option value="Douala">Douala</option>
-                  <option value="Yaoundé">Yaoundé</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-text-secondary font-inter text-sm mb-1.5">
-                  Adresse / Quartier
-                </label>
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Ex. Bonapriso"
-                  className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-text-secondary font-inter text-sm mb-1.5">
-                Téléphone de contact
-              </label>
-              <input
-                type="tel"
-                value={contactPhone}
-                onChange={(e) => setContactPhone(e.target.value)}
-                placeholder="+237 6XX XX XX XX"
-                className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-text-secondary font-inter text-sm mb-1.5">
-                Message (optionnel)
-              </label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder={
-                  type === 'restaurant'
-                    ? 'Décrivez votre restaurant, type de cuisine...'
-                    : 'Décrivez votre expérience, moyen de transport...'
-                }
-                rows={3}
-                className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted resize-none"
-              />
-            </div>
-
-            {error && <p className="text-error text-sm font-inter">{error}</p>}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              <Send className="w-4 h-4" />
-              {submitting ? 'Envoi...' : 'Envoyer ma candidature'}
-            </button>
-
-            <p className="text-text-muted text-xs font-inter text-center">
-              Votre candidature sera examinée par notre équipe. Vous recevrez une réponse sous 24-48h.
-            </p>
-          </form>
-        </div>
+    <div className="pt-[72px] min-h-screen bg-bg-secondary px-4 py-8">
+      <div className="max-w-[560px] mx-auto">
+        <ApplicationForm type={type} />
       </div>
     </div>
   );
