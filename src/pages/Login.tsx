@@ -91,7 +91,9 @@ export default function Login() {
     try {
       if (isSupabaseConfigured) {
         await signInWithPassword(email.trim(), password);
-        navigate(redirectTo, { replace: true });
+        // After Supabase login, AuthContext updates user asynchronously.
+        // Force a full navigation so the app re-renders with the correct role.
+        window.location.href = '/';
         return;
       }
 

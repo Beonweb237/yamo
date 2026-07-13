@@ -82,9 +82,16 @@ export default function Checkout() {
 
   const applySavedAddress = (addr: SavedAddress) => {
     setCity(addr.city);
-    setUseOtherNeighborhood(false);
-    setCustomNeighborhood('');
-    setNeighborhood(addr.neighborhood);
+    const knownNeighborhoods = getNeighborhoods(addr.city);
+    if (knownNeighborhoods.includes(addr.neighborhood)) {
+      setUseOtherNeighborhood(false);
+      setCustomNeighborhood('');
+      setNeighborhood(addr.neighborhood);
+    } else {
+      setUseOtherNeighborhood(true);
+      setCustomNeighborhood(addr.neighborhood);
+      setNeighborhood('');
+    }
     setLandmark(addr.landmark);
   };
 
