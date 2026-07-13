@@ -16,7 +16,7 @@ function getRedirect(role: UserRole, from?: string) {
   return roleRedirects[role];
 }
 
-// Mock email registry — simulates accounts for dev mode
+// Mock email registry — for dev mode (VITE_FORCE_MOCK_AUTH=true)
 const MOCK_EMAIL_PASSWORDS: Record<string, { phone: string; role: UserRole; approved: boolean }> = {
   'admin@yamo.cm': { phone: '+237690000001', role: 'admin', approved: true },
   'client@yamo.cm': { phone: '+237690000002', role: 'client', approved: true },
@@ -25,6 +25,14 @@ const MOCK_EMAIL_PASSWORDS: Record<string, { phone: string; role: UserRole; appr
   'livreur@yamo.cm': { phone: '+237690000005', role: 'livreur', approved: true },
   'livreur-pending@yamo.cm': { phone: '+237690000006', role: 'livreur', approved: false },
 };
+
+// Supabase test accounts — real auth users (seed-test-data.mjs)
+const SUPABASE_TEST_ACCOUNTS = [
+  { email: 'admin@yamotest.cm', role: 'Admin' },
+  { email: 'marie.ngo@yamotest.cm', role: 'Client' },
+  { email: 'paul.essomba@yamotest.cm', role: 'Restaurateur' },
+  { email: 'samuel.njoya@yamotest.cm', role: 'Livreur' },
+];
 const MOCK_PASSWORD = 'yamo2026';
 
 const roleOptions: { value: UserRole; label: string; icon: typeof User }[] = [
@@ -176,7 +184,7 @@ export default function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@yamo.cm"
+                  placeholder="admin@yamotest.cm"
                   className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
                   required
                 />
@@ -196,7 +204,7 @@ export default function Login() {
                 />
               </div>
             </div>
-            {!isSupabaseConfigured && (
+            {!isSupabaseConfigured ? (
               <div className="bg-green-light text-green-primary text-xs font-inter rounded-lg px-3 py-2 space-y-1">
                 <p className="font-semibold mb-1">📧 Comptes mock — mot de passe : <strong>yamo2026</strong></p>
                 <p>✅ <strong>admin@yamo.cm</strong> — Admin</p>
@@ -205,6 +213,13 @@ export default function Login() {
                 <p>⏳ <strong>resto-pending@yamo.cm</strong> — Restaurateur (en attente)</p>
                 <p>✅ <strong>livreur@yamo.cm</strong> — Livreur (approuvé)</p>
                 <p>⏳ <strong>livreur-pending@yamo.cm</strong> — Livreur (en attente)</p>
+              </div>
+            ) : (
+              <div className="bg-green-light text-green-primary text-xs font-inter rounded-lg px-3 py-2 space-y-1">
+                <p className="font-semibold mb-1">📧 Comptes Supabase — mot de passe : <strong>YamoTest2026!</strong></p>
+                {SUPABASE_TEST_ACCOUNTS.map((a) => (
+                  <p key={a.email}>✅ <strong>{a.email}</strong> — {a.role}</p>
+                ))}
               </div>
             )}
             {emailError && <p className="text-error text-sm font-inter">{emailError}</p>}
