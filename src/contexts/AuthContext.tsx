@@ -125,34 +125,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isSupabaseConfigured) seedLocalRegistry();
 
-    // Try Supabase session first, fall back to localStorage
-    if (isSupabaseConfigured && supabase) {
-      loadSupabaseSession()
-        .then(() => {
-          // Check if Supabase gave us a user; if not, fall back to localStorage
-          const raw = localStorage.getItem(LOCAL_SESSION_KEY);
-          if (raw) {
-            const session: AuthUser = JSON.parse(raw);
-            const { isSuspended, reason } = getLocalSuspensionInfo(session.id);
-            setUser((prev) => prev || { ...session, isSuspended, suspensionReason: reason ?? null });
+    const initAuth = async () => {
+      // 1. Try Supabase session
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (data.session?.user) {
+            const { role, isApproved, isSuspended, suspensionReason, phone } =
+              await resolveSupabaseProfile(data.session.user.id, data.session.user.phone ?? '', 'client');
+            setUser({ id: data.session.user.id, phone, role, isApproved, isSuspended, suspensionReason });
+            setLoading(false);
+            return; // Supabase session found — done
           }
-        })
-        .finally(() => setLoading(false));
-      const { data: sub } = supabase.auth.onAuthStateChange(() => {
-        loadSupabaseSession();
+        } catch {
+          // Supabase unreachable — fall through
+        }
+      }
+
+      // 2. Fallback to localStorage session
+      const raw = localStorage.getItem(LOCAL_SESSION_KEY);
+      if (raw) {
+        const session: AuthUser = JSON.parse(raw);
+        const { isSuspended, reason } = getLocalSuspensionInfo(session.id);
+        setUser({ ...session, isSuspended, suspensionReason: reason ?? null });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    };
+
+    initAuth();
+
+    if (isSupabaseConfigured && supabase) {
+      const { data: sub } = supabase.auth.onAuthStateChange(async () => {
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.user) {
+          const { role, isApproved, isSuspended, suspensionReason, phone } =
+            await resolveSupabaseProfile(data.session.user.id, data.session.user.phone ?? '', 'client');
+          setUser({ id: data.session.user.id, phone, role, isApproved, isSuspended, suspensionReason });
+        }
       });
       return () => sub.subscription.unsubscribe();
     }
-
-    // No backend or Supabase failed: restore a locally simulated session.
-    const raw = localStorage.getItem(LOCAL_SESSION_KEY);
-    if (raw) {
-      const session: AuthUser = JSON.parse(raw);
-      const { isSuspended, reason } = getLocalSuspensionInfo(session.id);
-      setUser({ ...session, isSuspended, suspensionReason: reason ?? null });
-    }
-    setLoading(false);
-  }, [loadSupabaseSession]);
+  }, []);
 
   const sendOtp = useCallback(async (phone: string) => {
     if (isSupabaseConfigured && supabase) {
