@@ -1,9 +1,66 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Upload, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { submitApplication, type ApplicationType } from '../lib/applications';
 import { activeCities, getNeighborhoods } from '../data/locations';
+
+function FileUploadField({
+  label,
+  description,
+  accept = 'image/*',
+  value,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  accept?: string;
+  value: string | undefined;
+  onChange: (base64: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert("L'image ne doit pas dépasser 5 Mo.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => onChange(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div>
+      <label className="block text-text-secondary font-inter text-sm mb-1.5">{label}</label>
+      {description && <p className="text-text-muted text-xs font-inter mb-2">{description}</p>}
+      {value ? (
+        <div className="relative inline-block">
+          <img src={value} alt={label} className="h-24 rounded-lg border border-border-custom object-cover" />
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-error text-white flex items-center justify-center hover:bg-error/80"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="flex items-center gap-2 border-2 border-dashed border-border-custom rounded-lg px-4 h-20 text-text-muted hover:text-text-secondary hover:border-text-muted transition-colors"
+        >
+          <Upload className="w-5 h-5" />
+          <span className="font-inter text-sm">Cliquez pour téléverser</span>
+        </button>
+      )}
+      <input ref={inputRef} type="file" accept={accept} onChange={handleFile} className="hidden" />
+    </div>
+  );
+}
 
 export default function ApplicationForm({ type }: { type: ApplicationType }) {
   const { user, refreshUser } = useAuth();
@@ -15,6 +72,15 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+
+  // Document fields
+  const [idDocument, setIdDocument] = useState('');
+  const [businessReg, setBusinessReg] = useState('');
+  const [licenseDocument, setLicenseDocument] = useState('');
+  const [insuranceDocument, setInsuranceDocument] = useState('');
+  const [profilePhoto, setProfilePhoto] = useState('');
+  const [vehiclePhoto, setVehiclePhoto] = useState('');
+  const [restaurantPhoto, setRestaurantPhoto] = useState('');
 
   const neighborhoods = getNeighborhoods(city);
 
@@ -85,6 +151,13 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
         address,
         contactPhone,
         notes,
+        idDocument,
+        businessReg: type === 'restaurant' ? businessReg : undefined,
+        licenseDocument: type === 'livreur' ? licenseDocument : undefined,
+        insuranceDocument: type === 'livreur' ? insuranceDocument : undefined,
+        profilePhoto,
+        vehiclePhoto: type === 'livreur' ? vehiclePhoto : undefined,
+        restaurantPhoto: type === 'restaurant' ? restaurantPhoto : undefined,
       });
       await refreshUser();
       setSubmitted(true);
@@ -156,6 +229,60 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
           ))}
         </select>
       </div>
+
+      {/* Documents */}
+      <div className="border-t border-border-light pt-4">
+        <p className="font-inter font-medium text-text-primary text-sm mb-3">
+          📎 Documents requis ({type === 'restaurant' ? 'Restaurateur' : 'Livreur'})
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FileUploadField
+            label="Pièce d'identité (CNI / Passeport)"
+            description="Recto-verso lisible"
+            value={idDocument}
+            onChange={setIdDocument}
+          />
+          <FileUploadField
+            label="Photo de profil"
+            value={profilePhoto}
+            onChange={setProfilePhoto}
+          />
+          {type === 'restaurant' ? (
+            <>
+              <FileUploadField
+                label="Registre de commerce"
+                value={businessReg}
+                onChange={setBusinessReg}
+              />
+              <FileUploadField
+                label="Photo du restaurant"
+                description="Façade ou intérieur"
+                value={restaurantPhoto}
+                onChange={setRestaurantPhoto}
+              />
+            </>
+          ) : (
+            <>
+              <FileUploadField
+                label="Permis de conduire"
+                value={licenseDocument}
+                onChange={setLicenseDocument}
+              />
+              <FileUploadField
+                label="Attestation d'assurance"
+                value={insuranceDocument}
+                onChange={setInsuranceDocument}
+              />
+              <FileUploadField
+                label="Photo du véhicule / moto"
+                value={vehiclePhoto}
+                onChange={setVehiclePhoto}
+              />
+            </>
+          )}
+        </div>
+      </div>
+
       <div>
         <label className="block text-text-secondary font-inter text-sm mb-1.5">
           Message (optionnel)

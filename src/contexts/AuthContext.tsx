@@ -23,7 +23,7 @@ interface AuthContextType {
   loading: boolean;
   isSupabaseConfigured: boolean;
   sendOtp: (phone: string) => Promise<void>;
-  verifyOtp: (phone: string, code: string, requestedRole?: UserRole) => Promise<void>;
+  verifyOtp: (phone: string, code: string, requestedRole?: UserRole) => Promise<AuthUser>;
   // Password sign-in for seeded test accounts (scripts/seed-test-data.mjs) —
   // bypasses phone OTP, which needs an SMS provider that isn't configured yet.
   signInWithPassword: (phone: string, password: string) => Promise<void>;
@@ -35,6 +35,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const LOCAL_SESSION_KEY = 'yamo_local_user';
 export const LOCAL_REGISTRY_KEY = 'yamo_local_users'; // phone -> AuthUser, so role/approval sticks across re-logins
+
+// Thrown by verifyOtp when a phone number already has an account under a
+// different role than the one just selected — the caller should invite the
+// user to log in with their existing profile instead of silently switching it.
+export class RoleMismatchError extends Error {
+  existingRole: UserRole;
+  constructor(existingRole: UserRole) {
+    super('role-mismatch');
+    this.existingRole = existingRole;
+  }
+}
 
 function isSelfApprovingRole(role: UserRole) {
   return role === 'client' || role === 'admin';
@@ -157,8 +168,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
 
     if (isSupabaseConfigured && supabase) {
-      const { data: sub } = supabase.auth.onAuthStateChange(async () => {
-        const { data } = await supabase.auth.getSession();
+      const client = supabase;
+      const { data: sub } = client.auth.onAuthStateChange(async () => {
+        const { data } = await client.auth.getSession();
         if (data.session?.user) {
           const { role, isApproved, isSuspended, suspensionReason, phone } =
             await resolveSupabaseProfile(data.session.user.id, data.session.user.phone ?? '', 'client');
@@ -192,10 +204,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             data.user.phone ?? phone,
             requestedRole
           );
-          setUser({ id: data.user.id, phone: resolvedPhone, role, isApproved, isSuspended, suspensionReason });
-          return;
+          // This phone already has an account under a different role — don't
+          // silently switch the session, invite the user to log in as themselves.
+          if (role !== requestedRole) {
+            throw new RoleMismatchError(role);
+          }
+          const resolvedUser: AuthUser = { id: data.user.id, phone: resolvedPhone, role, isApproved, isSuspended, suspensionReason };
+          setUser(resolvedUser);
+          return resolvedUser;
         }
-      } catch {
+      } catch (err) {
+        if (err instanceof RoleMismatchError) throw err;
         // SMS provider unavailable — fall through to mock mode
       }
     }
@@ -204,6 +223,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // The role/approval are fixed the first time a phone number "signs up" and reused after that.
     const registry = readLocalRegistry();
     const existing = registry[phone];
+    if (existing && existing.role !== requestedRole) {
+      throw new RoleMismatchError(existing.role);
+    }
     const localUser: AuthUser = existing ?? {
       id: `local-${phone}`,
       phone,
@@ -218,6 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(registry));
     localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(localUser));
     setUser(localUser);
+    return localUser;
   }, []);
 
   const signInWithPassword = useCallback(async (email: string, password: string) => {

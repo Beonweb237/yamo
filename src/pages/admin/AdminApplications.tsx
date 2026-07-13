@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { RefreshCw, UserCheck, Check, X, Store, Bike, Search, Clock, ThumbsUp, ThumbsDown, Phone, MapPin } from 'lucide-react';
+import { RefreshCw, UserCheck, Check, X, Store, Bike, Search, Clock, ThumbsUp, ThumbsDown, Phone, MapPin, ChevronDown, ChevronUp, Image } from 'lucide-react';
 import { useRestaurants } from '../../hooks/useCatalog';
 import { fetchAllApplications, approveApplication, rejectApplication, type Application, type ApplicationStatus } from '../../lib/applications';
 import { toast } from 'sonner';
@@ -30,6 +30,9 @@ export default function AdminApplications() {
   const [selectedRestaurantByApp, setSelectedRestaurantByApp] = useState<Record<string, string>>({});
   const [tab, setTab] = useState<Tab>('pending');
   const [query, setQuery] = useState('');
+  const [expandedDocs, setExpandedDocs] = useState<Record<string, boolean>>({});
+  const [rejectTarget, setRejectTarget] = useState<Application | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   const load = useCallback(async () => {
     setApplications(await fetchAllApplications());
@@ -66,7 +69,7 @@ export default function AdminApplications() {
   };
   const handleReject = async (app: Application) => {
     setReviewingId(app.id);
-    try { await rejectApplication(app.id); load(); toast.success('Candidature rejetée'); }
+    try { await rejectApplication(app.id, rejectReason || undefined); setRejectTarget(null); setRejectReason(''); load(); toast.success('Candidature rejetée'); }
     catch { toast.error('Erreur'); }
     finally { setReviewingId(null); }
   };
@@ -111,9 +114,8 @@ export default function AdminApplications() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-sm font-inter font-medium transition-colors ${
-                tab === t.id ? 'bg-green-primary text-white' : 'text-text-secondary hover:text-text-primary'
-              }`}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-sm font-inter font-medium transition-colors ${tab === t.id ? 'bg-green-primary text-white' : 'text-text-secondary hover:text-text-primary'
+                }`}
             >
               <t.icon className="w-4 h-4" />{t.label}
               <span className={`text-xs rounded-full px-1.5 ${tab === t.id ? 'bg-white/20' : 'bg-bg-secondary'}`}>{t.count}</span>
@@ -148,6 +150,21 @@ export default function AdminApplications() {
             {visible.map((app) => {
               const cfg = typeConfig[app.type];
               const Icon = cfg.icon;
+              const docsExpanded = expandedDocs[app.id] ?? false;
+
+              // Collect document fields for preview
+              const docFields: { label: string; value: string | undefined }[] = [
+                { label: "Pièce d'identité", value: app.idDocument },
+                { label: 'Photo de profil', value: app.profilePhoto },
+                ...(app.type === 'restaurant'
+                  ? [{ label: 'Registre de commerce', value: app.businessReg }, { label: 'Photo du restaurant', value: app.restaurantPhoto }]
+                  : [
+                    { label: 'Permis de conduire', value: app.licenseDocument },
+                    { label: 'Attestation assurance', value: app.insuranceDocument },
+                    { label: 'Photo du véhicule', value: app.vehiclePhoto },
+                  ]),
+              ].filter((f) => f.value && f.value.startsWith('data:'));
+
               return (
                 <div key={app.id} className="p-4 sm:p-5 flex flex-col sm:flex-row gap-4">
                   <div className="w-11 h-11 rounded-full bg-bg-secondary flex items-center justify-center shrink-0">
@@ -160,9 +177,8 @@ export default function AdminApplications() {
                       </p>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cfg.badge}`}>{cfg.label}</span>
                       {tab !== 'pending' && (
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          app.status === 'approved' ? 'bg-green-light text-green-primary' : 'bg-error/10 text-error'
-                        }`}>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${app.status === 'approved' ? 'bg-green-light text-green-primary' : 'bg-error/10 text-error'
+                          }`}>
                           {app.status === 'approved' ? 'Approuvée' : 'Rejetée'}
                         </span>
                       )}
@@ -173,6 +189,48 @@ export default function AdminApplications() {
                       <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{app.contactPhone || 'Non renseigné'}</span>
                     </div>
                     {app.notes && <p className="text-text-secondary text-xs font-inter italic mb-2">"{app.notes}"</p>}
+
+                    {/* Rejection reason */}
+                    {app.status === 'rejected' && app.rejectionReason && (
+                      <p className="bg-error/5 text-error font-inter text-xs rounded-lg px-3 py-2 mb-2">
+                        Motif de rejet : {app.rejectionReason}
+                      </p>
+                    )}
+
+                    {/* Document preview toggle */}
+                    {docFields.length > 0 && (
+                      <div className="mb-2">
+                        <button
+                          onClick={() => setExpandedDocs((p) => ({ ...p, [app.id]: !docsExpanded }))}
+                          className="flex items-center gap-1.5 text-text-secondary text-xs font-inter hover:text-text-primary"
+                        >
+                          {docsExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          <Image className="w-3.5 h-3.5" />
+                          {docFields.length} document{docFields.length > 1 ? 's' : ''}
+                        </button>
+                        {docsExpanded && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {docFields.map((doc) => (
+                              <a
+                                key={doc.label}
+                                href={doc.value}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block"
+                                title={doc.label}
+                              >
+                                <img
+                                  src={doc.value}
+                                  alt={doc.label}
+                                  className="h-20 rounded-lg border border-border-custom object-cover hover:ring-2 hover:ring-green-primary/30 transition-shadow"
+                                />
+                                <span className="text-text-muted text-[10px] font-inter block mt-0.5 truncate max-w-[80px]">{doc.label}</span>
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {tab === 'pending' && (
                       <>
@@ -199,7 +257,7 @@ export default function AdminApplications() {
                             {app.type === 'restaurant' && !selectedRestaurantByApp[app.id] ? 'Approuver + créer' : 'Approuver'}
                           </button>
                           <button
-                            onClick={() => handleReject(app)}
+                            onClick={() => { setRejectTarget(app); setRejectReason(''); }}
                             disabled={reviewingId === app.id}
                             className="flex items-center gap-1.5 border border-error text-error font-medium text-sm px-4 h-9 rounded-lg hover:bg-error/5 disabled:opacity-60"
                           >
@@ -215,6 +273,40 @@ export default function AdminApplications() {
           </div>
         )}
       </div>
+
+      {/* Rejection reason dialog */}
+      {rejectTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setRejectTarget(null)}>
+          <div className="bg-white rounded-xl border border-border-custom shadow-lg p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-poppins font-semibold text-text-primary text-lg mb-1">Motif de rejet</h3>
+            <p className="text-text-secondary text-sm font-inter mb-4">
+              Expliquez pourquoi cette candidature est rejetée (optionnel).
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={3}
+              className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none mb-4"
+              placeholder="Ex: CNI illisible, documents incomplets..."
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setRejectTarget(null)}
+                className="px-4 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-sm hover:bg-bg-secondary"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => handleReject(rejectTarget)}
+                disabled={reviewingId === rejectTarget.id}
+                className="px-4 h-10 rounded-lg bg-error text-white font-inter text-sm font-medium hover:bg-error/90 disabled:opacity-60"
+              >
+                {reviewingId === rejectTarget.id ? 'Rejet...' : 'Confirmer le rejet'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

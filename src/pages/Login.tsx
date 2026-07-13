@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Phone, ShieldCheck, User, Store, Bike, Mail, Smartphone } from 'lucide-react';
-import { useAuth, LOCAL_SESSION_KEY, LOCAL_REGISTRY_KEY, type UserRole } from '../contexts/AuthContext';
+import { useAuth, LOCAL_SESSION_KEY, LOCAL_REGISTRY_KEY, RoleMismatchError, type AuthUser, type UserRole } from '../contexts/AuthContext';
 import { getLocalSuspensionInfo } from '../lib/drivers';
+import { fetchMyApplications } from '../lib/applications';
 
 const roleRedirects: Record<UserRole, string> = {
   client: '/',
@@ -11,9 +12,25 @@ const roleRedirects: Record<UserRole, string> = {
   admin: '/admin',
 };
 
-function getRedirect(role: UserRole, from?: string) {
-  if (role === 'client' && from) return from;
-  return roleRedirects[role];
+const roleLabels: Record<UserRole, string> = {
+  client: 'Client',
+  restaurant: 'Restaurateur',
+  livreur: 'Livreur',
+  admin: 'Administrateur',
+};
+
+// Restaurant/livreur accounts that haven't submitted a candidacy yet land on
+// the candidacy form; once one exists (pending/rejected), their dashboard
+// route shows the accurate status via RoleGate instead.
+async function resolveRedirect(user: AuthUser, from?: string): Promise<string> {
+  if (user.role === 'client') return from ?? '/';
+  if (user.role === 'admin') return roleRedirects.admin;
+  if (!user.isApproved) {
+    const apps = await fetchMyApplications(user.id);
+    const hasApplication = apps.some((a) => a.type === user.role);
+    if (!hasApplication) return '/candidature';
+  }
+  return roleRedirects[user.role];
 }
 
 // Mock email registry — for dev mode (VITE_FORCE_MOCK_AUTH=true)
@@ -82,10 +99,19 @@ export default function Login() {
     setError('');
     setSubmitting(true);
     try {
-      await verifyOtp(phone.replace(/\s/g, ''), code, role);
-      navigate(getRedirect(role, redirectTo), { replace: true });
-    } catch {
-      setError('Code invalide. Réessayez.');
+      const loggedInUser = await verifyOtp(phone.replace(/\s/g, ''), code, role);
+      navigate(await resolveRedirect(loggedInUser, redirectTo), { replace: true });
+    } catch (err) {
+      if (err instanceof RoleMismatchError) {
+        setRole(err.existingRole);
+        setStep('phone');
+        setCode('');
+        setError(
+          `Un compte existe déjà avec ce numéro sous le profil "${roleLabels[err.existingRole]}". Connectez-vous avec ce profil pour continuer.`
+        );
+      } else {
+        setError('Code invalide. Réessayez.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -128,8 +154,9 @@ export default function Login() {
       const registry: Record<string, any> = JSON.parse(localStorage.getItem(LOCAL_REGISTRY_KEY) ?? '{}');
       registry[mockUser.phone.replace(/\s/g, '')] = localUser;
       localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(registry));
+      const redirectPath = await resolveRedirect(localUser);
       // Force page reload so AuthContext picks up the new session
-      navigate(getRedirect(mockUser.role), { replace: true });
+      navigate(redirectPath, { replace: true });
       window.location.reload();
     } catch {
       setEmailError('Identifiants invalides.');

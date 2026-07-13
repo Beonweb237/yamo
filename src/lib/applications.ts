@@ -10,6 +10,14 @@ export interface ApplicationInput {
   address?: string;
   contactPhone?: string;
   notes?: string;
+  // Documents (base64 data URLs)
+  idDocument?: string;        // CNI/passeport
+  businessReg?: string;        // Registre de commerce (restaurant only)
+  licenseDocument?: string;    // Permis de conduire (livreur only)
+  insuranceDocument?: string;  // Assurance (livreur only)
+  profilePhoto?: string;       // Photo de profil
+  vehiclePhoto?: string;       // Photo du véhicule (livreur only)
+  restaurantPhoto?: string;    // Photo du restaurant (restaurant only)
 }
 
 export interface Application extends ApplicationInput {
@@ -17,6 +25,7 @@ export interface Application extends ApplicationInput {
   applicantId: string;
   status: ApplicationStatus;
   restaurantId?: string | null;
+  rejectionReason?: string;
   createdAt: string;
 }
 
@@ -44,6 +53,14 @@ function mapApplicationRow(row: Record<string, unknown>): Application {
     contactPhone: (row.contact_phone as string) ?? undefined,
     notes: (row.notes as string) ?? undefined,
     restaurantId: (row.restaurant_id as string) ?? null,
+    rejectionReason: (row.rejection_reason as string) ?? undefined,
+    idDocument: (row.id_document as string) ?? undefined,
+    businessReg: (row.business_reg as string) ?? undefined,
+    licenseDocument: (row.license_document as string) ?? undefined,
+    insuranceDocument: (row.insurance_document as string) ?? undefined,
+    profilePhoto: (row.profile_photo as string) ?? undefined,
+    vehiclePhoto: (row.vehicle_photo as string) ?? undefined,
+    restaurantPhoto: (row.restaurant_photo as string) ?? undefined,
     createdAt: row.created_at as string,
   };
 }
@@ -60,6 +77,13 @@ export async function submitApplication(applicantId: string, input: ApplicationI
         address: input.address ?? null,
         contact_phone: input.contactPhone ?? null,
         notes: input.notes ?? null,
+        id_document: input.idDocument ?? null,
+        business_reg: input.businessReg ?? null,
+        license_document: input.licenseDocument ?? null,
+        insurance_document: input.insuranceDocument ?? null,
+        profile_photo: input.profilePhoto ?? null,
+        vehicle_photo: input.vehiclePhoto ?? null,
+        restaurant_photo: input.restaurantPhoto ?? null,
       })
       .select()
       .single();
@@ -189,16 +213,16 @@ export async function approveApplication(id: string, restaurantId?: string): Pro
   );
 }
 
-export async function rejectApplication(id: string): Promise<void> {
+export async function rejectApplication(id: string, reason?: string): Promise<void> {
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase
       .from('applications')
-      .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
+      .update({ status: 'rejected', rejection_reason: reason ?? null, reviewed_at: new Date().toISOString() })
       .eq('id', id);
     if (error) throw error;
     return;
   }
 
   const apps = readLocalApplications();
-  writeLocalApplications(apps.map((a) => (a.id === id ? { ...a, status: 'rejected' as const } : a)));
+  writeLocalApplications(apps.map((a) => (a.id === id ? { ...a, status: 'rejected' as const, rejectionReason: reason } : a)));
 }

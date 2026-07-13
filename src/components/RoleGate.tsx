@@ -1,11 +1,26 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useState, useEffect } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { ShieldAlert, Phone, ShieldCheck, Loader2 } from 'lucide-react';
-import { useAuth, type UserRole } from '../contexts/AuthContext';
+import { useAuth, RoleMismatchError, type UserRole } from '../contexts/AuthContext';
+import { fetchMyApplications } from '../lib/applications';
 
 export default function RoleGate({ allow, children }: { allow: UserRole[]; children?: ReactNode }) {
   const { user, loading, sendOtp, verifyOtp } = useAuth();
   const isAdminRoute = allow.length === 1 && allow[0] === 'admin';
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+  const [hasApplication, setHasApplication] = useState(true);
+
+  // Fetch rejection reason / whether a candidacy exists at all for unapproved users
+  useEffect(() => {
+    if (user && !user.isApproved && !user.isSuspended) {
+      fetchMyApplications(user.id).then((apps) => {
+        const relevant = apps.filter((a) => a.type === user.role);
+        const rejected = relevant.find((a) => a.status === 'rejected' && a.rejectionReason);
+        setRejectionReason(rejected?.rejectionReason ?? null);
+        setHasApplication(relevant.length > 0);
+      }).catch(() => { });
+    }
+  }, [user]);
 
   // Admin login form state
   const [adminStep, setAdminStep] = useState<'phone' | 'code'>('phone');
@@ -41,8 +56,12 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
         setAdminSubmitting(true);
         try {
           await verifyOtp(adminPhone.replace(/\s/g, ''), adminCode, 'admin');
-        } catch {
-          setAdminError('Code invalide. Réessayez.');
+        } catch (err) {
+          setAdminError(
+            err instanceof RoleMismatchError
+              ? "Ce numéro n'est pas enregistré comme administrateur."
+              : 'Code invalide. Réessayez.'
+          );
         } finally {
           setAdminSubmitting(false);
         }
@@ -126,13 +145,20 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
       );
     }
 
-    const message = !user
+    // Approved-role account, but no candidacy submitted yet — send them to
+    // the form instead of showing a "pending validation" message that lies
+    // about the actual state of their (non-existent) submission.
+    const needsApplication = roleMatches && user && !user.isApproved && !user.isSuspended && !hasApplication;
+
+    const fallbackMessage = !user
       ? 'Connectez-vous avec un compte autorisé pour accéder à cet espace.'
       : !roleMatches
         ? "Ce compte n'a pas les droits nécessaires pour accéder à cet espace."
         : user.isSuspended
           ? "Votre compte a été suspendu par l'équipe Yamo. Contactez le support pour plus d'informations."
-          : 'Votre candidature est en cours de validation par notre équipe. Vous recevrez un accès dès son approbation.';
+          : needsApplication
+            ? "Complétez votre candidature pour que notre équipe puisse l'examiner."
+            : 'Votre candidature est en cours de validation par notre équipe. Vous recevrez un accès dès son approbation.';
 
     return (
       <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
@@ -142,20 +168,43 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
             {roleMatches && user && user.isSuspended
               ? 'Compte suspendu'
               : roleMatches && user && !user.isApproved
-                ? 'Candidature en attente'
+                ? needsApplication
+                  ? 'Candidature à compléter'
+                  : rejectionReason
+                    ? 'Candidature rejetée'
+                    : 'Candidature en attente'
                 : 'Accès réservé'}
           </h1>
-          <p className="text-text-secondary font-inter text-sm mb-6">{message}</p>
+          <p className="text-text-secondary font-inter text-sm mb-6">
+            {!user
+              ? 'Connectez-vous avec un compte autorisé pour accéder à cet espace.'
+              : !roleMatches
+                ? "Ce compte n'a pas les droits nécessaires pour accéder à cet espace."
+                : user.isSuspended
+                  ? fallbackMessage
+                  : !user.isApproved
+                    ? needsApplication
+                      ? fallbackMessage
+                      : rejectionReason
+                        ? `Votre candidature a été rejetée. Motif : ${rejectionReason}`
+                        : fallbackMessage
+                    : fallbackMessage}
+          </p>
           {user?.isSuspended && user.suspensionReason && (
             <p className="bg-error/10 text-error font-inter text-sm rounded-lg px-3 py-2 mb-6">
               Motif : {user.suspensionReason}
             </p>
           )}
+          {user && !user.isApproved && !user.isSuspended && rejectionReason && (
+            <p className="bg-error/10 text-error font-inter text-sm rounded-lg px-3 py-2 mb-6">
+              Pour postuler à nouveau, veuillez contacter le support ou créer un nouveau compte.
+            </p>
+          )}
           <Link
-            to={isAdminRoute ? '/' : '/connexion'}
+            to={needsApplication ? '/candidature' : isAdminRoute ? '/' : '/connexion'}
             className="inline-block bg-green-primary text-white font-inter font-semibold px-6 h-11 leading-[44px] rounded-lg hover:bg-green-dark transition-colors"
           >
-            {isAdminRoute ? 'Retour à l\'accueil' : 'Se connecter'}
+            {needsApplication ? 'Compléter ma candidature' : isAdminRoute ? 'Retour à l\'accueil' : 'Se connecter'}
           </Link>
         </div>
       </div>

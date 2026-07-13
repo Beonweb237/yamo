@@ -1,8 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Bike, Send, CheckCircle2 } from 'lucide-react';
+import { Store, Bike, Send, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { submitApplication, type ApplicationType } from '../lib/applications';
+import { submitApplication, fetchMyApplications, type ApplicationType, type Application } from '../lib/applications';
+
+const typeConfig = {
+  restaurant: {
+    icon: Store,
+    title: 'Devenir Partenaire Restaurant',
+    description: 'Rejoignez Yamo et développez votre activité de restauration.',
+  },
+  livreur: {
+    icon: Bike,
+    title: 'Devenir Livreur Yamo',
+    description: "Gagnez de l'argent en livrant quand vous voulez.",
+  },
+} as const;
 
 export default function Candidature() {
   const { user, loading: authLoading } = useAuth();
@@ -17,6 +30,16 @@ export default function Candidature() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  // Existing candidacy check — avoids duplicate submissions and shows the
+  // real status (pending/rejected) instead of a fresh empty form.
+  const [checkingStatus, setCheckingStatus] = useState(true);
+  const [existingApplication, setExistingApplication] = useState<Application | null>(null);
+
+  // The candidacy type is locked to the account's role once it's restaurant/livreur
+  // (that role was already chosen at signup) — only truly role-less accounts
+  // (shouldn't normally happen here) can still switch between the two.
+  const typeLocked = user?.role === 'restaurant' || user?.role === 'livreur';
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/connexion', { state: { from: '/candidature' } });
@@ -26,8 +49,25 @@ export default function Candidature() {
   useEffect(() => {
     if (user) {
       setContactPhone(user.phone);
+      if (user.role === 'restaurant' || user.role === 'livreur') setType(user.role);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    setCheckingStatus(true);
+    fetchMyApplications(user.id)
+      .then((apps) => {
+        if (cancelled) return;
+        const relevant = apps.find((a) => a.type === type);
+        setExistingApplication(relevant ?? null);
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingStatus(false);
+      });
+    return () => { cancelled = true; };
+  }, [user, type]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,20 +91,15 @@ export default function Candidature() {
     }
   };
 
-  const typeConfig = {
-    restaurant: {
-      icon: Store,
-      title: 'Devenir Partenaire Restaurant',
-      description: 'Rejoignez Yamo et développez votre activité de restauration.',
-    },
-    livreur: {
-      icon: Bike,
-      title: 'Devenir Livreur Yamo',
-      description: 'Gagnez de l\'argent en livrant quand vous voulez.',
-    },
-  };
-
   const config = typeConfig[type];
+
+  if (authLoading || checkingStatus) {
+    return (
+      <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
+        <p className="text-text-secondary font-inter text-sm">Vérification de votre dossier...</p>
+      </div>
+    );
+  }
 
   if (success) {
     return (
@@ -89,32 +124,92 @@ export default function Candidature() {
     );
   }
 
+  // A candidacy already exists for this type — show its real status instead
+  // of letting the user submit a duplicate.
+  if (existingApplication) {
+    const statusConfig = {
+      pending: {
+        icon: Clock,
+        color: 'text-gold-accent',
+        bg: 'bg-gold-light',
+        title: 'Candidature en cours d\'examen',
+        message: 'Votre candidature a bien été reçue. Notre équipe vous contactera sous 24-48h.',
+      },
+      rejected: {
+        icon: XCircle,
+        color: 'text-error',
+        bg: 'bg-error/10',
+        title: 'Candidature rejetée',
+        message: existingApplication.rejectionReason
+          ? `Motif : ${existingApplication.rejectionReason}`
+          : 'Contactez notre support pour plus de détails.',
+      },
+      approved: {
+        icon: CheckCircle2,
+        color: 'text-success',
+        bg: 'bg-green-light',
+        title: 'Candidature approuvée',
+        message: 'Votre compte est déjà validé.',
+      },
+    }[existingApplication.status];
+    const StatusIcon = statusConfig.icon;
+
+    return (
+      <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
+        <div className="w-full max-w-[480px] bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-8 text-center my-12">
+          <div className={`w-14 h-14 rounded-full ${statusConfig.bg} flex items-center justify-center mx-auto mb-4`}>
+            <StatusIcon className={`w-7 h-7 ${statusConfig.color}`} />
+          </div>
+          <h1 className="font-poppins font-bold text-text-primary text-2xl mb-2">{statusConfig.title}</h1>
+          <p className="text-text-secondary font-inter text-sm mb-6">{statusConfig.message}</p>
+          {existingApplication.status === 'approved' ? (
+            <button
+              onClick={() => navigate(type === 'restaurant' ? '/partenaires/dashboard' : '/livreurs/dashboard')}
+              className="bg-green-primary text-white font-inter font-semibold px-6 h-11 rounded-lg hover:bg-green-dark transition-colors"
+            >
+              Accéder à mon espace
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate('/')}
+              className="bg-green-primary text-white font-inter font-semibold px-6 h-11 rounded-lg hover:bg-green-dark transition-colors"
+            >
+              Retour à l'accueil
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pt-[72px] min-h-screen bg-bg-secondary">
       <div className="max-w-[600px] mx-auto px-4 sm:px-6 py-10">
-        {/* Type selector */}
-        <div className="flex gap-1 bg-white rounded-lg border border-border-custom p-1 mb-6 w-fit">
-          <button
-            onClick={() => setType('restaurant')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-inter font-medium transition-colors ${type === 'restaurant'
-                ? 'bg-green-primary text-white'
-                : 'text-text-secondary hover:text-text-primary'
-              }`}
-          >
-            <Store className="w-4 h-4" />
-            Restaurant
-          </button>
-          <button
-            onClick={() => setType('livreur')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-inter font-medium transition-colors ${type === 'livreur'
-                ? 'bg-green-primary text-white'
-                : 'text-text-secondary hover:text-text-primary'
-              }`}
-          >
-            <Bike className="w-4 h-4" />
-            Livreur
-          </button>
-        </div>
+        {/* Type selector — hidden once the account's role fixes the candidacy type */}
+        {!typeLocked && (
+          <div className="flex gap-1 bg-white rounded-lg border border-border-custom p-1 mb-6 w-fit">
+            <button
+              onClick={() => setType('restaurant')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-inter font-medium transition-colors ${type === 'restaurant'
+                  ? 'bg-green-primary text-white'
+                  : 'text-text-secondary hover:text-text-primary'
+                }`}
+            >
+              <Store className="w-4 h-4" />
+              Restaurant
+            </button>
+            <button
+              onClick={() => setType('livreur')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-inter font-medium transition-colors ${type === 'livreur'
+                  ? 'bg-green-primary text-white'
+                  : 'text-text-secondary hover:text-text-primary'
+                }`}
+            >
+              <Bike className="w-4 h-4" />
+              Livreur
+            </button>
+          </div>
+        )}
 
         <div className="bg-white rounded-xl border border-border-custom p-6 sm:p-8">
           <div className="flex items-center gap-3 mb-2">
