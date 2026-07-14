@@ -203,6 +203,29 @@ export function getNeighborhoods(cityName: string): string[] {
   return getCityByName(cityName)?.neighborhoods ?? [];
 }
 
+/** Coordonnées GPS approximatives par quartier/ville (Douala/Yaoundé). */
+export function getNeighborhoodCoords(location: string): { lat: number; lng: number } | null {
+  const map: Record<string, { lat: number; lng: number }> = {
+    // Douala neighborhoods
+    'Bonapriso': { lat: 4.0450, lng: 9.7050 },
+    'Akwa': { lat: 4.0530, lng: 9.7100 },
+    'Deido': { lat: 4.0680, lng: 9.6950 },
+    'Bonanjo': { lat: 4.0420, lng: 9.6900 },
+    'Bali': { lat: 4.0580, lng: 9.7200 },
+    'Makepe': { lat: 4.0650, lng: 9.7400 },
+    'Ndokotti': { lat: 4.0720, lng: 9.7550 },
+    'Douala': { lat: 4.0511, lng: 9.7679 },
+    // Yaoundé neighborhoods
+    'Bastos': { lat: 3.8850, lng: 11.5100 },
+    'Mvog-Mbi': { lat: 3.8480, lng: 11.5150 },
+    'Mvan': { lat: 3.8250, lng: 11.5000 },
+    'Nsimeyong': { lat: 3.8350, lng: 11.4900 },
+    'Ngousso': { lat: 3.8950, lng: 11.5400 },
+    'Yaoundé': { lat: 3.8480, lng: 11.5021 },
+  };
+  return map[location] ?? null;
+}
+
 /** Extrait la ville depuis une adresse texte (ex. « Bonapriso, Douala »). */
 export function parseCityFromAddress(address: string): string {
   for (const city of cities) {

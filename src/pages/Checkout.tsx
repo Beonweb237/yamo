@@ -7,7 +7,8 @@ import { createOrder, type PaymentMethod } from '../lib/orders';
 import { validateOrder, initiateMoMoPayment } from '../lib/payments';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { useRestaurant } from '../hooks/useCatalog';
-import { activeCities, getNeighborhoods } from '../data/locations';
+import { activeCities, getNeighborhoods, getNeighborhoodCoords } from '../data/locations';
+import { haversineDistance, estimateTime } from '../lib/utils';
 
 interface SavedAddress {
   id: string;
@@ -86,6 +87,27 @@ export default function Checkout() {
   useEffect(() => {
     if (restaurantNeighborhood) setNeighborhood(restaurantNeighborhood);
   }, [restaurantNeighborhood]);
+
+  // Delivery zone estimation
+  const deliveryInfo = useMemo(() => {
+    if (!cartRestaurant?.lat || !cartRestaurant?.lng) return null;
+    const restoLat = cartRestaurant.lat;
+    const restoLng = cartRestaurant.lng;
+    const radius = cartRestaurant.deliveryRadiusKm ?? 5;
+
+    // Try to get neighborhood coordinates
+    const coords = getNeighborhoodCoords(neighborhood || city);
+    if (!coords) return { withinZone: true, distanceKm: null, estimatedMin: null, radius };
+
+    const distKm = haversineDistance(restoLat, restoLng, coords.lat, coords.lng);
+    const estimatedMin = estimateTime(distKm);
+    return {
+      withinZone: distKm <= radius,
+      distanceKm: distKm,
+      estimatedMin,
+      radius,
+    };
+  }, [cartRestaurant, neighborhood, city]);
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentPhone, setPaymentPhone] = useState(() => user?.phone ?? '');
@@ -466,6 +488,25 @@ export default function Checkout() {
                 required
               />
             </div>
+            {/* Delivery zone info */}
+            {deliveryInfo && (
+              <div className={`sm:col-span-2 rounded-xl p-3 text-xs font-inter flex items-center gap-2 ${deliveryInfo.withinZone ? 'bg-green-light text-green-primary' : 'bg-error/10 text-error'}`}>
+                {deliveryInfo.withinZone ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>
+                      Livraison possible · ~{deliveryInfo.distanceKm?.toFixed(1)} km · ~{deliveryInfo.estimatedMin} min
+                      {deliveryInfo.radius ? ` · Rayon ${deliveryInfo.radius} km` : ''}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-lg shrink-0">⚠️</span>
+                    <span>Hors zone de livraison ({deliveryInfo.distanceKm?.toFixed(1)} km / max {deliveryInfo.radius} km)</span>
+                  </>
+                )}
+              </div>
+            )}
             <div className="sm:col-span-2">
               <label className="block text-text-secondary font-inter text-sm mb-1.5">
                 Instructions pour le livreur (optionnel)

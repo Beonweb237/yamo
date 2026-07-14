@@ -21,6 +21,9 @@ export interface Restaurant {
   gallery?: string[]; // Additional restaurant photos (interior, dishes, ambiance...)
   /** Taux de commission Yamo pour ce restaurant (0.15 = 15%). Défaut si absent : 0.15. */
   commissionRate?: number;
+  lat?: number;
+  lng?: number;
+  deliveryRadiusKm?: number;
 }
 
 export interface MenuItem {
@@ -145,6 +148,9 @@ export const restaurants: Restaurant[] = [
       '/plat-pouletdg.jpg',
       '/menu-brochettes-boeuf.jpg',
     ],
+    lat: 4.0511,
+    lng: 9.7075,
+    deliveryRadiusKm: 5,
   },
   {
     id: '2',
