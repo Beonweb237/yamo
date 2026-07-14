@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Bike, Clock, MapPin, RefreshCw, CheckCircle2, Phone, Navigation, Wallet, PackageCheck, ExternalLink, Banknote, Smartphone } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchAvailableDeliveries, fetchDriverOrders, acceptDelivery, getOrderPreparationMessage, markDelivered, markPickedUp, type Order } from '../lib/orders';
+import { fetchAvailableDeliveries, fetchDriverOrders, acceptDelivery, getDeliveryContactPhone, getOrderPreparationMessage, markDelivered, markPickedUp, type Order } from '../lib/orders';
 import { haversineDistance, estimateTime } from '../lib/utils';
 import { fetchDriverOnlineStatus, setDriverOnline, requestPayout, fetchDriverPayouts, type PayoutRequest } from '../lib/drivers';
 import { Skeleton } from '../components/ui/skeleton';
@@ -11,6 +11,14 @@ import DeliveryMap, { type MapPoint } from '../components/DeliveryMap';
 import { toast } from 'sonner';
 
 type Tab = 'available' | 'mine' | 'wallet';
+
+// Décalage pseudo-aléatoire mais stable par commande (évite que la distance/le
+// temps affichés changent à chaque rafraîchissement toutes les 5s).
+function stableOffset(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash + id.charCodeAt(i) * (i + 1)) % 1000;
+  return (hash / 1000 - 0.5) * 0.02;
+}
 
 export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
   const { user } = useAuth();
@@ -216,8 +224,8 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                 {available.map((order) => {
 
                   const driverLat = 4.0511; const driverLng = 9.7679;
-                  const restoLat = driverLat + (Math.random() - 0.5) * 0.02;
-                  const restoLng = driverLng + (Math.random() - 0.5) * 0.02;
+                  const restoLat = driverLat + stableOffset(order.id);
+                  const restoLng = driverLng + stableOffset(`${order.id}-lng`);
                   const km = haversineDistance(driverLat, driverLng, restoLat, restoLng);
                   const min = estimateTime(km);
                   const prepMessage = getOrderPreparationMessage(order);
@@ -235,6 +243,12 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                         <MapPin className="w-3.5 h-3.5 shrink-0" />
                         {order.address.fullText || 'Adresse non renseignée'}
                       </p>
+                      {order.recipient && (
+                        <p className="flex items-center gap-1.5 text-xs text-text-secondary font-inter mb-1">
+                          <Phone className="w-3.5 h-3.5 text-green-primary shrink-0" />
+                          Pour {order.recipient.name || 'bénéficiaire'}{order.recipient.phone ? ` · ${order.recipient.phone}` : ''}
+                        </p>
+                      )}
                       <p className="text-xs text-text-muted font-inter mb-2">
                         📍 ~{km.toFixed(1)} km · 🕐 ~{min} min
                       </p>
@@ -315,17 +329,27 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                         {getOrderPreparationMessage(order)}
                       </p>
                     )}
+                    {order.recipient && (
+                      <div className="rounded-lg bg-green-light/60 px-3 py-2 mb-3 text-xs font-inter text-text-secondary">
+                        <p className="font-semibold text-text-primary">
+                          Pour {order.recipient.name || 'bénéficiaire'}{order.recipient.phone ? ` · ${order.recipient.phone}` : ''}
+                        </p>
+                        {order.recipient.contactInstructions && (
+                          <p className="mt-1 text-text-muted">{order.recipient.contactInstructions}</p>
+                        )}
+                      </div>
+                    )}
                     <p className="flex items-center gap-1.5 text-text-secondary text-sm font-inter mb-4">
                       <MapPin className="w-3.5 h-3.5 shrink-0" />
-                      Client: {order.address.fullText || 'Adresse non renseignée'}
+                      Adresse: {order.address.fullText || 'Adresse non renseignée'}
                     </p>
                     <div className="flex items-center gap-2 mb-4">
                       <a
-                        href={`tel:${order.contactPhone || ''}`}
+                        href={`tel:${getDeliveryContactPhone(order)}`}
                         className="flex-1 flex items-center justify-center gap-1.5 bg-bg-secondary text-text-primary font-inter text-sm h-10 rounded-lg hover:bg-border-light transition-colors"
                       >
                         <Phone className="w-4 h-4" />
-                        Appeler le client
+                        Appeler le {order.recipient ? 'bénéficiaire' : 'client'}
                       </a>
                       <a
                         href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.address.fullText || '')}`}

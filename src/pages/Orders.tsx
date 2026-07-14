@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Package, Clock, Star, Store } from 'lucide-react';
+import { Package, Clock, Star, Store, UserRound } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchOrders, getOrderPreparationMessage, type Order, type OrderStatus } from '../lib/orders';
 import { toast } from 'sonner';
@@ -166,6 +166,21 @@ export default function Orders() {
                   </div>
                 )}
 
+                {order.recipient && (
+                  <div className="flex items-start gap-2 bg-green-light/60 rounded-lg px-3 py-2 mb-3 text-xs font-inter text-text-secondary">
+                    <UserRound className="w-3.5 h-3.5 text-green-primary shrink-0 mt-0.5" />
+                    <div>
+                      <p>
+                        Commande pour <span className="font-semibold text-text-primary">{order.recipient.name || 'bénéficiaire'}</span>
+                        {order.recipient.phone && <span> · {order.recipient.phone}</span>}
+                      </p>
+                      {order.recipient.contactInstructions && (
+                        <p className="mt-1 text-text-muted">{order.recipient.contactInstructions}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-1 mb-3">
                   {order.items.map((it, i) => (
                     <p key={i} className="text-text-secondary text-sm font-inter">
@@ -186,7 +201,7 @@ export default function Orders() {
                 {order.status === 'delivering' && (
                   <div className="mt-3 pt-3 border-t border-border-light">
                     <div className="flex gap-1.5 flex-wrap">
-                      <a href={`tel:${order.contactPhone || ''}`} className="text-[11px] bg-bg-secondary rounded-full px-3 py-1.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors">📞 Appeler le livreur</a>
+                      <button type="button" onClick={() => toast.success('Le support livraison a été notifié')} className="text-[11px] bg-bg-secondary rounded-full px-3 py-1.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors">📞 Support livraison</button>
                       <button type="button" onClick={() => toast.success('Message envoyé au livreur')} className="text-[11px] bg-bg-secondary rounded-full px-3 py-1.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors">📍 Je suis devant</button>
                       <button type="button" onClick={() => toast.success('Position partagée')} className="text-[11px] bg-bg-secondary rounded-full px-3 py-1.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors">📤 Partager ma position</button>
                     </div>

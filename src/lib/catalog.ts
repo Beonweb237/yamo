@@ -34,6 +34,7 @@ function mapRestaurant(row: Record<string, unknown>): Restaurant {
     tags: (row.tags as string[]) ?? [],
     isPremium: row.is_premium as boolean,
     description: row.description as string,
+    commissionRate: row.commission_rate != null ? Number(row.commission_rate) : undefined,
   };
 }
 
@@ -50,6 +51,8 @@ function mapMenuItem(row: Record<string, unknown>): MenuItem {
     isPopular: row.is_popular as boolean,
     isAvailable: row.is_available !== false,
     hasImage: Boolean(rawImage),
+    dietaryTags: (row.dietary_tags as string[]) ?? undefined,
+    catalogDishId: (row.catalog_dish_id as string) ?? undefined,
   };
 }
 
@@ -181,7 +184,11 @@ function readUpdatedMenuItems(): Record<string, Partial<MenuItem>> {
 }
 
 export async function fetchMenuItems(restaurantId: string, options: { includeUnavailable?: boolean } = {}): Promise<MenuItem[]> {
-  if (!isSupabaseConfigured || !supabase) {
+  // Mock IDs are short strings like '1', '2' — UUIDs are 36 chars with dashes.
+  // If the ID is a mock ID, skip Supabase to avoid 400 errors (UUID type mismatch).
+  const isMockId = !restaurantId.includes('-') || restaurantId.length < 30;
+
+  if (!isSupabaseConfigured || !supabase || isMockId) {
     const deleted = new Set(readDeletedMenuItemIds());
     const base = mockMenuItems.filter((m) => m.restaurantId === restaurantId);
     const added = readAddedMenuItems()[restaurantId] ?? [];
@@ -219,6 +226,8 @@ export interface MenuItemInput {
   image?: string;
   isPopular?: boolean;
   isAvailable?: boolean;
+  dietaryTags?: string[];
+  catalogDishId?: string;
 }
 
 export async function updateMenuItem(id: string, data: Partial<MenuItemInput>): Promise<void> {
@@ -226,9 +235,13 @@ export async function updateMenuItem(id: string, data: Partial<MenuItemInput>): 
     const updateData: any = { ...data };
     if (data.isPopular !== undefined) updateData.is_popular = data.isPopular;
     if (data.isAvailable !== undefined) updateData.is_available = data.isAvailable;
+    if (data.dietaryTags !== undefined) updateData.dietary_tags = data.dietaryTags;
+    if (data.catalogDishId !== undefined) updateData.catalog_dish_id = data.catalogDishId;
     if (data.restaurantId !== undefined) updateData.restaurant_id = data.restaurantId;
     delete updateData.isPopular;
     delete updateData.isAvailable;
+    delete updateData.dietaryTags;
+    delete updateData.catalogDishId;
     delete updateData.restaurantId;
     const { error } = await supabase.from('menu_items').update(updateData).eq('id', id);
     if (error) throw error;
@@ -253,6 +266,8 @@ export async function createMenuItem(input: MenuItemInput): Promise<MenuItem> {
         image: input.image ?? getMealCategoryImage(input.category),
         is_popular: input.isPopular ?? false,
         is_available: input.isAvailable ?? true,
+        dietary_tags: input.dietaryTags ?? null,
+        catalog_dish_id: input.catalogDishId ?? null,
       })
       .select()
       .single();
@@ -271,6 +286,8 @@ export async function createMenuItem(input: MenuItemInput): Promise<MenuItem> {
     isPopular: input.isPopular ?? false,
     isAvailable: input.isAvailable ?? true,
     hasImage: Boolean(input.image),
+    dietaryTags: input.dietaryTags,
+    catalogDishId: input.catalogDishId,
   };
   const added = readAddedMenuItems();
   added[input.restaurantId] = [...(added[input.restaurantId] ?? []), item];
@@ -360,7 +377,7 @@ export async function rateRestaurant(
 }
 
 export async function fetchRestaurantReviews(restaurantId: string): Promise<RestaurantReview[]> {
-  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+  if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase
       .from('restaurant_reviews')
       .select('*')

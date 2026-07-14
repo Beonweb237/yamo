@@ -12,6 +12,40 @@ import {
 } from 'lucide-react';
 import { useAuth, RoleMismatchError, type AuthUser, type UserRole } from '../contexts/AuthContext';
 import { fetchMyApplications } from '../lib/applications';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
+
+const TERMS_CONTENT = `Ces conditions d'utilisation régissent l'accès et l'usage de la plateforme Yamo (application et site web) par les clients, restaurants et livreurs.
+
+1. Objet — Yamo met en relation des clients, des restaurants partenaires et des livreurs indépendants pour la commande et la livraison de repas au Cameroun.
+
+2. Comptes — Chaque utilisateur est responsable de l'exactitude des informations fournies lors de son inscription et de la confidentialité de ses identifiants.
+
+3. Commandes — Les prix, délais de préparation et frais de livraison affichés sont fournis par les restaurants partenaires et peuvent varier. Yamo agit comme intermédiaire technique entre les parties.
+
+4. Paiement — Les paiements peuvent être effectués en espèces à la livraison ou via Mobile Money (MTN MoMo, Orange Money). Toute commission Yamo est prélevée sur les restaurants partenaires, non sur les clients.
+
+5. Candidatures restaurants/livreurs — L'accès à l'espace restaurant ou livreur est soumis à validation d'un dossier de candidature par l'équipe Yamo.
+
+6. Résiliation — Yamo se réserve le droit de suspendre un compte en cas d'usage abusif, de fraude ou de non-respect des présentes conditions.
+
+Ce document est un cadre général et pourra être complété par un conseil juridique avant le lancement commercial complet, conformément à la feuille de route Yamo.`;
+
+const PRIVACY_CONTENT = `Yamo collecte et traite les données personnelles nécessaires au bon fonctionnement du service : nom, numéro de téléphone, adresses de livraison, historique de commandes et, le cas échéant, position géographique.
+
+Utilisation des données — Ces informations servent à traiter vos commandes, faciliter la livraison, améliorer nos services et vous contacter en cas de besoin (support client, notifications de commande).
+
+Partage — Vos coordonnées de livraison sont partagées avec le restaurant et le livreur concernés par votre commande, dans la stricte mesure nécessaire à son exécution. Yamo ne vend pas vos données à des tiers.
+
+Sécurité — Les accès aux données sont protégés par des règles de sécurité au niveau de la base de données (contrôle d'accès par rôle).
+
+Vos droits — Vous pouvez à tout moment demander l'accès, la correction ou la suppression de vos données personnelles en contactant le support Yamo.
+
+Ce document est un cadre général et pourra être complété par un conseil juridique avant le lancement commercial complet, conformément à la feuille de route Yamo.`;
 
 // ── English translations (EN) ──────────────────────────────────────────
 // Sign Up   |   Créer votre compte Yamo   |   Already have an account? Log in
@@ -80,6 +114,7 @@ export default function Inscription() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailSubmitting, setEmailSubmitting] = useState(false);
+  const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null);
 
   // ── Phone OTP: send code ──
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -363,7 +398,7 @@ export default function Inscription() {
                 J'accepte les{' '}
                 <button
                   type="button"
-                  onClick={(e) => { e.preventDefault(); /* TODO: open terms modal */ }}
+                  onClick={(e) => { e.preventDefault(); setLegalModal('terms'); }}
                   className="text-green-primary underline hover:text-green-dark"
                 >
                   conditions d'utilisation
@@ -371,7 +406,7 @@ export default function Inscription() {
                 et la{' '}
                 <button
                   type="button"
-                  onClick={(e) => { e.preventDefault(); /* TODO: open privacy modal */ }}
+                  onClick={(e) => { e.preventDefault(); setLegalModal('privacy'); }}
                   className="text-green-primary underline hover:text-green-dark"
                 >
                   politique de confidentialité
@@ -528,6 +563,19 @@ export default function Inscription() {
           </Link>
         </p>
       </div>
+
+      <Dialog open={!!legalModal} onOpenChange={(open) => { if (!open) setLegalModal(null); }}>
+        <DialogContent className="sm:max-w-[560px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {legalModal === 'terms' ? "Conditions d'utilisation" : 'Politique de confidentialité'}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-text-secondary font-inter text-sm whitespace-pre-line leading-relaxed">
+            {legalModal === 'terms' ? TERMS_CONTENT : PRIVACY_CONTENT}
+          </p>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

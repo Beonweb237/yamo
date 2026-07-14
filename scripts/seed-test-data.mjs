@@ -296,6 +296,11 @@ async function main() {
         payment_method: i % 3 === 0 ? 'mtn_momo' : i % 3 === 1 ? 'orange_money' : 'cash',
         payment_status: scenario.payment_status,
         notes: scenario.status === 'cancelled' ? 'Client indisponible, commande annulée.' : null,
+        contact_phone: client.phone,
+        ordered_for_someone_else: i === 4,
+        recipient_name: i === 4 ? 'Oncle Martin' : null,
+        recipient_phone: i === 4 ? '+237699222333' : null,
+        recipient_contact_instructions: i === 4 ? "Appeler le bénéficiaire uniquement à l'arrivée." : null,
         ...buildPreparationFields(scenario.status),
       })
       .select('id')

@@ -18,6 +18,9 @@ export interface Restaurant {
   tags: string[];
   isPremium: boolean;
   description: string;
+  gallery?: string[]; // Additional restaurant photos (interior, dishes, ambiance...)
+  /** Taux de commission Yamo pour ce restaurant (0.15 = 15%). Défaut si absent : 0.15. */
+  commissionRate?: number;
 }
 
 export interface MenuItem {
@@ -33,6 +36,19 @@ export interface MenuItem {
   hasImage?: boolean;
   variants?: { name: string; price: number }[];
   supplements?: { name: string; price: number }[];
+  dietaryTags?: string[]; // Dietary/diet tags: "sans-sucre", "diabétique", "végétarien", "halal", etc.
+  catalogDishId?: string; // Link to dish_catalog entry — admin-managed default image + tags
+}
+
+export interface DishCatalogEntry {
+  id: string;
+  name: string;
+  category: string;
+  defaultImage: string;
+  tags: string[];
+  description: string;
+  approvedBy?: string; // admin user id
+  approvedAt?: string;
 }
 
 export interface Review {
@@ -123,6 +139,12 @@ export const restaurants: Restaurant[] = [
     tags: ['Camerounaise', 'Traditionnel'],
     isPremium: true,
     description: 'Authentique cuisine camerounaise pr\u00e9par\u00e9e avec amour selon les recettes traditionnelles de la r\u00e9gion du Littoral. Sp\u00e9cialit\u00e9s : Ndol\u00e9, Poulet DG, Eru, et grillades maison.',
+    gallery: [
+      '/resto-ndole.jpg',
+      '/plat-ndole.jpg',
+      '/plat-pouletdg.jpg',
+      '/menu-brochettes-boeuf.jpg',
+    ],
   },
   {
     id: '2',
@@ -144,6 +166,11 @@ export const restaurants: Restaurant[] = [
     tags: ['Camerounaise', 'Poulet DG'],
     isPremium: false,
     description: 'Le meilleur Poulet DG de Douala, pr\u00e9par\u00e9 avec des plantains parfaitement frits et une sauce savoureuse. Une exp\u00e9rience culinaire inoubliable.',
+    gallery: [
+      '/resto-pouletdg.jpg',
+      '/plat-pouletdg.jpg',
+      '/menu-alloco-epice.jpg',
+    ],
   },
   {
     id: '3',
@@ -639,6 +666,7 @@ export const menuItems: MenuItem[] = [
     category: 'Plats Principaux',
     image: '/plat-ndole.jpg',
     isPopular: true,
+    dietaryTags: ['riche-en-protéines', 'halal'],
   },
   {
     id: 'm2',
@@ -649,6 +677,7 @@ export const menuItems: MenuItem[] = [
     category: 'Plats Principaux',
     image: '/plat-pouletdg.jpg',
     isPopular: true,
+    dietaryTags: ['halal', 'épicé'],
     variants: [
       { name: 'Portion normale', price: 0 },
       { name: 'Grande portion', price: 1500 },
@@ -918,6 +947,28 @@ export const menuItems: MenuItem[] = [
   { id: 'm78', restaurantId: '22', name: 'Jus Goyave Frais', description: 'Jus de goyave pressé et servi très frais.', price: 1600, category: 'Boissons', image: '/drink-goyave.jpg', isPopular: true },
   { id: 'm79', restaurantId: '22', name: 'Smoothie Ananas Gingembre', description: 'Ananas doux, gingembre frais et touche de citron.', price: 2200, category: 'Boissons', image: '/drink-smoothie-ananas-gingembre.jpg', isPopular: false },
   { id: 'm80', restaurantId: '23', name: 'Smoothie Baobab', description: 'Smoothie onctueux au fruit de baobab et lait frais.', price: 2000, category: 'Boissons', image: '/drink-smoothie-baobab.jpg', isPopular: true },
+  { id: 'm81', restaurantId: '8', name: 'Ndolé Traditionnel', description: 'Ndolé camerounais aux arachides, viande tendre et poisson fumé.', price: 3200, category: 'Plats Principaux', image: '/plat-ndole.jpg', isPopular: true, catalogDishId: 'dc1' },
+  { id: 'm82', restaurantId: '12', name: 'Poulet DG Maison', description: 'Poulet DG maison avec plantains dorés, légumes sautés et sauce tomate épicée.', price: 4200, category: 'Plats Principaux', image: '/plat-pouletdg.jpg', isPopular: true, catalogDishId: 'dc2' },
+  { id: 'm83', restaurantId: '12', name: 'Eru du Village', description: 'Eru traditionnel aux feuilles de waterleaf, poisson fumé et viande.', price: 3300, category: 'Plats Principaux', image: '/menu-eru.jpg', isPopular: false, catalogDishId: 'dc6' },
+  { id: 'm84', restaurantId: '8', name: 'Koki de Haricots', description: 'Koki traditionnel aux haricots rouges, servi avec banane plantain.', price: 1700, category: 'Plats Principaux', image: '/menu-koki.jpg', isPopular: false, catalogDishId: 'dc13' },
+  { id: 'm85', restaurantId: '14', name: 'Jus de Gingembre Maison', description: 'Jus de gingembre frais pressé, citron et touche de menthe.', price: 1200, category: 'Boissons', image: '/drink-gingembre.jpg', isPopular: true, catalogDishId: 'dc8' },
+  { id: 'm86', restaurantId: '22', name: 'Jus de Bissap Glacé', description: 'Bissap camerounais infusé, servi très frais avec une note de gingembre.', price: 1300, category: 'Boissons', image: '/drink-bissap.jpg', isPopular: true, catalogDishId: 'dc9' },
+];
+
+export const dishCatalog: DishCatalogEntry[] = [
+  { id: 'dc1', name: 'Ndolé', category: 'Plats Principaux', defaultImage: '/plat-ndole.jpg', tags: ['traditionnel', 'riche-en-proteines'], description: 'Plat traditionnel camerounais à base de feuilles de ndolé, arachides, viande ou poisson.' },
+  { id: 'dc2', name: 'Poulet DG', category: 'Plats Principaux', defaultImage: '/plat-pouletdg.jpg', tags: ['traditionnel', 'riche-en-proteines', 'halal'], description: 'Poulet braisé avec plantains frits, poivrons et sauce tomate épicée.' },
+  { id: 'dc3', name: 'Brochettes de Bœuf', category: 'Grillades', defaultImage: '/menu-brochettes-boeuf.jpg', tags: ['braise', 'riche-en-proteines', 'halal'], description: 'Brochettes marinées grillées au charbon de bois.' },
+  { id: 'dc4', name: 'Poisson Braisé', category: 'Grillades', defaultImage: '/menu-poisson-braise.jpg', tags: ['braise', 'riche-en-proteines', 'allege'], description: 'Poisson frais grillé au feu de bois, servi avec banane plantain.' },
+  { id: 'dc5', name: 'Riz Sauce Tomate', category: 'Plats Principaux', defaultImage: '/plat-rizpoisson.jpg', tags: ['allege', 'sans-cube'], description: 'Riz parfumé à la sauce tomate avec protéines au choix.' },
+  { id: 'dc6', name: 'Eru', category: 'Plats Principaux', defaultImage: '/menu-eru.jpg', tags: ['traditionnel', 'riche-en-proteines'], description: 'Plat traditionnel à base de feuilles d\'eru, waterleaf, viande et poisson fumé.' },
+  { id: 'dc7', name: 'Alloco', category: 'Accompagnements', defaultImage: '/menu-alloco-epice.jpg', tags: ['vegan', 'allege'], description: 'Bananes plantains frites croustillantes.' },
+  { id: 'dc8', name: 'Jus Gingembre', category: 'Boissons', defaultImage: '/drink-gingembre.jpg', tags: ['sans-sucre', 'detox', 'presse-du-jour'], description: 'Jus de gingembre frais pressé, naturellement sans sucre ajouté.' },
+  { id: 'dc9', name: 'Jus Bissap', category: 'Boissons', defaultImage: '/drink-bissap.jpg', tags: ['sans-alcool', 'presse-du-jour', 'sans-sucre'], description: 'Jus de feuilles d\'oseille (bissap), rafraîchissant et naturel.' },
+  { id: 'dc10', name: 'Salade Mixte', category: 'Entrées', defaultImage: '/menu-accras-poisson.jpg', tags: ['vegetarien', 'allege', 'riche-en-fibres'], description: 'Salade fraîche composée de légumes de saison.' },
+  { id: 'dc11', name: 'Beignets Haricot', category: 'Petit-Déjeuner', defaultImage: '/menu-beignets-haricot.jpg', tags: ['fait-maison', 'vegetarien'], description: 'Beignets moelleux accompagnés de haricots mijotés.' },
+  { id: 'dc12', name: 'Pizza Margherita', category: 'Pizza', defaultImage: '/cat-pizza.jpg', tags: ['vegetarien', 'fait-maison'], description: 'Pizza classique tomate, mozzarella, basilic frais.' },
+  { id: 'dc13', name: 'Koki', category: 'Plats Principaux', defaultImage: '/menu-koki.jpg', tags: ['traditionnel', 'vegetarien', 'fait-maison'], description: 'Gâteau camerounais de haricots rouges, souvent servi avec banane plantain.' },
 ];
 
 export const customerReviews: Review[] = [

@@ -28,7 +28,13 @@ export default function AdminOrders() {
     if (statusFilter !== 'all') r = r.filter((o) => o.status === statusFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
-      r = r.filter((o) => o.id.toLowerCase().includes(q) || (restaurantNameById[o.restaurantId] ?? '').toLowerCase().includes(q));
+      r = r.filter((o) =>
+        o.id.toLowerCase().includes(q) ||
+        (restaurantNameById[o.restaurantId] ?? '').toLowerCase().includes(q) ||
+        (o.recipient?.name ?? '').toLowerCase().includes(q) ||
+        (o.recipient?.phone ?? '').toLowerCase().includes(q) ||
+        (o.contactPhone ?? '').toLowerCase().includes(q)
+      );
     }
     return r;
   }, [orders, statusFilter, search, restaurantNameById]);
@@ -43,7 +49,7 @@ export default function AdminOrders() {
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="flex items-center gap-2 flex-1 bg-bg-secondary rounded-lg px-3 h-10">
             <Search className="w-4 h-4 text-text-muted shrink-0" />
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher par ID ou restaurant..." className="flex-1 bg-transparent text-text-primary text-sm outline-none placeholder:text-text-muted" />
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher par ID, restaurant ou bénéficiaire..." className="flex-1 bg-transparent text-text-primary text-sm outline-none placeholder:text-text-muted" />
           </div>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="bg-bg-secondary rounded-lg px-3 h-10 text-text-primary text-sm outline-none">
             <option value="all">Tous les statuts</option>
@@ -57,11 +63,21 @@ export default function AdminOrders() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm font-inter">
-              <thead><tr className="text-left text-text-muted text-xs"><th className="pb-2 pr-4">Commande</th><th className="pb-2 pr-4">Restaurant</th><th className="pb-2 pr-4">Statut</th><th className="pb-2 pr-4">Total</th><th className="pb-2">Date</th></tr></thead>
+              <thead><tr className="text-left text-text-muted text-xs"><th className="pb-2 pr-4">Commande</th><th className="pb-2 pr-4">Bénéficiaire</th><th className="pb-2 pr-4">Restaurant</th><th className="pb-2 pr-4">Statut</th><th className="pb-2 pr-4">Total</th><th className="pb-2">Date</th></tr></thead>
               <tbody className="divide-y divide-border-light">
                 {filtered.map((order) => (
                   <tr key={order.id}>
                     <td className="py-2 pr-4 text-text-primary">#{order.id.slice(0, 8)}</td>
+                    <td className="py-2 pr-4 text-text-secondary">
+                      {order.recipient ? (
+                        <span>
+                          {order.recipient.name || 'Bénéficiaire'}
+                          {order.recipient.phone && <span className="block text-[11px] text-text-muted">{order.recipient.phone}</span>}
+                        </span>
+                      ) : (
+                        <span className="text-text-muted">Client</span>
+                      )}
+                    </td>
                     <td className="py-2 pr-4 text-text-secondary">{restaurantNameById[order.restaurantId] ?? order.restaurantId.slice(0, 8)}</td>
                     <td className="py-2 pr-4 text-text-secondary">{statusLabels[order.status]}</td>
                     <td className="py-2 pr-4 text-text-primary font-semibold">{order.total.toLocaleString()} FCFA</td>

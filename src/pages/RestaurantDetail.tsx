@@ -14,6 +14,10 @@ import {
   ShoppingCart,
   Share2,
   Circle,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Camera,
 } from 'lucide-react';
 import {
   Dialog,
@@ -25,8 +29,22 @@ import {
 import { useCart } from '../contexts/CartContext';
 import { useRestaurant, useMenuItems, useRestaurants } from '../hooks/useCatalog';
 import { useFavorites } from '../hooks/useFavorites';
+import { fetchRestaurantReviews, type RestaurantReview } from '../lib/catalog';
 import { restaurantMenuCategories } from '../data/mockData';
 import type { MenuItem } from '../data/mockData';
+
+function timeAgoFr(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(diffMs / 86400000);
+  if (days < 1) return "aujourd'hui";
+  if (days === 1) return 'il y a 1 jour';
+  if (days < 30) return `il y a ${days} jours`;
+  const months = Math.floor(days / 30);
+  if (months === 1) return 'il y a 1 mois';
+  if (months < 12) return `il y a ${months} mois`;
+  const years = Math.floor(months / 12);
+  return years === 1 ? 'il y a 1 an' : `il y a ${years} ans`;
+}
 
 const categoryOrder = [
   'Plats Principaux',
@@ -52,6 +70,29 @@ export default function RestaurantDetail() {
   const [customizing, setCustomizing] = useState<MenuItem | null>(null);
   const [selectedVariant, setSelectedVariant] = useState(0);
   const [selectedSupplements, setSelectedSupplements] = useState<Set<number>>(new Set());
+
+  // Gallery: use explicit gallery array, or auto-generate from menu item images
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+
+  // Map image URLs to menu items for the "commander depuis la galerie" feature
+  const imageToMenuItem = useMemo(() => {
+    const map = new Map<string, MenuItem>();
+    for (const item of menuItems) {
+      if (item.image) map.set(item.image, item);
+    }
+    return map;
+  }, [menuItems]);
+
+  const galleryImages = useMemo(() => {
+    if (restaurant?.gallery?.length) return restaurant.gallery;
+    // Fallback: use menu item images (first 5 distinct ones)
+    const menuImages = [...new Set(menuItems.map(m => m.image).filter(Boolean))].slice(0, 5);
+    if (menuImages.length > 0) return menuImages;
+    // Last resort: restaurant main image
+    return restaurant?.image ? [restaurant.image] : [];
+  }, [restaurant, menuItems]);
+  const hasGallery = galleryImages.length > 0;
 
   const customPrice = customizing
     ? customizing.price + (customizing.variants?.[selectedVariant]?.price ?? 0) +
@@ -135,41 +176,25 @@ export default function RestaurantDetail() {
     return found ? found.quantity : 0;
   };
 
-  // Rating breakdown data
-  const ratingBreakdown = [
-    { stars: 5, pct: 85, count: 198 },
-    { stars: 4, pct: 10, count: 24 },
-    { stars: 3, pct: 3, count: 8 },
-    { stars: 2, pct: 1, count: 3 },
-    { stars: 1, pct: 0.5, count: 1 },
-  ];
+  // Real reviews from restaurant_reviews (fallback to empty while loading)
+  const [reviews, setReviews] = useState<RestaurantReview[]>([]);
+  useEffect(() => {
+    if (!restaurant?.id) return;
+    let cancelled = false;
+    fetchRestaurantReviews(restaurant.id).then((data) => {
+      if (!cancelled) setReviews(data);
+    });
+    return () => { cancelled = true; };
+  }, [restaurant?.id]);
 
-  const reviewCards = [
-    {
-      name: 'Amandine K.',
-      initial: 'A',
-      rating: 5,
-      date: 'il y a 2 semaines',
-      comment: 'Le ndol\u00e9 est tout simplement divin ! La sauce est onctueuse et les crevettes sont fra\u00eeches. Livraison rapide et chaude.',
-      order: 'Ndol\u00e9 avec B\u0153uf et Crevettes',
-    },
-    {
-      name: 'Fran\u00e7ois M.',
-      initial: 'F',
-      rating: 5,
-      date: 'il y a 3 semaines',
-      comment: 'Le Poulet DG est incroyable, les plantains sont parfaitement croustillants. Mon restaurant pr\u00e9f\u00e9r\u00e9 sur Yamo !',
-      order: 'Poulet DG Traditionnel',
-    },
-    {
-      name: 'Grace T.',
-      initial: 'G',
-      rating: 4,
-      date: 'il y a 1 mois',
-      comment: 'Tr\u00e8s bonnes brochettes, bien \u00e9pic\u00e9es et juteuses. Un peu d\'attente mais \u00e7a vaut le coup.',
-      order: 'Brochettes de B\u0153uf',
-    },
-  ];
+  const ratingBreakdown = useMemo(() => {
+    const counts = [5, 4, 3, 2, 1].map((stars) => ({
+      stars,
+      count: reviews.filter((r) => r.rating === stars).length,
+    }));
+    const total = reviews.length;
+    return counts.map((c) => ({ ...c, pct: total > 0 ? (c.count / total) * 100 : 0 }));
+  }, [reviews]);
 
   return (
     <div className="pt-[72px] min-h-screen bg-bg-secondary">
@@ -238,6 +263,87 @@ export default function RestaurantDetail() {
             {restaurant.description}
           </p>
         </motion.div>
+
+        {/* Gallery Section */}
+        {hasGallery && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-green-light flex items-center justify-center">
+                <Camera className="w-4 h-4 text-green-primary" />
+              </div>
+              <h2 className="font-poppins font-semibold text-text-primary text-lg">
+                Galerie photo
+              </h2>
+              <span className="text-text-muted text-xs font-inter">
+                ({galleryImages.length} photos)
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {galleryImages.map((img, idx) => {
+                const linkedItem = imageToMenuItem.get(img);
+                return (
+                  <div
+                    key={idx}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => { setGalleryIndex(idx); setGalleryOpen(true); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setGalleryIndex(idx);
+                        setGalleryOpen(true);
+                      }
+                    }}
+                    className={`relative overflow-hidden rounded-xl border border-border-custom hover:shadow-md transition-all group cursor-pointer ${idx === 0 ? 'sm:col-span-2 sm:row-span-2' : ''
+                      }`}
+                  >
+                    <img
+                      src={img}
+                      alt={linkedItem ? linkedItem.name : `${restaurant.name} - photo ${idx + 1}`}
+                      className="w-full h-full object-cover aspect-[4/3] group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent(
+                          `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="#f0fdf4" width="100%" height="100%"/><text x="50%" y="50%" fill="#166534" font-size="14" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Photo ${idx + 1}</text></svg>`
+                        )}`;
+                      }}
+                    />
+
+                    {/* Hover overlay: lightbox icon */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none">
+                      <Camera className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                    </div>
+
+                    {/* Linked menu item: name + price + quick-add button */}
+                    {linkedItem && (
+                      <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                        <p className="text-white text-xs font-inter font-semibold truncate">{linkedItem.name}</p>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-white text-xs font-inter font-bold">{linkedItem.price.toLocaleString()} FCFA</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleAdd(linkedItem); }}
+                            className="w-7 h-7 rounded-full bg-green-primary text-white flex items-center justify-center hover:bg-green-dark hover:scale-110 transition-all shadow-md"
+                            title={`Ajouter ${linkedItem.name} au panier`}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {idx >= 4 && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <span className="text-white font-inter font-semibold text-sm">
+                          +{galleryImages.length - 4}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Menu Tabs */}
         <div className="sticky top-[72px] z-30 bg-bg-secondary border-b border-border-custom mb-6 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:-mx-12 xl:px-12">
@@ -330,7 +436,7 @@ export default function RestaurantDetail() {
           {/* Cart Sidebar - Desktop */}
           <div className="hidden lg:block w-[380px] shrink-0">
             <div className="sticky top-[140px] bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-5">
-              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} onUpdate={updateQuantity} onCheckout={() => navigate('/checkout')} />
+              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} deliveryFee={restaurant.deliveryFee} onUpdate={updateQuantity} onCheckout={() => navigate('/checkout')} />
             </div>
           </div>
         </div>
@@ -391,51 +497,49 @@ export default function RestaurantDetail() {
                   <h3 className="font-poppins font-semibold text-text-primary text-lg">
                     Avis r&eacute;cents
                   </h3>
-                  <button className="flex items-center gap-1 text-text-secondary text-sm font-inter hover:text-text-primary">
-                    Plus r&eacute;cents
-                    <ChevronDown className="w-4 h-4" />
-                  </button>
                 </div>
-                <div className="space-y-0 divide-y divide-border-light">
-                  {reviewCards.map((review, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.4, delay: i * 0.1 }}
-                      className="py-4"
-                    >
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-full bg-green-primary text-white flex items-center justify-center font-inter font-semibold text-sm">
-                          {review.initial}
+                {reviews.length === 0 ? (
+                  <p className="text-text-secondary font-inter text-sm py-6 text-center">
+                    Aucun avis pour le moment. Soyez le premier &agrave; noter ce restaurant apr&egrave;s votre commande !
+                  </p>
+                ) : (
+                  <div className="space-y-0 divide-y divide-border-light">
+                    {reviews.slice(0, 10).map((review, i) => (
+                      <motion.div
+                        key={review.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.4, delay: i * 0.06 }}
+                        className="py-4"
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-10 h-10 rounded-full bg-green-primary text-white flex items-center justify-center font-inter font-semibold text-sm">
+                            <Star className="w-4 h-4 fill-white" />
+                          </div>
+                          <div>
+                            <span className="font-inter font-semibold text-text-primary text-sm">
+                              Client Yamo
+                            </span>
+                            <span className="text-text-muted text-xs font-inter ml-2">
+                              {timeAgoFr(review.createdAt)}
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <span className="font-inter font-semibold text-text-primary text-sm">
-                            {review.name}
-                          </span>
-                          <span className="text-text-muted text-xs font-inter ml-2">
-                            {review.date}
-                          </span>
+                        <div className="flex gap-0.5 mb-2">
+                          {Array.from({ length: review.rating }).map((_, j) => (
+                            <Star key={j} className="w-3 h-3 fill-gold-accent text-gold-accent" />
+                          ))}
                         </div>
-                      </div>
-                      <div className="flex gap-0.5 mb-2">
-                        {Array.from({ length: review.rating }).map((_, j) => (
-                          <Star key={j} className="w-3 h-3 fill-gold-accent text-gold-accent" />
-                        ))}
-                      </div>
-                      <p className="text-text-primary text-[15px] font-inter leading-relaxed mb-2">
-                        {review.comment}
-                      </p>
-                      <span className="inline-block bg-green-light text-green-primary text-xs font-inter font-medium px-2 py-0.5 rounded-full">
-                        {review.order}
-                      </span>
-                    </motion.div>
-                  ))}
-                </div>
-                <button className="w-full mt-4 py-3 border border-border-custom rounded-lg text-text-secondary font-inter text-sm font-medium hover:bg-bg-secondary transition-colors">
-                  Voir plus d&apos;avis
-                </button>
+                        {review.comment && (
+                          <p className="text-text-primary text-[15px] font-inter leading-relaxed">
+                            {review.comment}
+                          </p>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -525,7 +629,7 @@ export default function RestaurantDetail() {
                   <ChevronDown className="w-6 h-6 text-text-secondary" />
                 </button>
               </div>
-              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} onUpdate={updateQuantity} onCheckout={() => navigate('/checkout')} />
+              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} deliveryFee={restaurant.deliveryFee} onUpdate={updateQuantity} onCheckout={() => navigate('/checkout')} />
             </motion.div>
           </>
         )}
@@ -599,6 +703,67 @@ export default function RestaurantDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Gallery Lightbox */}
+      {galleryOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          onClick={() => setGalleryOpen(false)}
+        >
+          <button
+            onClick={() => setGalleryOpen(false)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          {galleryImages.length > 1 && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); setGalleryIndex((galleryIndex - 1 + galleryImages.length) % galleryImages.length); }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setGalleryIndex((galleryIndex + 1) % galleryImages.length); }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </>
+          )}
+
+          <img
+            src={galleryImages[galleryIndex]}
+            alt={`${restaurant.name} - photo ${galleryIndex + 1}`}
+            className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent(
+                `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect fill="#1a1a1a" width="100%" height="100%"/><text x="50%" y="50%" fill="#fff" font-size="20" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Photo ${galleryIndex + 1}</text></svg>`
+              )}`;
+            }}
+          />
+
+          {/* Counter + thumbnails */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2">
+            <span className="text-white/80 text-sm font-inter">
+              {galleryIndex + 1} / {galleryImages.length}
+            </span>
+            <div className="flex gap-1.5">
+              {galleryImages.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={(e) => { e.stopPropagation(); setGalleryIndex(i); }}
+                  className={`w-2 h-2 rounded-full transition-all ${i === galleryIndex ? 'bg-white scale-125' : 'bg-white/40 hover:bg-white/60'}`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -676,11 +841,12 @@ function MenuRow({
 
 /* Cart Content Component */
 function CartContent({
-  items, totalItems, totalPrice, onUpdate, onCheckout,
+  items, totalItems, totalPrice, deliveryFee, onUpdate, onCheckout,
 }: {
   items: { item: MenuItem; quantity: number }[];
   totalItems: number;
   totalPrice: number;
+  deliveryFee: number;
   onUpdate: (id: string, qty: number) => void;
   onCheckout: () => void;
 }) {
@@ -742,11 +908,13 @@ function CartContent({
         </div>
         <div className="flex justify-between text-sm font-inter">
           <span className="text-text-secondary">Livraison</span>
-          <span className="text-success font-medium">Gratuit</span>
+          <span className={deliveryFee === 0 ? 'text-success font-medium' : 'text-text-primary font-medium'}>
+            {deliveryFee === 0 ? 'Gratuit' : `${deliveryFee.toLocaleString()} FCFA`}
+          </span>
         </div>
         <div className="border-t border-border-light pt-2 flex justify-between font-inter">
           <span className="text-text-primary font-bold text-lg">Total</span>
-          <span className="text-text-primary font-bold text-lg">{totalPrice.toLocaleString()} FCFA</span>
+          <span className="text-text-primary font-bold text-lg">{(totalPrice + deliveryFee).toLocaleString()} FCFA</span>
         </div>
       </div>
       <button

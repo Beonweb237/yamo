@@ -39,6 +39,7 @@ interface AuthContextType {
   signUp: (params: SignUpParams) => Promise<AuthUser>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  updateProfileName: (name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -355,9 +356,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [loadSupabaseSession]);
 
+  // Persists the display name to profiles.full_name (Supabase) so it
+  // survives beyond the current browser (Profile.tsx previously only wrote
+  // it to localStorage, silently losing it on another device/session).
+  // In mock mode, localStorage (see Profile.tsx) remains the source of truth.
+  const updateProfileName = useCallback(async (name: string) => {
+    if (!user || !isSupabaseConfigured || !supabase) return;
+    const { error } = await supabase.from('profiles').update({ full_name: name }).eq('id', user.id);
+    if (error) throw error;
+  }, [user]);
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, isSupabaseConfigured, sendOtp, verifyOtp, signInWithPassword, signUp, signOut, refreshUser }}
+      value={{ user, loading, isSupabaseConfigured, sendOtp, verifyOtp, signInWithPassword, signUp, signOut, refreshUser, updateProfileName }}
     >
       {children}
     </AuthContext.Provider>

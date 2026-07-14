@@ -82,39 +82,51 @@ export default function AdminApplications() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-poppins font-bold text-text-primary text-2xl flex items-center gap-2">
-          <UserCheck className="w-6 h-6 text-green-primary" />Candidatures
-        </h1>
-        <button onClick={load} className="flex items-center gap-1.5 text-text-secondary text-sm font-inter hover:text-text-primary">
-          <RefreshCw className="w-4 h-4" />Actualiser
-        </button>
+      {/* Hero Header */}
+      <div className="relative bg-white rounded-2xl border border-border-custom shadow-sm overflow-hidden mb-6">
+        <div className="h-16 bg-gradient-to-r from-green-primary via-green-500 to-emerald-400" />
+        <div className="px-5 sm:px-6 pb-5 -mt-6">
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <div className="flex items-end gap-3">
+              <div className="w-14 h-14 rounded-xl bg-white border-4 border-white shadow-md flex items-center justify-center">
+                <UserCheck className="w-7 h-7 text-green-primary" />
+              </div>
+              <div className="pb-1">
+                <h1 className="font-poppins font-bold text-text-primary text-xl sm:text-2xl">Candidatures</h1>
+                <p className="text-text-muted text-xs font-inter">{applications.length} candidature{applications.length !== 1 ? 's' : ''} au total</p>
+              </div>
+            </div>
+            <button onClick={load} className="flex items-center gap-1.5 text-text-secondary text-sm font-inter hover:text-text-primary bg-white rounded-lg px-3 py-2 border border-border-custom mb-1">
+              <RefreshCw className="w-4 h-4" />Actualiser
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-border-custom p-5 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gold-light flex items-center justify-center shrink-0"><Clock className="w-5 h-5 text-gold-accent" /></div>
+        <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 flex items-center gap-3 hover:shadow-md transition-shadow">
+          <div className="w-10 h-10 rounded-lg bg-gold-light flex items-center justify-center shrink-0"><Clock className="w-5 h-5 text-gold-accent" /></div>
           <div><p className="text-text-muted text-xs font-inter">En attente</p><p className="font-poppins font-bold text-text-primary text-xl">{byStatus.pending.length}</p></div>
         </div>
-        <div className="bg-white rounded-xl border border-border-custom p-5 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-green-light flex items-center justify-center shrink-0"><ThumbsUp className="w-5 h-5 text-green-primary" /></div>
+        <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 flex items-center gap-3 hover:shadow-md transition-shadow">
+          <div className="w-10 h-10 rounded-lg bg-green-light flex items-center justify-center shrink-0"><ThumbsUp className="w-5 h-5 text-green-primary" /></div>
           <div><p className="text-text-muted text-xs font-inter">Approuvées</p><p className="font-poppins font-bold text-text-primary text-xl">{byStatus.approved.length}</p></div>
         </div>
-        <div className="bg-white rounded-xl border border-border-custom p-5 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center shrink-0"><ThumbsDown className="w-5 h-5 text-error" /></div>
+        <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 flex items-center gap-3 hover:shadow-md transition-shadow">
+          <div className="w-10 h-10 rounded-lg bg-error/10 flex items-center justify-center shrink-0"><ThumbsDown className="w-5 h-5 text-error" /></div>
           <div><p className="text-text-muted text-xs font-inter">Rejetées</p><p className="font-poppins font-bold text-text-primary text-xl">{byStatus.rejected.length}</p></div>
         </div>
       </div>
 
       {/* Tabs + search */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-        <div className="flex gap-1 bg-white rounded-lg border border-border-custom p-1 w-fit">
+        <div className="flex gap-1 bg-white rounded-xl border border-border-custom p-1 w-fit shadow-sm">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-sm font-inter font-medium transition-colors ${tab === t.id ? 'bg-green-primary text-white' : 'text-text-secondary hover:text-text-primary'
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-inter font-medium transition-colors ${tab === t.id ? 'bg-green-primary text-white' : 'text-text-secondary hover:text-text-primary'
                 }`}
             >
               <t.icon className="w-4 h-4" />{t.label}
@@ -122,7 +134,7 @@ export default function AdminApplications() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2 bg-white rounded-lg border border-border-custom px-3 h-11 flex-1 sm:max-w-xs">
+        <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-3 h-11 flex-1 sm:max-w-xs shadow-sm">
           <Search className="w-4 h-4 text-text-muted shrink-0" />
           <input
             type="text"
@@ -135,150 +147,170 @@ export default function AdminApplications() {
       </div>
 
       {/* List */}
-      <div className="bg-white rounded-xl border border-border-custom overflow-hidden">
-        {loading ? (
-          <p className="p-8 text-text-secondary text-sm text-center">Chargement...</p>
-        ) : visible.length === 0 ? (
-          <div className="p-10 text-center">
-            <UserCheck className="w-10 h-10 text-text-muted mx-auto mb-2" />
-            <p className="text-text-secondary font-inter text-sm">
-              {query ? 'Aucune candidature ne correspond à cette recherche.' : `Aucune candidature ${tab === 'pending' ? 'en attente' : tab === 'approved' ? 'approuvée' : 'rejetée'}.`}
-            </p>
+      {loading ? (
+        <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-8 text-center">
+          <p className="text-text-secondary text-sm">Chargement...</p>
+        </div>
+      ) : visible.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-10 text-center">
+          <div className="w-14 h-14 rounded-full bg-bg-secondary flex items-center justify-center mx-auto mb-3">
+            <UserCheck className="w-7 h-7 text-text-muted" />
           </div>
-        ) : (
-          <div className="divide-y divide-border-light">
-            {visible.map((app) => {
-              const cfg = typeConfig[app.type];
-              const Icon = cfg.icon;
-              const docsExpanded = expandedDocs[app.id] ?? false;
+          <p className="text-text-secondary font-inter text-sm">
+            {query ? 'Aucune candidature ne correspond à cette recherche.' : `Aucune candidature ${tab === 'pending' ? 'en attente' : tab === 'approved' ? 'approuvée' : 'rejetée'}.`}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {visible.map((app) => {
+            const cfg = typeConfig[app.type];
+            const Icon = cfg.icon;
+            const docsExpanded = expandedDocs[app.id] ?? false;
 
-              // Collect document fields for preview
-              const docFields: { label: string; value: string | undefined }[] = [
-                { label: "Pièce d'identité", value: app.idDocument },
-                { label: 'Photo de profil', value: app.profilePhoto },
-                ...(app.type === 'restaurant'
-                  ? [{ label: 'Registre de commerce', value: app.businessReg }, { label: 'Photo du restaurant', value: app.restaurantPhoto }]
-                  : [
-                    { label: 'Permis de conduire', value: app.licenseDocument },
-                    { label: 'Attestation assurance', value: app.insuranceDocument },
-                    { label: 'Photo du véhicule', value: app.vehiclePhoto },
-                  ]),
-              ].filter((f) => f.value && f.value.startsWith('data:'));
+            const docFields: { label: string; value: string | undefined }[] = [
+              { label: "Pièce d'identité", value: app.idDocument },
+              { label: 'Photo de profil', value: app.profilePhoto },
+              ...(app.type === 'restaurant'
+                ? [{ label: 'Registre de commerce', value: app.businessReg }, { label: 'Photo du restaurant', value: app.restaurantPhoto }]
+                : [
+                  { label: 'Permis de conduire', value: app.licenseDocument },
+                  { label: 'Attestation assurance', value: app.insuranceDocument },
+                  { label: 'Photo du véhicule', value: app.vehiclePhoto },
+                ]),
+            ].filter((f) => f.value);
 
-              return (
-                <div key={app.id} className="p-4 sm:p-5 flex flex-col sm:flex-row gap-4">
-                  <div className="w-11 h-11 rounded-full bg-bg-secondary flex items-center justify-center shrink-0">
+            return (
+              <div
+                key={app.id}
+                className="bg-white rounded-2xl border border-border-custom shadow-sm hover:shadow-md transition-shadow p-4 sm:p-5 flex flex-col sm:flex-row gap-4"
+              >
+                {app.profilePhoto ? (
+                  <img
+                    src={app.profilePhoto}
+                    alt=""
+                    className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm shrink-0"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-bg-secondary flex items-center justify-center shrink-0">
                     <Icon className="w-5 h-5 text-text-secondary" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <p className="font-inter font-semibold text-text-primary text-sm">
-                        {app.type === 'restaurant' ? app.restaurantName || 'Restaurant sans nom' : 'Candidature livreur'}
-                      </p>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cfg.badge}`}>{cfg.label}</span>
-                      {tab !== 'pending' && (
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${app.status === 'approved' ? 'bg-green-light text-green-primary' : 'bg-error/10 text-error'
-                          }`}>
-                          {app.status === 'approved' ? 'Approuvée' : 'Rejetée'}
-                        </span>
-                      )}
-                      <span className="text-text-muted text-xs font-inter ml-auto">{timeAgo(app.createdAt)}</span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-text-muted text-xs font-inter mb-1.5">
-                      <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{[app.address, app.city].filter(Boolean).join(', ') || 'Non renseigné'}</span>
-                      <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{app.contactPhone || 'Non renseigné'}</span>
-                    </div>
-                    {app.notes && <p className="text-text-secondary text-xs font-inter italic mb-2">"{app.notes}"</p>}
-
-                    {/* Rejection reason */}
-                    {app.status === 'rejected' && app.rejectionReason && (
-                      <p className="bg-error/5 text-error font-inter text-xs rounded-lg px-3 py-2 mb-2">
-                        Motif de rejet : {app.rejectionReason}
-                      </p>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <p className="font-inter font-semibold text-text-primary text-sm">
+                      {app.type === 'restaurant' ? app.restaurantName || 'Restaurant sans nom' : 'Candidature livreur'}
+                    </p>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cfg.badge}`}>{cfg.label}</span>
+                    {tab !== 'pending' && (
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${app.status === 'approved' ? 'bg-green-light text-green-primary' : 'bg-error/10 text-error'
+                        }`}>
+                        {app.status === 'approved' ? 'Approuvée' : 'Rejetée'}
+                      </span>
                     )}
-
-                    {/* Document preview toggle */}
-                    {docFields.length > 0 && (
-                      <div className="mb-2">
-                        <button
-                          onClick={() => setExpandedDocs((p) => ({ ...p, [app.id]: !docsExpanded }))}
-                          className="flex items-center gap-1.5 text-text-secondary text-xs font-inter hover:text-text-primary"
-                        >
-                          {docsExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                          <Image className="w-3.5 h-3.5" />
-                          {docFields.length} document{docFields.length > 1 ? 's' : ''}
-                        </button>
-                        {docsExpanded && (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {docFields.map((doc) => (
-                              <a
-                                key={doc.label}
-                                href={doc.value}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block"
-                                title={doc.label}
-                              >
-                                <img
-                                  src={doc.value}
-                                  alt={doc.label}
-                                  className="h-20 rounded-lg border border-border-custom object-cover hover:ring-2 hover:ring-green-primary/30 transition-shadow"
-                                />
-                                <span className="text-text-muted text-[10px] font-inter block mt-0.5 truncate max-w-[80px]">{doc.label}</span>
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {tab === 'pending' && (
-                      <>
-                        {app.type === 'restaurant' && (
-                          <div className="mb-3 mt-2">
-                            <label className="block text-text-muted text-xs mb-1">Lier à un restaurant existant (optionnel)</label>
-                            <select
-                              value={selectedRestaurantByApp[app.id] ?? ''}
-                              onChange={(e) => setSelectedRestaurantByApp((p) => ({ ...p, [app.id]: e.target.value }))}
-                              className="w-full sm:w-80 bg-bg-secondary rounded-lg px-3 h-10 text-text-primary text-sm outline-none"
-                            >
-                              <option value="">Créer un nouveau restaurant</option>
-                              {restaurants.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                            </select>
-                          </div>
-                        )}
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleApprove(app)}
-                            disabled={reviewingId === app.id}
-                            className="flex items-center gap-1.5 bg-green-primary text-white font-medium text-sm px-4 h-9 rounded-lg hover:bg-green-dark disabled:opacity-60"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            {app.type === 'restaurant' && !selectedRestaurantByApp[app.id] ? 'Approuver + créer' : 'Approuver'}
-                          </button>
-                          <button
-                            onClick={() => { setRejectTarget(app); setRejectReason(''); }}
-                            disabled={reviewingId === app.id}
-                            className="flex items-center gap-1.5 border border-error text-error font-medium text-sm px-4 h-9 rounded-lg hover:bg-error/5 disabled:opacity-60"
-                          >
-                            <X className="w-3.5 h-3.5" />Rejeter
-                          </button>
-                        </div>
-                      </>
-                    )}
+                    <span className="text-text-muted text-xs font-inter ml-auto">{timeAgo(app.createdAt)}</span>
                   </div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-text-muted text-xs font-inter mb-1.5">
+                    <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{[app.address, app.city].filter(Boolean).join(', ') || 'Non renseigné'}</span>
+                    <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{app.contactPhone || 'Non renseigné'}</span>
+                  </div>
+                  {app.notes && <p className="text-text-secondary text-xs font-inter italic mb-2">"{app.notes}"</p>}
+
+                  {app.status === 'rejected' && app.rejectionReason && (
+                    <p className="bg-error/5 text-error font-inter text-xs rounded-lg px-3 py-2 mb-2">
+                      Motif de rejet : {app.rejectionReason}
+                    </p>
+                  )}
+
+                  {docFields.length > 0 ? (
+                    <div className="mb-3">
+                      <button
+                        onClick={() => setExpandedDocs((p) => ({ ...p, [app.id]: !docsExpanded }))}
+                        className="flex items-center gap-1.5 text-text-secondary text-xs font-inter font-medium hover:text-text-primary"
+                      >
+                        {docsExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        <Image className="w-3.5 h-3.5" />
+                        {docFields.length} document{docFields.length > 1 ? 's' : ''}
+                      </button>
+                      {docsExpanded && (
+                        <div className="mt-3 flex flex-wrap gap-3">
+                          {docFields.map((doc) => (
+                            <a
+                              key={doc.label}
+                              href={doc.value}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="group block"
+                              title={doc.label}
+                            >
+                              <img
+                                src={doc.value}
+                                alt={doc.label}
+                                className="w-24 h-24 rounded-xl border border-border-custom object-cover shadow-sm group-hover:shadow-md group-hover:ring-2 group-hover:ring-green-primary/30 transition-all"
+                              />
+                              <span className="text-text-muted text-[10px] font-inter block mt-1 truncate max-w-[96px]">{doc.label}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-text-muted text-xs font-inter italic mb-2">Aucun document fourni</p>
+                  )}
+
+                  {tab === 'pending' && (
+                    <>
+                      {app.type === 'restaurant' && (
+                        <div className="mb-3 mt-2">
+                          <label className="block text-text-muted text-xs mb-1">Lier à un restaurant existant (optionnel)</label>
+                          <select
+                            value={selectedRestaurantByApp[app.id] ?? ''}
+                            onChange={(e) => setSelectedRestaurantByApp((p) => ({ ...p, [app.id]: e.target.value }))}
+                            className="w-full sm:w-80 bg-bg-secondary rounded-lg px-3 h-10 text-text-primary text-sm outline-none"
+                          >
+                            <option value="">Créer un nouveau restaurant</option>
+                            {restaurants.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApprove(app)}
+                          disabled={reviewingId === app.id}
+                          className="flex items-center gap-1.5 bg-green-primary text-white font-medium text-sm px-4 h-9 rounded-lg hover:bg-green-dark hover:shadow-md transition-all disabled:opacity-60"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          {app.type === 'restaurant' && !selectedRestaurantByApp[app.id] ? 'Approuver + créer' : 'Approuver'}
+                        </button>
+                        <button
+                          onClick={() => { setRejectTarget(app); setRejectReason(''); }}
+                          disabled={reviewingId === app.id}
+                          className="flex items-center gap-1.5 border border-error text-error font-medium text-sm px-4 h-9 rounded-lg hover:bg-error/5 transition-colors disabled:opacity-60"
+                        >
+                          <X className="w-3.5 h-3.5" />Rejeter
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Rejection reason dialog */}
       {rejectTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setRejectTarget(null)}>
-          <div className="bg-white rounded-xl border border-border-custom shadow-lg p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-poppins font-semibold text-text-primary text-lg mb-1">Motif de rejet</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setRejectTarget(null)}>
+          <div
+            className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center shrink-0">
+                <X className="w-5 h-5 text-error" />
+              </div>
+              <h3 className="font-poppins font-bold text-text-primary text-lg">Motif de rejet</h3>
+            </div>
             <p className="text-text-secondary text-sm font-inter mb-4">
               Expliquez pourquoi cette candidature est rejetée (optionnel).
             </p>
@@ -292,14 +324,14 @@ export default function AdminApplications() {
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setRejectTarget(null)}
-                className="px-4 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-sm hover:bg-bg-secondary"
+                className="px-4 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors"
               >
                 Annuler
               </button>
               <button
                 onClick={() => handleReject(rejectTarget)}
                 disabled={reviewingId === rejectTarget.id}
-                className="px-4 h-10 rounded-lg bg-error text-white font-inter text-sm font-medium hover:bg-error/90 disabled:opacity-60"
+                className="px-4 h-10 rounded-lg bg-error text-white font-inter text-sm font-medium hover:bg-error/90 transition-colors disabled:opacity-60"
               >
                 {reviewingId === rejectTarget.id ? 'Rejet...' : 'Confirmer le rejet'}
               </button>

@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 
 const navLinks = [
   { name: 'Accueil', path: '/' },
+  { name: 'Explorer', path: '/explorer' },
   { name: 'Restaurants', path: '/restaurants' },
   { name: 'Partenaires', path: '/partenaires' },
   { name: 'Livreurs', path: '/livreurs' },
@@ -106,8 +107,8 @@ export default function Navbar() {
               <Link
                 to="/inscription"
                 className={`hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium font-inter transition-all ${isSolid
-                    ? 'bg-green-primary text-white hover:bg-green-dark'
-                    : 'bg-white text-green-primary hover:bg-green-light'
+                  ? 'bg-green-primary text-white hover:bg-green-dark'
+                  : 'bg-white text-green-primary hover:bg-green-light'
                   }`}
               >
                 S'inscrire

@@ -2,7 +2,7 @@ import { type ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import {
   Bike, Home, LayoutDashboard, LogOut, ShoppingBag, Store, Menu, X,
-  Package, Utensils, User, Wallet, AlertTriangle, UserCheck, UserCircle, ChevronDown,
+  Package, Utensils, User, Wallet, AlertTriangle, UserCheck, UserCircle, ChevronDown, ChefHat,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -19,6 +19,7 @@ const adminSidebar: SidebarLink[] = [
   { name: 'Restaurants', path: '/admin/restaurants', icon: Store },
   { name: 'Livreurs', path: '/admin/drivers', icon: Bike },
   { name: 'Litiges', path: '/admin/disputes', icon: AlertTriangle },
+  { name: 'Catalogue plats', path: '/admin/dishes', icon: ChefHat },
 ];
 
 const restaurantSidebar: SidebarLink[] = [

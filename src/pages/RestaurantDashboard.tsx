@@ -3,7 +3,7 @@ import {
   Store, Clock, RefreshCw, Trash2, Plus, Upload, X, Volume2, VolumeX,
   Search, ImageOff, Pencil, TrendingUp,
   PackageCheck, AlertCircle, DollarSign, ChefHat, Star, ShoppingBag, Flame, ArrowDown, Eye, EyeOff, LayoutGrid, List, SlidersHorizontal, ArrowUpDown,
-  XCircle, Users, UserPlus
+  XCircle, Users, UserPlus, Phone
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { formatDistanceToNow } from 'date-fns';
@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchRestaurantsByOwner, createMenuItem, deleteMenuItem, fetchMenuItems, updateMenuItem, updateRestaurantProfile } from '../lib/catalog';
 import { useRestaurants } from '../hooks/useCatalog';
-import { restaurantMenuCategories } from '../data/mockData';
+import { restaurantMenuCategories, dishCatalog } from '../data/mockData';
 import type { MenuItem, Restaurant } from '../data/mockData';
 import { confirmOrderWithPreparation, fetchOrdersByRestaurant, getOrderPreparationMessage, updateOrderStatus, type Order, type OrderStatus } from '../lib/orders';
 import { Skeleton } from '../components/ui/skeleton';
@@ -73,27 +73,10 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
   const [prepTimes, setPrepTimes] = useState<Record<string, number>>({});
   const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('yamo_resto_sound') !== 'false');
-  const prevOrderCount = useRef(0);
 
   useEffect(() => {
     localStorage.setItem('yamo_resto_sound', String(soundEnabled));
   }, [soundEnabled]);
-
-  useEffect(() => {
-    if (orders.length > prevOrderCount.current && prevOrderCount.current > 0 && soundEnabled) {
-      // Web Audio API beep
-      try {
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.frequency.value = 880; osc.type = 'sine';
-        gain.gain.value = 0.15;
-        osc.start(); osc.stop(ctx.currentTime + 0.15);
-      } catch { /* audio not available */ }
-    }
-    prevOrderCount.current = orders.length;
-  }, [orders.length, soundEnabled]);
 
   const activeRestaurant = restaurants.find(r => r.id === restaurantId);
 
@@ -131,6 +114,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
   const knownOrderIdsRef = useRef<Set<string> | null>(null);
 
   const playNewOrderSound = useCallback(() => {
+    if (!soundEnabled) return;
     try {
       const AudioCtx = window.AudioContext
         ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -152,7 +136,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
     } catch {
       // Audio bloqué par le navigateur : le toast reste visible
     }
-  }, []);
+  }, [soundEnabled]);
 
   const loadOrders = useCallback(async () => {
     if (!restaurantId) return;
@@ -403,10 +387,32 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                               📍 {order.address.fullText}
                             </p>
                           )}
+                          {order.recipient && (
+                            <div className="rounded-lg bg-green-light/60 px-3 py-2 mb-2 text-xs font-inter text-text-secondary">
+                              <p className="flex items-center gap-1 font-semibold text-text-primary">
+                                <Users className="w-3.5 h-3.5 text-green-primary" />
+                                Pour {order.recipient.name || 'bénéficiaire'}{order.recipient.phone ? ` · ${order.recipient.phone}` : ''}
+                              </p>
+                              {order.recipient.contactInstructions && (
+                                <p className="mt-1 text-text-muted">{order.recipient.contactInstructions}</p>
+                              )}
+                            </div>
+                          )}
                           {order.notes && (
                             <p className="text-text-muted text-xs font-inter mb-1">
                               📝 {order.notes}
                             </p>
+                          )}
+                          {/* Contact client limité aux commandes actives — masqué une fois
+                              livrée/annulée pour éviter un accès permanent au numéro. */}
+                          {!isFinal && order.contactPhone && (
+                            <a
+                              href={`tel:${order.contactPhone}`}
+                              className="inline-flex items-center gap-1.5 text-green-primary text-xs font-inter font-medium mb-1 hover:underline"
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                              Appeler le client · {order.contactPhone}
+                            </a>
                           )}
                           {prepMessage && (
                             <p className="flex items-center gap-1 text-text-secondary text-xs font-inter mb-2">
@@ -525,7 +531,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                 }}
               />
             ) : tab === 'finances' ? (
-              <FinancesTab orders={orders} />
+              <FinancesTab orders={orders} commissionRate={activeRestaurant?.commissionRate ?? 0.15} />
             ) : null}
           </>
         )}
@@ -533,6 +539,15 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
     </div>
   );
 }
+
+export const ALL_DIETARY_TAGS = [
+  'sans-sucre', 'diabetique', 'pauvre-en-sel', 'riche-en-fibres',
+  'keto', 'low-carb', 'sans-gluten', 'sans-lactose',
+  'vegetarien', 'vegan', 'halal', 'bio',
+  'riche-en-proteines', 'allege', 'energetique', 'fait-maison',
+  'epice', 'braise', 'traditionnel', 'sans-cube',
+  'cocktail', 'detox', 'sans-alcool', 'presse-du-jour',
+];
 
 function MenuTab({
   restaurantId,
@@ -567,6 +582,8 @@ function MenuTab({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formIsPopular, setFormIsPopular] = useState(false);
   const [formIsAvailable, setFormIsAvailable] = useState(true);
+  const [formDietaryTags, setFormDietaryTags] = useState<string[]>([]);
+  const [formCatalogDishId, setFormCatalogDishId] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -654,6 +671,8 @@ function MenuTab({
     setCategory(presetCategory ?? activeCategory !== 'Tous' ? activeCategory : menuCategories[0]);
     setFormIsPopular(false);
     setFormIsAvailable(true);
+    setFormDietaryTags([]);
+    setFormCatalogDishId('');
     setEditingId(null);
   };
 
@@ -693,6 +712,8 @@ function MenuTab({
         image: image || undefined,
         isPopular: formIsPopular,
         isAvailable: formIsAvailable,
+        dietaryTags: formDietaryTags.length > 0 ? formDietaryTags : undefined,
+        catalogDishId: formCatalogDishId || undefined,
       };
       if (editingId) await updateMenuItem(editingId, payload);
       else await createMenuItem({ restaurantId, ...payload });
@@ -713,6 +734,8 @@ function MenuTab({
     setImagePreview(item.image || null);
     setFormIsPopular(item.isPopular);
     setFormIsAvailable(isItemAvailable(item));
+    setFormDietaryTags(item.dietaryTags ?? []);
+    setFormCatalogDishId(item.catalogDishId ?? '');
     setEditingId(item.id);
     setShowForm(true);
   };
@@ -1073,6 +1096,42 @@ function MenuTab({
                 )}
               </div>
 
+              {/* Catalogue des plats — sélectionner un plat type */}
+              <div>
+                <label className="block text-text-secondary font-inter text-sm mb-1.5">
+                  Plat type (catalogue)
+                </label>
+                <select
+                  value={formCatalogDishId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setFormCatalogDishId(id);
+                    if (id) {
+                      const entry = dishCatalog.find(d => d.id === id);
+                      if (entry) {
+                        if (!name) setName(entry.name);
+                        setCategory(entry.category);
+                        setFormDietaryTags(entry.tags);
+                        if (!image) setImage(entry.defaultImage);
+                      }
+                    }
+                  }}
+                  className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none"
+                >
+                  <option value="">Nouveau plat (soumettre pour validation)</option>
+                  {dishCatalog.map(entry => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.name} ({entry.category})
+                    </option>
+                  ))}
+                </select>
+                {!formCatalogDishId && (
+                  <p className="text-gold-accent text-[11px] font-inter mt-1">
+                    Ce plat sera soumis à validation par l'admin avant d'apparaître dans la recherche globale.
+                  </p>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input
                   type="text"
@@ -1110,6 +1169,35 @@ function MenuTab({
                   <span className="font-inter text-sm text-text-primary">Populaire</span>
                   <input type="checkbox" checked={formIsPopular} onChange={(e) => setFormIsPopular(e.target.checked)} className="w-4 h-4 accent-green-primary" />
                 </label>
+              </div>
+
+              {/* Dietary tags */}
+              <div>
+                <label className="block text-text-secondary font-inter text-sm mb-1.5">
+                  Tags dietetiques
+                </label>
+                <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto">
+                  {ALL_DIETARY_TAGS.map(tag => {
+                    const active = formDietaryTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => setFormDietaryTags(prev =>
+                          prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+                        )}
+                        className={`shrink-0 h-8 px-2.5 rounded-full text-[11px] font-inter font-semibold border transition-colors ${active ? 'bg-green-primary text-white border-green-primary' : 'bg-white border-border-custom text-text-secondary hover:text-text-primary'}`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+                {formDietaryTags.length > 0 && (
+                  <button type="button" onClick={() => setFormDietaryTags([])} className="text-text-muted text-[11px] font-inter mt-1 hover:text-text-primary">
+                    Effacer la selection
+                  </button>
+                )}
               </div>
 
               <textarea
@@ -1229,7 +1317,7 @@ function ProfileTab({
   );
 }
 
-function FinancesTab({ orders }: { orders: Order[] }) {
+function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRate: number }) {
   const [period, setPeriod] = useState<'week' | 'month' | 'all'>('week');
   const now = Date.now();
   const periodStart =
@@ -1241,7 +1329,7 @@ function FinancesTab({ orders }: { orders: Order[] }) {
     [orders, periodStart]
   );
   const totalRevenue = periodOrders.reduce((sum, o) => sum + o.subtotal, 0);
-  const yamoCommissionRate = 0.15;
+  const yamoCommissionRate = commissionRate;
   const commission = totalRevenue * yamoCommissionRate;
   const netRevenue = totalRevenue - commission;
   const avgBasket = periodOrders.length ? totalRevenue / periodOrders.length : 0;
@@ -1336,7 +1424,7 @@ function FinancesTab({ orders }: { orders: Order[] }) {
           <div className="w-9 h-9 rounded-lg bg-error/10 flex items-center justify-center mx-auto mb-3">
             <TrendingUp className="w-4 h-4 text-error" />
           </div>
-          <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">Commission Yamo (15%)</p>
+          <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">Commission Yamo ({Math.round(yamoCommissionRate * 100)}%)</p>
           <p className="font-poppins font-bold text-2xl text-error">-{commission.toLocaleString()} FCFA</p>
         </div>
         <div className="bg-white rounded-2xl border border-green-primary/20 shadow-sm p-5 text-center hover:shadow-md transition-shadow bg-green-50/30">

@@ -14,6 +14,8 @@ import Checkout from './pages/Checkout'
 import Orders from './pages/Orders'
 import Profile from './pages/Profile'
 import Candidature from './pages/Candidature'
+import ExplorerMet from './pages/ExplorerMet'
+import DishDetail from './pages/DishDetail'
 import RestaurantDashboard from './pages/RestaurantDashboard'
 import DriverDashboard from './pages/DriverDashboard'
 import RoleGate from './components/RoleGate'
@@ -23,6 +25,7 @@ import AdminOrders from './pages/admin/AdminOrders'
 import AdminRestaurants from './pages/admin/AdminRestaurants'
 import AdminDrivers from './pages/admin/AdminDrivers'
 import AdminDisputes from './pages/admin/AdminDisputes'
+import AdminDishCatalog from './pages/admin/AdminDishCatalog'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -42,6 +45,8 @@ export default function App() {
         <Route path="/commandes" element={<Layout><Orders /></Layout>} />
         <Route path="/profil" element={<Layout><Profile /></Layout>} />
         <Route path="/candidature" element={<Layout><Candidature /></Layout>} />
+        <Route path="/explorer" element={<Layout><ExplorerMet /></Layout>} />
+        <Route path="/plat/:slug" element={<Layout><DishDetail /></Layout>} />
 
         {/* Restaurant dashboard (sidebar + nested pages) */}
         <Route
@@ -87,6 +92,7 @@ export default function App() {
           <Route path="restaurants" element={<AdminRestaurants />} />
           <Route path="drivers" element={<AdminDrivers />} />
           <Route path="disputes" element={<AdminDisputes />} />
+          <Route path="dishes" element={<AdminDishCatalog />} />
         </Route>
 
         <Route path="*" element={<Layout><NotFound /></Layout>} />

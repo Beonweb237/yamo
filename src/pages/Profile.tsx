@@ -34,7 +34,7 @@ function writeAddresses(addrs: SavedAddress[]) {
 }
 
 export default function Profile() {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut, updateProfileName } = useAuth();
   const navigate = useNavigate();
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -52,6 +52,7 @@ export default function Profile() {
 
   // C2: geolocation
   const [geoLoading, setGeoLoading] = useState(false);
+  const [geoCoords, setGeoCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   // S5: historique de dépenses + plats/restaurants favoris
   const [myOrders, setMyOrders] = useState<Order[]>([]);
@@ -99,10 +100,20 @@ export default function Profile() {
     reader.readAsDataURL(file);
   };
 
-  const saveProfile = () => {
-    localStorage.setItem(PROFILE_NAME_KEY, profileName);
-    localStorage.setItem(PROFILE_LANG_KEY, profileLang);
-    toast.success('Profil mis à jour');
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const saveProfile = async () => {
+    setSavingProfile(true);
+    try {
+      localStorage.setItem(PROFILE_NAME_KEY, profileName);
+      localStorage.setItem(PROFILE_LANG_KEY, profileLang);
+      if (profileName.trim()) await updateProfileName(profileName.trim());
+      toast.success('Profil mis à jour');
+    } catch {
+      toast.error('Le nom a été enregistré localement, mais pas synchronisé au serveur.');
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const handleGeolocate = () => {
@@ -113,7 +124,11 @@ export default function Profile() {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      () => { setGeoLoading(false); toast.success('Position détectée — ajoutée à l\'adresse'); },
+      (position) => {
+        setGeoCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setGeoLoading(false);
+        toast.success('Position détectée — sera enregistrée avec l\'adresse');
+      },
       () => { toast.error('Géolocalisation refusée'); setGeoLoading(false); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -136,10 +151,15 @@ export default function Profile() {
     let updated: SavedAddress[];
     if (editingId) {
       updated = addresses.map((a) =>
-        a.id === editingId ? { ...a, label, city, neighborhood, landmark, fullText } : a
+        a.id === editingId
+          ? { ...a, label, city, neighborhood, landmark, fullText, lat: geoCoords?.lat ?? a.lat, lng: geoCoords?.lng ?? a.lng }
+          : a
       );
     } else {
-      const newAddr: SavedAddress = { id: crypto.randomUUID(), label, city, neighborhood, landmark, fullText };
+      const newAddr: SavedAddress = {
+        id: crypto.randomUUID(), label, city, neighborhood, landmark, fullText,
+        lat: geoCoords?.lat, lng: geoCoords?.lng,
+      };
       updated = [newAddr, ...addresses];
     }
     setAddresses(updated);
@@ -159,6 +179,7 @@ export default function Profile() {
     setNeighborhood(addr.neighborhood);
     setLandmark(addr.landmark);
     setEditingId(addr.id);
+    setGeoCoords(addr.lat != null && addr.lng != null ? { lat: addr.lat, lng: addr.lng } : null);
     setShowForm(true);
   };
 
@@ -169,6 +190,7 @@ export default function Profile() {
     setCity('Douala');
     setNeighborhood('');
     setLandmark('');
+    setGeoCoords(null);
   };
 
   if (!user) return null;
@@ -241,8 +263,8 @@ export default function Profile() {
               <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gold-light text-gold-accent">En attente</span>
             )}
           </div>
-          <button onClick={saveProfile} className="mt-3 flex items-center gap-1.5 text-green-primary text-sm font-inter font-medium hover:underline">
-            <Save className="w-3.5 h-3.5" /> Enregistrer le profil
+          <button onClick={saveProfile} disabled={savingProfile} className="mt-3 flex items-center gap-1.5 text-green-primary text-sm font-inter font-medium hover:underline disabled:opacity-60">
+            <Save className="w-3.5 h-3.5" /> {savingProfile ? 'Enregistrement...' : 'Enregistrer le profil'}
           </button>
         </section>
 

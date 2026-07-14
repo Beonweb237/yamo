@@ -11,10 +11,21 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { cuisineCategories } from '../data/mockData';
+import type { Restaurant } from '../data/mockData';
 import { activeCities, getNeighborhoods } from '../data/locations';
 import { useRestaurants } from '../hooks/useCatalog';
 import { useFavorites } from '../hooks/useFavorites';
 import AppImage from '../components/AppImage';
+
+type QuickFilterId = 'open' | 'freeDelivery' | 'topRated' | 'fast' | 'premium';
+
+const quickFilterDefs: { id: QuickFilterId; label: string; test: (r: Restaurant) => boolean }[] = [
+  { id: 'open', label: 'Ouvert maintenant', test: (r) => r.isOpen },
+  { id: 'freeDelivery', label: 'Livraison gratuite', test: (r) => r.deliveryFee === 0 },
+  { id: 'topRated', label: '⭐ 4.5+', test: (r) => r.rating >= 4.5 },
+  { id: 'fast', label: 'Moins de 30 min', test: (r) => parseInt(r.deliveryTime) < 30 },
+  { id: 'premium', label: 'Premium', test: (r) => r.isPremium },
+];
 
 const sortOptions = [
   { label: 'Pertinence', value: 'relevance' },
@@ -42,9 +53,30 @@ export default function Restaurants() {
   const [sortBy, setSortBy] = useState('relevance');
   const [showSort, setShowSort] = useState(false);
   const [showCityMenu, setShowCityMenu] = useState(false);
+  const [citySearch, setCitySearch] = useState('');
+  const [showNeighborhoodMenu, setShowNeighborhoodMenu] = useState(false);
+  const [neighborhoodSearch, setNeighborhoodSearch] = useState('');
   const { favorites, toggleFavorite } = useFavorites();
+  const [activeQuickFilters, setActiveQuickFilters] = useState<Set<QuickFilterId>>(new Set());
+  const [minRating, setMinRating] = useState(0);
+  const [showRatingMenu, setShowRatingMenu] = useState(false);
+
+  const toggleQuickFilter = (id: QuickFilterId) => {
+    setActiveQuickFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const neighborhoods = getNeighborhoods(selectedCity);
+  const filteredCities = activeCities.filter((c) =>
+    c.name.toLowerCase().includes(citySearch.trim().toLowerCase())
+  );
+  const filteredNeighborhoods = neighborhoods.filter((n) =>
+    n.toLowerCase().includes(neighborhoodSearch.trim().toLowerCase())
+  );
 
   useEffect(() => {
     const q = searchParams.get('q') ?? '';
@@ -93,6 +125,11 @@ export default function Restaurants() {
       result = result.filter((r) => r.neighborhood === selectedNeighborhood);
     }
 
+    for (const filterId of activeQuickFilters) {
+      const def = quickFilterDefs.find((f) => f.id === filterId);
+      if (def) result = result.filter(def.test);
+    }
+
     switch (sortBy) {
       case 'rating':
         result.sort((a, b) => b.rating - a.rating);
@@ -112,7 +149,7 @@ export default function Restaurants() {
     }
 
     return result;
-  }, [restaurants, searchQuery, activeCategory, selectedCity, selectedNeighborhood, sortBy]);
+  }, [restaurants, searchQuery, activeCategory, selectedCity, selectedNeighborhood, activeQuickFilters, sortBy]);
 
   const handleSearch = () => {
     syncParams({ q: searchQuery, category: activeCategory, ville: selectedCity, quartier: selectedNeighborhood });
@@ -153,7 +190,7 @@ export default function Restaurants() {
         </div>
       </section>
 
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 -mt-10 relative z-10">
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 -mt-10 relative z-50">
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -176,7 +213,11 @@ export default function Restaurants() {
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setShowCityMenu(!showCityMenu)}
+                  onClick={() => {
+                    setShowCityMenu(!showCityMenu);
+                    setShowNeighborhoodMenu(false);
+                    setCitySearch('');
+                  }}
                   className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12"
                 >
                   <MapPin className="w-4 h-4 text-text-muted" />
@@ -187,42 +228,114 @@ export default function Restaurants() {
                   <ChevronDown className="w-4 h-4 text-text-muted" />
                 </button>
                 {showCityMenu && (
-                  <div className="absolute top-full left-0 mt-2 bg-white border border-border-custom rounded-lg shadow-lg py-1 z-30 min-w-[160px]">
-                    {activeCities.map((city) => (
+                  <div className="absolute top-full left-0 mt-2 bg-white border border-border-custom rounded-lg shadow-lg z-50 min-w-[200px] overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-border-light">
+                      <Search className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                      <input
+                        type="text"
+                        autoFocus
+                        value={citySearch}
+                        onChange={(e) => setCitySearch(e.target.value)}
+                        placeholder="Rechercher une ville..."
+                        className="flex-1 bg-transparent text-sm font-inter text-text-primary outline-none placeholder:text-text-muted"
+                      />
+                    </div>
+                    <div className="max-h-56 overflow-y-auto py-1">
+                      {filteredCities.length === 0 ? (
+                        <p className="px-4 py-2 text-sm text-text-muted font-inter">Aucune ville trouvée</p>
+                      ) : (
+                        filteredCities.map((city) => (
+                          <button
+                            key={city.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCity(city.name);
+                              setSelectedNeighborhood('');
+                              setShowCityMenu(false);
+                              setCitySearch('');
+                            }}
+                            className={`block w-full text-left px-4 py-2 text-sm font-inter transition-colors ${selectedCity === city.name
+                                ? 'text-green-primary bg-green-light'
+                                : 'text-text-secondary hover:bg-bg-secondary'
+                              }`}
+                          >
+                            {city.name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNeighborhoodMenu(!showNeighborhoodMenu);
+                    setShowCityMenu(false);
+                    setNeighborhoodSearch('');
+                  }}
+                  className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12"
+                >
+                  <SlidersHorizontal className="w-4 h-4 text-text-muted" />
+                  <div className="text-left">
+                    <span className="text-[10px] text-text-muted font-inter block leading-none">Quartier</span>
+                    <span className="text-sm text-text-primary font-inter font-medium">{selectedNeighborhood || 'Tous'}</span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-text-muted" />
+                </button>
+                {showNeighborhoodMenu && (
+                  <div className="absolute top-full left-0 mt-2 bg-white border border-border-custom rounded-lg shadow-lg z-50 min-w-[200px] overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-border-light">
+                      <Search className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                      <input
+                        type="text"
+                        autoFocus
+                        value={neighborhoodSearch}
+                        onChange={(e) => setNeighborhoodSearch(e.target.value)}
+                        placeholder="Rechercher un quartier..."
+                        className="flex-1 bg-transparent text-sm font-inter text-text-primary outline-none placeholder:text-text-muted"
+                      />
+                    </div>
+                    <div className="max-h-56 overflow-y-auto py-1">
                       <button
-                        key={city.id}
                         type="button"
                         onClick={() => {
-                          setSelectedCity(city.name);
                           setSelectedNeighborhood('');
-                          setShowCityMenu(false);
+                          setShowNeighborhoodMenu(false);
+                          setNeighborhoodSearch('');
                         }}
-                        className={`block w-full text-left px-4 py-2 text-sm font-inter transition-colors ${selectedCity === city.name
+                        className={`block w-full text-left px-4 py-2 text-sm font-inter transition-colors ${selectedNeighborhood === ''
                             ? 'text-green-primary bg-green-light'
                             : 'text-text-secondary hover:bg-bg-secondary'
                           }`}
                       >
-                        {city.name}
+                        Tous
                       </button>
-                    ))}
+                      {filteredNeighborhoods.length === 0 ? (
+                        <p className="px-4 py-2 text-sm text-text-muted font-inter">Aucun quartier trouvé</p>
+                      ) : (
+                        filteredNeighborhoods.map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => {
+                              setSelectedNeighborhood(n);
+                              setShowNeighborhoodMenu(false);
+                              setNeighborhoodSearch('');
+                            }}
+                            className={`block w-full text-left px-4 py-2 text-sm font-inter transition-colors ${selectedNeighborhood === n
+                                ? 'text-green-primary bg-green-light'
+                                : 'text-text-secondary hover:bg-bg-secondary'
+                              }`}
+                          >
+                            {n}
+                          </button>
+                        ))
+                      )}
+                    </div>
                   </div>
                 )}
-              </div>
-              <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
-                <SlidersHorizontal className="w-4 h-4 text-text-muted" />
-                <div>
-                  <span className="text-[10px] text-text-muted font-inter block leading-none">Quartier</span>
-                  <select
-                    value={selectedNeighborhood}
-                    onChange={(e) => setSelectedNeighborhood(e.target.value)}
-                    className="text-sm text-text-primary font-inter font-medium bg-transparent outline-none"
-                  >
-                    <option value="">Tous</option>
-                    {neighborhoods.map((n) => (
-                      <option key={n} value={n}>{n}</option>
-                    ))}
-                  </select>
-                </div>
               </div>
               <button
                 type="button"
@@ -299,22 +412,14 @@ export default function Restaurants() {
 
               {/* Quick filter pills */}
               <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
-                {[
-                  { label: 'Ouvert maintenant', filter: (r: any) => r.isOpen },
-                  { label: 'Livraison gratuite', filter: (r: any) => r.deliveryFee === 0 },
-                  { label: '⭐ 4.5+', filter: (r: any) => r.rating >= 4.5 },
-                  { label: 'Moins de 30 min', filter: (r: any) => parseInt(r.deliveryTime) < 30 },
-                  { label: 'Premium', filter: (r: any) => r.isPremium },
-                ].map((pill) => {
-                  const isActive = filtered.length < restaurants.length && filtered.every(pill.filter);
+                {quickFilterDefs.map((pill) => {
+                  const isActive = activeQuickFilters.has(pill.id);
                   return (
                     <button
-                      key={pill.label}
-                      onClick={() => {
-                        // Simple toggle: re-filter the existing filtered list
-                      }}
+                      key={pill.id}
+                      onClick={() => toggleQuickFilter(pill.id)}
                       className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-inter font-medium transition-colors ${isActive
-                          ? 'bg-green-light text-green-primary'
+                          ? 'bg-green-primary text-white'
                           : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
                         }`}
                     >
@@ -411,6 +516,7 @@ export default function Restaurants() {
                       setActiveCategory('Tous');
                       setSelectedCity('Douala');
                       setSelectedNeighborhood('');
+                      setActiveQuickFilters(new Set());
                       setSearchParams({}, { replace: true });
                     }}
                     className="mt-4 text-green-primary font-inter text-sm font-medium hover:underline"

@@ -17,6 +17,11 @@ export interface OrderInput {
   restaurantId: string;
   restaurantName: string;
   contactPhone?: string;
+  recipient?: {
+    name: string;
+    phone: string;
+    contactInstructions?: string;
+  } | null;
   items: CartItem[];
   subtotal: number;
   deliveryFee: number;
@@ -42,6 +47,11 @@ export interface Order extends Omit<OrderInput, 'items'> {
   readyAt?: string | null;
   driverId?: string | null;
   contactPhone?: string;
+  recipient?: {
+    name: string;
+    phone: string;
+    contactInstructions?: string;
+  } | null;
   items: { name: string; price: number; quantity: number }[];
 }
 
@@ -66,6 +76,54 @@ function isSchemaColumnMissing(error: { code?: string; message?: string }): bool
     /column .* does not exist/i.test(error.message ?? '') ||
     /Could not find .* column/i.test(error.message ?? '')
   );
+}
+
+function normalizeRecipient(recipient?: OrderInput['recipient']): Order['recipient'] {
+  if (!recipient) return null;
+  const name = recipient.name.trim();
+  const phone = recipient.phone.trim();
+  const contactInstructions = recipient.contactInstructions?.trim();
+  if (!name && !phone && !contactInstructions) return null;
+  return {
+    name,
+    phone,
+    contactInstructions: contactInstructions || undefined,
+  };
+}
+
+function appendRecipientToNotes(notes: string | undefined, recipient: Order['recipient']): string | null {
+  const cleanNotes = notes?.trim();
+  if (!recipient) return cleanNotes || null;
+
+  const recipientLines = [
+    `Bénéficiaire: ${recipient.name || 'Non renseigné'}`,
+    `Téléphone bénéficiaire: ${recipient.phone || 'Non renseigné'}`,
+    recipient.contactInstructions ? `Instruction bénéficiaire: ${recipient.contactInstructions}` : '',
+  ].filter(Boolean);
+
+  return [cleanNotes, ...recipientLines].filter(Boolean).join('\n');
+}
+
+function parseLegacyRecipientFromNotes(notes?: string | null): Order['recipient'] {
+  if (!notes?.includes('Bénéficiaire:')) return null;
+  const lines = notes.split(/\r?\n/);
+  const valueAfter = (label: string) => {
+    const value = lines.find((line) => line.startsWith(label))?.slice(label.length).trim() ?? '';
+    return value === 'Non renseigné' ? '' : value;
+  };
+  const name = valueAfter('Bénéficiaire:');
+  const phone = valueAfter('Téléphone bénéficiaire:');
+  const contactInstructions = valueAfter('Instruction bénéficiaire:') || undefined;
+  return name || phone || contactInstructions ? { name, phone, contactInstructions } : null;
+}
+
+export function getDeliveryContactPhone(order: Pick<Order, 'recipient' | 'contactPhone'>): string {
+  return order.recipient?.phone || order.contactPhone || '';
+}
+
+export function getRecipientSummary(order: Pick<Order, 'recipient'>): string | null {
+  if (!order.recipient) return null;
+  return [order.recipient.name, order.recipient.phone].filter(Boolean).join(' · ') || null;
 }
 
 export function formatOrderTime(value?: string | null): string | null {
@@ -98,6 +156,18 @@ export function getOrderPreparationMessage(order: Order, now = new Date()): stri
 }
 
 export async function createOrder(input: OrderInput): Promise<Order> {
+  // Defense in depth — CartContext already prevents mixing restaurants in the
+  // UI, but createOrder is the single choke point every order goes through
+  // (mock and Supabase alike), so it re-checks rather than trusting the caller.
+  const mismatched = input.items.find((ci) => ci.item.restaurantId !== input.restaurantId);
+  if (mismatched) {
+    throw new Error(
+      `Cannot create order: item "${mismatched.item.name}" belongs to restaurant ${mismatched.item.restaurantId}, not ${input.restaurantId}`
+    );
+  }
+
+  const recipient = normalizeRecipient(input.recipient);
+
   if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data: addressRow, error: addressError } = await supabase
       .from('addresses')
@@ -113,9 +183,32 @@ export async function createOrder(input: OrderInput): Promise<Order> {
 
     if (addressError || !addressRow) throw addressError ?? new Error('Address creation failed');
 
-    const { data: orderRow, error: orderError } = await supabase
+    const orderPayload = {
+      customer_id: input.customerId,
+      restaurant_id: input.restaurantId,
+      address_id: addressRow.id,
+      status: 'pending',
+      subtotal: input.subtotal,
+      delivery_fee: input.deliveryFee,
+      total: input.total,
+      payment_method: input.paymentMethod,
+      payment_status: input.paymentMethod === 'cash' ? 'pending' : 'pending',
+      notes: input.notes ?? null,
+      contact_phone: input.contactPhone ?? null,
+      ordered_for_someone_else: Boolean(recipient),
+      recipient_name: recipient?.name || null,
+      recipient_phone: recipient?.phone || null,
+      recipient_contact_instructions: recipient?.contactInstructions || null,
+    };
+
+    let { data: orderRow, error: orderError } = await supabase
       .from('orders')
-      .insert({
+      .insert(orderPayload)
+      .select()
+      .single();
+
+    if (orderError && isSchemaColumnMissing(orderError)) {
+      const legacyPayload = {
         customer_id: input.customerId,
         restaurant_id: input.restaurantId,
         address_id: addressRow.id,
@@ -125,10 +218,17 @@ export async function createOrder(input: OrderInput): Promise<Order> {
         total: input.total,
         payment_method: input.paymentMethod,
         payment_status: input.paymentMethod === 'cash' ? 'pending' : 'pending',
-        notes: input.notes ?? null,
-      })
-      .select()
-      .single();
+        notes: appendRecipientToNotes(input.notes, recipient),
+      };
+
+      const legacyResult = await supabase
+        .from('orders')
+        .insert(legacyPayload)
+        .select()
+        .single();
+      orderRow = legacyResult.data;
+      orderError = legacyResult.error;
+    }
 
     if (orderError || !orderRow) throw orderError ?? new Error('Order creation failed');
 
@@ -153,6 +253,8 @@ export async function createOrder(input: OrderInput): Promise<Order> {
       paymentMethod: input.paymentMethod,
       address: input.address,
       notes: input.notes,
+      contactPhone: input.contactPhone,
+      recipient,
       status: 'pending',
       createdAt: orderRow.created_at,
       updatedAt: orderRow.updated_at,
@@ -179,6 +281,7 @@ export async function createOrder(input: OrderInput): Promise<Order> {
     address: input.address,
     notes: input.notes,
     contactPhone: input.contactPhone,
+    recipient,
     status: 'pending',
     createdAt: now,
     updatedAt: now,
@@ -202,6 +305,15 @@ function mapOrderRow(row: Record<string, unknown>): Order {
     full_text?: string;
   } | null;
   const restaurant = row.restaurants as { name?: string; phone?: string } | null;
+  const notes = (row.notes as string | null) ?? undefined;
+  const recipientFromColumns =
+    row.ordered_for_someone_else || row.recipient_name || row.recipient_phone || row.recipient_contact_instructions
+      ? {
+        name: (row.recipient_name as string | null) ?? '',
+        phone: (row.recipient_phone as string | null) ?? '',
+        contactInstructions: (row.recipient_contact_instructions as string | null) ?? undefined,
+      }
+      : null;
 
   return {
     id: row.id as string,
@@ -212,6 +324,7 @@ function mapOrderRow(row: Record<string, unknown>): Order {
     deliveryFee: row.delivery_fee as number,
     total: row.total as number,
     paymentMethod: row.payment_method as PaymentMethod,
+    notes,
     address: {
       city: addr?.city ?? '',
       neighborhood: addr?.neighborhood ?? '',
@@ -219,6 +332,8 @@ function mapOrderRow(row: Record<string, unknown>): Order {
       fullText: addr?.full_text ?? '',
     },
     status: row.status as OrderStatus,
+    contactPhone: (row.contact_phone as string | null) ?? undefined,
+    recipient: recipientFromColumns ?? parseLegacyRecipientFromNotes(notes),
     createdAt: row.created_at as string,
     updatedAt: (row.updated_at as string | null) ?? null,
     confirmedAt: (row.confirmed_at as string | null) ?? null,

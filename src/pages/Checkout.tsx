@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Wallet, Smartphone, Loader2, CheckCircle2 } from 'lucide-react';
+import { MapPin, Wallet, Smartphone, Loader2, CheckCircle2, UserRound, Phone } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createOrder, type PaymentMethod } from '../lib/orders';
@@ -76,6 +76,10 @@ export default function Checkout() {
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentPhone, setPaymentPhone] = useState(() => user?.phone ?? '');
+  const [orderForSomeoneElse, setOrderForSomeoneElse] = useState(false);
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientPhone, setRecipientPhone] = useState('');
+  const [callRecipientOnArrivalOnly, setCallRecipientOnArrivalOnly] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -126,12 +130,26 @@ export default function Checkout() {
     ? cartRestaurant.deliveryFee
     : 0;
   const total = totalPrice + deliveryFee;
+  const recipientMissing = orderForSomeoneElse && (!recipientName.trim() || !recipientPhone.trim());
 
   const handlePlaceOrder = async () => {
     if (!user || items.length === 0 || !restaurantId) return;
     setError('');
     setSubmitting(true);
     try {
+      if (recipientMissing) {
+        setError('Renseignez le nom et le numéro du bénéficiaire.');
+        return;
+      }
+
+      const recipient = orderForSomeoneElse
+        ? {
+          name: recipientName.trim(),
+          phone: recipientPhone.trim(),
+          contactInstructions: callRecipientOnArrivalOnly ? "Appeler le bénéficiaire uniquement à l'arrivée." : undefined,
+        }
+        : null;
+
       let serverSubtotal = totalPrice;
       let serverDeliveryFee = deliveryFee;
       let serverTotal = total;
@@ -166,6 +184,7 @@ export default function Checkout() {
         restaurantId,
         restaurantName: cartRestaurant?.name ?? '',
         contactPhone: user.phone,
+        recipient,
         items,
         subtotal: serverSubtotal,
         deliveryFee: serverDeliveryFee,
@@ -251,6 +270,77 @@ export default function Checkout() {
             </div>
           </div>
         </div>
+
+        {/* Recipient */}
+        <section className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 sm:p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <UserRound className="w-5 h-5 text-green-primary" />
+            <h2 className="font-poppins font-semibold text-text-primary text-lg">
+              Destinataire
+            </h2>
+          </div>
+
+          <label className="flex items-start gap-3 rounded-xl border border-border-custom bg-bg-secondary/50 p-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={orderForSomeoneElse}
+              onChange={(e) => setOrderForSomeoneElse(e.target.checked)}
+              className="mt-1 h-4 w-4 accent-green-primary"
+            />
+            <span>
+              <span className="block font-inter font-semibold text-text-primary text-sm">
+                Je commande pour quelqu&apos;un d&apos;autre
+              </span>
+              <span className="block text-text-muted text-xs font-inter mt-0.5">
+                Le livreur contactera ce bénéficiaire à la livraison.
+              </span>
+            </span>
+          </label>
+
+          {orderForSomeoneElse && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-text-secondary font-inter text-sm mb-1.5">Nom du bénéficiaire</label>
+                <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
+                  <UserRound className="w-4 h-4 text-text-muted shrink-0" />
+                  <input
+                    type="text"
+                    value={recipientName}
+                    onChange={(e) => setRecipientName(e.target.value)}
+                    placeholder="Ex. Paul Mbarga"
+                    className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
+                    required={orderForSomeoneElse}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-text-secondary font-inter text-sm mb-1.5">Téléphone du bénéficiaire</label>
+                <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
+                  <Phone className="w-4 h-4 text-text-muted shrink-0" />
+                  <input
+                    type="tel"
+                    value={recipientPhone}
+                    onChange={(e) => setRecipientPhone(e.target.value)}
+                    placeholder="+237 6XX XX XX XX"
+                    className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
+                    required={orderForSomeoneElse}
+                  />
+                </div>
+              </div>
+              <label className="sm:col-span-2 flex items-start gap-3 rounded-lg bg-green-light/60 px-3 py-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={callRecipientOnArrivalOnly}
+                  onChange={(e) => setCallRecipientOnArrivalOnly(e.target.checked)}
+                  className="mt-1 h-4 w-4 accent-green-primary"
+                />
+                <span className="text-text-secondary text-xs font-inter">
+                  Appeler le bénéficiaire uniquement quand le livreur arrive.
+                </span>
+              </label>
+            </div>
+          )}
+        </section>
 
         {/* Address */}
         <section className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 sm:p-6 mb-6">
@@ -416,6 +506,12 @@ export default function Checkout() {
           <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">
             Récapitulatif
           </h2>
+          {orderForSomeoneElse && (
+            <div className="mb-4 rounded-lg bg-green-light/60 px-3 py-2 text-xs font-inter text-text-secondary">
+              Pour <span className="font-semibold text-text-primary">{recipientName || 'bénéficiaire'}</span>
+              {recipientPhone && <span> · {recipientPhone}</span>}
+            </div>
+          )}
           <div className="space-y-2 mb-4">
             {items.map(({ item, quantity }) => (
               <div key={item.id} className="flex justify-between text-sm font-inter">
