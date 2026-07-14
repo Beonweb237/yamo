@@ -287,3 +287,84 @@ export async function updatePayoutStatus(id: string, status: PayoutStatus, reaso
     )
   );
 }
+
+// ─────────────────────────────────────────────────────────────
+// Livreurs préférés (restaurant → driver preference)
+// ─────────────────────────────────────────────────────────────
+
+const LOCAL_PREFERRED_DRIVERS_KEY = 'yamo_preferred_drivers';
+const MAX_PREFERRED_DRIVERS = 5;
+
+interface PreferredEntry {
+  restaurantId: string;
+  driverId: string;
+  createdAt: string;
+}
+
+function readLocalPreferred(): PreferredEntry[] {
+  try { return JSON.parse(localStorage.getItem(LOCAL_PREFERRED_DRIVERS_KEY) ?? '[]'); } catch { return []; }
+}
+
+function writeLocalPreferred(entries: PreferredEntry[]) {
+  localStorage.setItem(LOCAL_PREFERRED_DRIVERS_KEY, JSON.stringify(entries));
+}
+
+export async function addPreferredDriver(restaurantId: string, driverId: string): Promise<void> {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+    const { data: existing } = await supabase
+      .from('preferred_drivers')
+      .select('*')
+      .eq('restaurant_id', restaurantId);
+    if ((existing?.length ?? 0) >= MAX_PREFERRED_DRIVERS) {
+      throw new Error('Maximum ' + MAX_PREFERRED_DRIVERS + ' livreurs preferes.');
+    }
+    const { error } = await supabase
+      .from('preferred_drivers')
+      .insert({ restaurant_id: restaurantId, driver_id: driverId });
+    if (error) throw error;
+    return;
+  }
+
+  const entries = readLocalPreferred();
+  const existing = entries.filter(e => e.restaurantId === restaurantId).length;
+  if (existing >= MAX_PREFERRED_DRIVERS) throw new Error('Maximum ' + MAX_PREFERRED_DRIVERS + ' livreurs preferes.');
+  if (entries.some(e => e.restaurantId === restaurantId && e.driverId === driverId)) return;
+  entries.push({ restaurantId, driverId, createdAt: new Date().toISOString() });
+  writeLocalPreferred(entries);
+}
+
+export async function removePreferredDriver(restaurantId: string, driverId: string): Promise<void> {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+    const { error } = await supabase
+      .from('preferred_drivers')
+      .delete()
+      .eq('restaurant_id', restaurantId)
+      .eq('driver_id', driverId);
+    if (error) throw error;
+    return;
+  }
+  const entries = readLocalPreferred().filter(e => !(e.restaurantId === restaurantId && e.driverId === driverId));
+  writeLocalPreferred(entries);
+}
+
+export async function getPreferredDrivers(restaurantId: string): Promise<string[]> {
+  if (isSupabaseConfigured && supabase) {
+    const { data } = await supabase
+      .from('preferred_drivers')
+      .select('driver_id')
+      .eq('restaurant_id', restaurantId);
+    return (data ?? []).map((r: Record<string, unknown>) => r.driver_id as string);
+  }
+  return readLocalPreferred().filter(e => e.restaurantId === restaurantId).map(e => e.driverId);
+}
+
+export async function getRestaurantsThatPreferMe(driverId: string): Promise<string[]> {
+  if (isSupabaseConfigured && supabase) {
+    const { data } = await supabase
+      .from('preferred_drivers')
+      .select('restaurant_id')
+      .eq('driver_id', driverId);
+    return (data ?? []).map((r: Record<string, unknown>) => r.restaurant_id as string);
+  }
+  return readLocalPreferred().filter(e => e.driverId === driverId).map(e => e.restaurantId);
+}

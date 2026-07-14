@@ -1,5 +1,35 @@
 import { supabase, isSupabaseConfigured, isSupabaseAuthenticated } from './supabase';
 import type { CartItem } from '../contexts/CartContext';
+import { restaurants as mockRestaurants } from '../data/mockData';
+
+const LOCAL_USERS_KEY = 'yamo_local_users'; // shared with AuthContext/applications.ts
+
+function readLocalDriverZone(driverId: string): { city?: string | null; serviceNeighborhoods?: string[] | null } {
+  try {
+    const registry = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) ?? '{}');
+    const entry = Object.values(registry).find((u: any) => u?.id === driverId) as any;
+    return { city: entry?.city ?? null, serviceNeighborhoods: entry?.serviceNeighborhoods ?? null };
+  } catch {
+    return {};
+  }
+}
+
+// Un livreur ne doit voir que les commandes de restaurants situés dans sa
+// ville — et, s'il a restreint sa zone à des quartiers précis, uniquement
+// ceux-là. Pas de ville enregistrée (comptes de démo/anciens) => pas de
+// restriction, pour ne pas casser les données de test existantes.
+function matchesDriverZone(
+  restaurantCity: string | null | undefined,
+  restaurantNeighborhood: string | null | undefined,
+  driverCity?: string | null,
+  driverNeighborhoods?: string[] | null
+): boolean {
+  if (driverCity && restaurantCity && driverCity !== restaurantCity) return false;
+  if (driverNeighborhoods && driverNeighborhoods.length > 0 && restaurantNeighborhood) {
+    return driverNeighborhoods.includes(restaurantNeighborhood);
+  }
+  return true;
+}
 
 export type PaymentMethod = 'cash' | 'mtn_momo' | 'orange_money';
 export type OrderStatus =
@@ -344,7 +374,7 @@ function mapOrderRow(row: Record<string, unknown>): Order {
   };
 }
 
-const ORDER_SELECT = '*, order_items(*), addresses(*), restaurants(name, phone)';
+const ORDER_SELECT = '*, order_items(*), addresses(*), restaurants(name, phone, city, neighborhood)';
 const DRIVER_ORDER_SELECT = '*, orders(*, order_items(*), addresses(*), restaurants(name, phone))';
 
 export async function fetchOrders(customerId: string): Promise<Order[]> {
@@ -459,10 +489,26 @@ export async function confirmOrderWithPreparation(orderId: string, preparationEt
 // Livreur : pool de livraisons disponibles + livraisons acceptées
 // ─────────────────────────────────────────────────────────────
 
-export async function fetchAvailableDeliveries(): Promise<Order[]> {
+export async function fetchAvailableDeliveries(driverId: string): Promise<Order[]> {
   if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+    const { data: driverProfile } = await supabase
+      .from('profiles')
+      .select('city, service_neighborhoods')
+      .eq('id', driverId)
+      .maybeSingle();
+    const driverCity = driverProfile?.city as string | null | undefined;
+    const driverNeighborhoods = driverProfile?.service_neighborhoods as string[] | null | undefined;
+
     // RLS (0002_restaurant_driver_access.sql) already restricts this to
-    // 'ready' orders with no assigned driver.
+    // 'ready' orders with no assigned driver. The zone match below is a UX
+    // filter; the hard guarantee is the deliveries_check_driver_zone trigger
+    // (0019) which rejects a mismatched acceptDelivery() at the DB level.
+    const filterByZone = (rows: Record<string, unknown>[]) =>
+      rows.filter((row) => {
+        const restaurant = row.restaurants as { city?: string; neighborhood?: string } | null;
+        return matchesDriverZone(restaurant?.city, restaurant?.neighborhood, driverCity, driverNeighborhoods);
+      });
+
     const { data, error } = await supabase
       .from('orders')
       .select(ORDER_SELECT)
@@ -477,15 +523,20 @@ export async function fetchAvailableDeliveries(): Promise<Order[]> {
         .eq('status', 'ready')
         .order('created_at', { ascending: true });
       if (fallbackError || !fallbackData) return [];
-      return fallbackData.map(mapOrderRow);
+      return filterByZone(fallbackData).map(mapOrderRow);
     }
 
     if (error || !data) return [];
-    return data.map(mapOrderRow);
+    return filterByZone(data).map(mapOrderRow);
   }
 
+  const { city: driverCity, serviceNeighborhoods: driverNeighborhoods } = readLocalDriverZone(driverId);
   return readLocalOrders()
     .filter((o) => o.status === 'ready' && !o.driverId)
+    .filter((o) => {
+      const restaurant = mockRestaurants.find((r) => r.id === o.restaurantId);
+      return matchesDriverZone(restaurant?.city, restaurant?.neighborhood, driverCity, driverNeighborhoods);
+    })
     .sort((a, b) => (a.estimatedReadyAt ?? a.createdAt).localeCompare(b.estimatedReadyAt ?? b.createdAt));
 }
 

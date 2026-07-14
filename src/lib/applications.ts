@@ -10,6 +10,8 @@ export interface ApplicationInput {
   address?: string;
   contactPhone?: string;
   notes?: string;
+  // Zones desservies (livreur only) — vide/absent = dessert toute la ville.
+  serviceNeighborhoods?: string[];
   // Documents (base64 data URLs)
   idDocument?: string;        // CNI/passeport
   businessReg?: string;        // Registre de commerce (restaurant only)
@@ -61,6 +63,7 @@ function mapApplicationRow(row: Record<string, unknown>): Application {
     profilePhoto: (row.profile_photo as string) ?? undefined,
     vehiclePhoto: (row.vehicle_photo as string) ?? undefined,
     restaurantPhoto: (row.restaurant_photo as string) ?? undefined,
+    serviceNeighborhoods: (row.service_neighborhoods as string[]) ?? undefined,
     createdAt: row.created_at as string,
   };
 }
@@ -84,6 +87,7 @@ export async function submitApplication(applicantId: string, input: ApplicationI
         profile_photo: input.profilePhoto ?? null,
         vehicle_photo: input.vehiclePhoto ?? null,
         restaurant_photo: input.restaurantPhoto ?? null,
+        service_neighborhoods: input.serviceNeighborhoods?.length ? input.serviceNeighborhoods : null,
       })
       .select()
       .single();
@@ -128,12 +132,16 @@ export async function fetchAllApplications(): Promise<Application[]> {
   return readLocalApplications();
 }
 
-function markLocalUserApproved(applicantId: string) {
+function markLocalUserApproved(applicantId: string, zone?: { city?: string; serviceNeighborhoods?: string[] }) {
   const raw = localStorage.getItem(LOCAL_USERS_KEY);
   const registry = raw ? JSON.parse(raw) : {};
   for (const phone of Object.keys(registry)) {
     if (registry[phone].id === applicantId) {
       registry[phone].isApproved = true;
+      if (zone) {
+        registry[phone].city = zone.city ?? null;
+        registry[phone].serviceNeighborhoods = zone.serviceNeighborhoods?.length ? zone.serviceNeighborhoods : null;
+      }
     }
   }
   localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(registry));
@@ -147,7 +155,7 @@ export async function approveApplication(id: string, restaurantId?: string): Pro
   if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data: app, error: fetchError } = await supabase
       .from('applications')
-      .select('applicant_id, type, restaurant_name, city, address, contact_phone, notes')
+      .select('applicant_id, type, restaurant_name, city, address, contact_phone, notes, service_neighborhoods')
       .eq('id', id)
       .single();
     if (fetchError || !app) throw fetchError ?? new Error('Application not found');
@@ -190,9 +198,17 @@ export async function approveApplication(id: string, restaurantId?: string): Pro
       }
     }
 
+    // Livreur : la ville/zones de la candidature deviennent la zone de service —
+    // c'est ce qui borne les livraisons visibles/acceptables pour ce compte
+    // (voir fetchAvailableDeliveries + trigger deliveries_check_driver_zone).
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({ is_approved: true })
+      .update({
+        is_approved: true,
+        ...(app.type === 'livreur'
+          ? { city: app.city ?? null, service_neighborhoods: app.service_neighborhoods ?? null }
+          : {}),
+      })
       .eq('id', app.applicant_id);
     if (profileError) throw profileError;
 
@@ -207,7 +223,10 @@ export async function approveApplication(id: string, restaurantId?: string): Pro
   const apps = readLocalApplications();
   const target = apps.find((a) => a.id === id);
   if (!target) return;
-  markLocalUserApproved(target.applicantId);
+  markLocalUserApproved(
+    target.applicantId,
+    target.type === 'livreur' ? { city: target.city, serviceNeighborhoods: target.serviceNeighborhoods } : undefined
+  );
   writeLocalApplications(
     apps.map((a) => (a.id === id ? { ...a, status: 'approved' as const, restaurantId: restaurantId ?? null } : a))
   );

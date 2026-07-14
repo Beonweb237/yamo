@@ -17,14 +17,21 @@ import { useRestaurants } from '../hooks/useCatalog';
 import { useFavorites } from '../hooks/useFavorites';
 import AppImage from '../components/AppImage';
 
-type QuickFilterId = 'open' | 'freeDelivery' | 'topRated' | 'fast' | 'premium';
+type QuickFilterId = 'open' | 'freeDelivery' | 'fast' | 'premium';
 
 const quickFilterDefs: { id: QuickFilterId; label: string; test: (r: Restaurant) => boolean }[] = [
   { id: 'open', label: 'Ouvert maintenant', test: (r) => r.isOpen },
   { id: 'freeDelivery', label: 'Livraison gratuite', test: (r) => r.deliveryFee === 0 },
-  { id: 'topRated', label: '⭐ 4.5+', test: (r) => r.rating >= 4.5 },
   { id: 'fast', label: 'Moins de 30 min', test: (r) => parseInt(r.deliveryTime) < 30 },
   { id: 'premium', label: 'Premium', test: (r) => r.isPremium },
+];
+
+const ratingOptions = [
+  { value: 0, label: 'Toutes les notes' },
+  { value: 4, label: '4.0 et plus' },
+  { value: 4.3, label: '4.3 et plus' },
+  { value: 4.5, label: '4.5 et plus' },
+  { value: 4.8, label: '4.8 et plus' },
 ];
 
 const sortOptions = [
@@ -130,6 +137,10 @@ export default function Restaurants() {
       if (def) result = result.filter(def.test);
     }
 
+    if (minRating > 0) {
+      result = result.filter((r) => r.rating >= minRating);
+    }
+
     switch (sortBy) {
       case 'rating':
         result.sort((a, b) => b.rating - a.rating);
@@ -149,7 +160,7 @@ export default function Restaurants() {
     }
 
     return result;
-  }, [restaurants, searchQuery, activeCategory, selectedCity, selectedNeighborhood, activeQuickFilters, sortBy]);
+  }, [restaurants, searchQuery, activeCategory, selectedCity, selectedNeighborhood, activeQuickFilters, minRating, sortBy]);
 
   const handleSearch = () => {
     syncParams({ q: searchQuery, category: activeCategory, ville: selectedCity, quartier: selectedNeighborhood });
@@ -337,6 +348,50 @@ export default function Restaurants() {
                   </div>
                 )}
               </div>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRatingMenu(!showRatingMenu);
+                    setShowCityMenu(false);
+                    setShowNeighborhoodMenu(false);
+                  }}
+                  className={`flex items-center gap-2 rounded-lg px-3 h-12 transition-colors ${minRating > 0 ? 'bg-gold-light' : 'bg-bg-secondary'
+                    }`}
+                >
+                  <Star className={`w-4 h-4 ${minRating > 0 ? 'text-gold-accent fill-gold-accent' : 'text-text-muted'}`} />
+                  <div className="text-left">
+                    <span className="text-[10px] text-text-muted font-inter block leading-none">Note</span>
+                    <span className={`text-sm font-inter font-medium ${minRating > 0 ? 'text-gold-accent' : 'text-text-primary'}`}>
+                      {minRating > 0 ? `${minRating.toFixed(1)}+` : 'Toutes'}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-text-muted" />
+                </button>
+                {showRatingMenu && (
+                  <div className="absolute top-full left-0 mt-2 bg-white border border-border-custom rounded-lg shadow-lg z-50 min-w-[180px] overflow-hidden py-1">
+                    {ratingOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          setMinRating(opt.value);
+                          setShowRatingMenu(false);
+                        }}
+                        className={`flex items-center justify-between w-full text-left px-4 py-2 text-sm font-inter transition-colors ${minRating === opt.value
+                            ? 'text-gold-accent bg-gold-light'
+                            : 'text-text-secondary hover:bg-bg-secondary'
+                          }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          {opt.value > 0 && <Star className="w-3.5 h-3.5 fill-gold-accent text-gold-accent" />}
+                          {opt.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={handleSearch}
@@ -517,6 +572,7 @@ export default function Restaurants() {
                       setSelectedCity('Douala');
                       setSelectedNeighborhood('');
                       setActiveQuickFilters(new Set());
+                      setMinRating(0);
                       setSearchParams({}, { replace: true });
                     }}
                     className="mt-4 text-green-primary font-inter text-sm font-medium hover:underline"

@@ -73,6 +73,14 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 
+  // Zone de service (livreur uniquement) — par défaut toute la ville ;
+  // décocher permet de choisir des quartiers précis.
+  const [serviceAllCity, _setServiceAllCity] = useState(true);
+  const [serviceNeighborhoods, _setServiceNeighborhoods] = useState<string[]>([]);
+  const toggleServiceNeighborhood = (n: string) => {
+    _setServiceNeighborhoods((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]));
+  };
+
   // Document fields
   const [idDocument, setIdDocument] = useState('');
   const [businessReg, setBusinessReg] = useState('');
@@ -142,6 +150,10 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (type === 'livreur' && !serviceAllCity && serviceNeighborhoods.length === 0) {
+      setError('Sélectionnez au moins un quartier, ou cochez "toute la ville".');
+      return;
+    }
     setSubmitting(true);
     try {
       await submitApplication(user.id, {
@@ -151,6 +163,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
         address,
         contactPhone,
         notes,
+        serviceNeighborhoods: type === 'livreur' && !serviceAllCity ? serviceNeighborhoods : undefined,
         idDocument,
         businessReg: type === 'restaurant' ? businessReg : undefined,
         licenseDocument: type === 'livreur' ? licenseDocument : undefined,
@@ -193,6 +206,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
             onChange={(e) => {
               setCity(e.target.value);
               setAddress('');
+              _setServiceNeighborhoods([]);
             }}
             className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none"
           >
@@ -213,22 +227,60 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
           />
         </div>
       </div>
-      <div>
-        <label className="block text-text-secondary font-inter text-sm mb-1.5">
-          {type === 'restaurant' ? 'Adresse du restaurant' : 'Quartier / zone de livraison'}
-        </label>
-        <select
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none"
-          required
-        >
-          <option value="">Sélectionnez un quartier</option>
-          {neighborhoods.map((n) => (
-            <option key={n} value={n}>{n}</option>
-          ))}
-        </select>
-      </div>
+      {type === 'restaurant' ? (
+        <div>
+          <label className="block text-text-secondary font-inter text-sm mb-1.5">Adresse du restaurant</label>
+          <select
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none"
+            required
+          >
+            <option value="">Sélectionnez un quartier</option>
+            {neighborhoods.map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <div>
+          <label className="block text-text-secondary font-inter text-sm mb-1.5">Zone de livraison</label>
+          <p className="text-text-muted text-xs font-inter mb-2">
+            Un livreur ne voit et ne peut accepter que les commandes de restaurants situés dans sa ville, sur les
+            quartiers qu'il dessert.
+          </p>
+          <label className="flex items-center gap-2 mb-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={serviceAllCity}
+              onChange={(e) => {
+                _setServiceAllCity(e.target.checked);
+                if (e.target.checked) _setServiceNeighborhoods([]);
+              }}
+              className="w-4 h-4 accent-green-primary"
+            />
+            <span className="text-sm font-inter text-text-primary">Je livre dans toute la ville de {city}</span>
+          </label>
+          {!serviceAllCity && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-bg-secondary rounded-lg p-3 max-h-44 overflow-y-auto">
+              {neighborhoods.map((n) => (
+                <label key={n} className="flex items-center gap-1.5 text-xs font-inter text-text-secondary cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={serviceNeighborhoods.includes(n)}
+                    onChange={() => toggleServiceNeighborhood(n)}
+                    className="w-3.5 h-3.5 accent-green-primary"
+                  />
+                  {n}
+                </label>
+              ))}
+            </div>
+          )}
+          {!serviceAllCity && serviceNeighborhoods.length === 0 && (
+            <p className="text-error text-xs font-inter mt-1.5">Sélectionnez au moins un quartier, ou cochez "toute la ville".</p>
+          )}
+        </div>
+      )}
 
       {/* Documents */}
       <div className="border-t border-border-light pt-4">

@@ -16,6 +16,10 @@ export interface AuthUser {
   // access without deleting their account — checked by RoleGate.
   isSuspended: boolean;
   suspensionReason?: string | null;
+  // Zone de service (livreurs) — la ville est obligatoire pour recevoir des
+  // livraisons ; serviceNeighborhoods vide/absent = dessert toute la ville.
+  city?: string | null;
+  serviceNeighborhoods?: string[] | null;
 }
 
 export interface SignUpParams {

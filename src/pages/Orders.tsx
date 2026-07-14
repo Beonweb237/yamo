@@ -90,27 +90,24 @@ export default function Orders() {
   }, [user]);
 
   return (
-    <div className="pt-[72px] min-h-screen bg-gradient-to-b from-green-50/50 to-bg-secondary">
-      <div className="max-w-[720px] mx-auto px-4 sm:px-6 py-8">
-        {/* Hero Header */}
-        <div className="relative bg-white rounded-2xl border border-border-custom shadow-sm overflow-hidden mb-6">
-          <div className="h-16 bg-gradient-to-r from-green-primary via-green-500 to-emerald-400" />
-          <div className="px-5 sm:px-6 pb-5 -mt-6">
-            <div className="flex items-end gap-3">
-              <div className="w-14 h-14 rounded-xl bg-white border-4 border-white shadow-md flex items-center justify-center">
-                <Package className="w-7 h-7 text-green-primary" />
-              </div>
-              <div className="pb-1">
-                <h1 className="font-poppins font-bold text-text-primary text-xl sm:text-2xl">
-                  Mes commandes
-                </h1>
-                <p className="text-text-muted text-xs font-inter">
-                  {orders.length} commande{orders.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-            </div>
+    <div className="pt-[72px] min-h-screen bg-bg-secondary">
+      <section className="bg-green-primary pt-12 pb-16 sm:pt-16 sm:pb-20 relative">
+        <div className="max-w-[720px] mx-auto px-4 sm:px-6">
+          <div className="text-white/60 text-xs font-inter mb-4">
+            <Link to="/" className="hover:text-white transition-colors">Accueil</Link>
+            <span className="mx-2">/</span>
+            <span className="text-white">Commandes</span>
           </div>
+          <h1 className="font-poppins font-semibold text-white text-3xl sm:text-4xl tracking-normal mb-3">
+            Mes commandes
+          </h1>
+          <p className="text-white/75 font-inter text-base">
+            {orders.length} commande{orders.length !== 1 ? 's' : ''} · Suivez vos livraisons en temps réel
+          </p>
         </div>
+      </section>
+
+      <div className="max-w-[720px] mx-auto px-4 sm:px-6 -mt-8 relative z-10 pb-12">
 
         {loading ? (
           <div className="space-y-4">

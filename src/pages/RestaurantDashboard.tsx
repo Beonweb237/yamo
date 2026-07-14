@@ -3,7 +3,7 @@ import {
   Store, Clock, RefreshCw, Trash2, Plus, Upload, X, Volume2, VolumeX,
   Search, ImageOff, Pencil, TrendingUp,
   PackageCheck, AlertCircle, DollarSign, ChefHat, Star, ShoppingBag, Flame, ArrowDown, Eye, EyeOff, LayoutGrid, List, SlidersHorizontal, ArrowUpDown,
-  XCircle, Users, UserPlus, Phone
+  XCircle, Users, UserPlus, Phone, Bike, UserCheck,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { formatDistanceToNow } from 'date-fns';
@@ -15,6 +15,7 @@ import { useRestaurants } from '../hooks/useCatalog';
 import { restaurantMenuCategories, dishCatalog } from '../data/mockData';
 import type { MenuItem, Restaurant } from '../data/mockData';
 import { confirmOrderWithPreparation, fetchOrdersByRestaurant, getOrderPreparationMessage, updateOrderStatus, type Order, type OrderStatus } from '../lib/orders';
+import { getPreferredDrivers, addPreferredDriver, removePreferredDriver } from '../lib/drivers';
 import { Skeleton } from '../components/ui/skeleton';
 import {
   AlertDialog,
@@ -50,7 +51,7 @@ function nextStatus(status: OrderStatus): OrderStatus | null {
   return statusFlow[idx + 1];
 }
 
-type Tab = 'orders' | 'menu' | 'profile' | 'finances';
+type Tab = 'orders' | 'menu' | 'profile' | 'finances' | 'drivers';
 
 export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) {
   const { user } = useAuth();
@@ -315,6 +316,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                 { id: 'menu' as Tab, label: 'Menu', icon: ChefHat, count: menuItems.length },
                 { id: 'profile' as Tab, label: 'Profil', icon: Store },
                 { id: 'finances' as Tab, label: 'Finances', icon: DollarSign },
+                { id: 'drivers' as Tab, label: 'Livreurs', icon: Bike },
               ].map(t => (
                 <button key={t.id} onClick={() => setTab(t.id)}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-inter font-medium transition-colors ${tab === t.id ? 'bg-green-primary text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}>
@@ -532,10 +534,81 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
               />
             ) : tab === 'finances' ? (
               <FinancesTab orders={orders} commissionRate={activeRestaurant?.commissionRate ?? 0.15} />
+            ) : tab === 'drivers' ? (
+              <PreferredDriversTab restaurantId={restaurantId} />
             ) : null}
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function PreferredDriversTab({ restaurantId }: { restaurantId: string }) {
+  const [preferredIds, setPreferredIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getPreferredDrivers(restaurantId).then(ids => { setPreferredIds(ids); setLoading(false); });
+  }, [restaurantId]);
+
+  const handleToggle = async (driverId: string) => {
+    try {
+      if (preferredIds.includes(driverId)) {
+        await removePreferredDriver(restaurantId, driverId);
+        setPreferredIds(prev => prev.filter(id => id !== driverId));
+      } else {
+        await addPreferredDriver(restaurantId, driverId);
+        setPreferredIds(prev => [driverId, ...prev]);
+      }
+    } catch (e: any) { alert(e.message); }
+  };
+
+  if (loading) return <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-6 text-center text-text-secondary text-sm">Chargement...</div>;
+
+  return (
+    <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 sm:p-6 max-w-xl">
+      <h2 className="font-poppins font-semibold text-text-primary text-lg flex items-center gap-2 mb-1">
+        <div className="w-8 h-8 rounded-lg bg-green-light flex items-center justify-center"><Bike className="w-4 h-4 text-green-primary" /></div>
+        Mes livreurs préférés
+      </h2>
+      <p className="text-text-muted text-xs font-inter mb-5">
+        Les commandes marquées « Prête » sont proposées en priorité à vos livreurs préférés pendant 30 secondes avant d'être diffusées à tous.
+        Max {5} livreurs.
+      </p>
+
+      <div className="space-y-2">
+        {preferredIds.map(id => (
+          <div key={id} className="flex items-center justify-between p-3 bg-bg-secondary rounded-xl">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-full bg-green-light flex items-center justify-center"><Bike className="w-4 h-4 text-green-primary" /></div>
+              <span className="font-inter font-medium text-text-primary text-sm">Livreur #{id.slice(0, 8)}</span>
+            </div>
+            <button onClick={() => handleToggle(id)} className="text-xs font-inter font-medium text-error hover:underline">Retirer</button>
+          </div>
+        ))}
+        {preferredIds.length === 0 && (
+          <div className="text-center py-8 text-text-muted text-sm font-inter">
+            Aucun livreur préféré. Après une livraison réussie, vous pourrez ajouter le livreur ici.
+          </div>
+        )}
+      </div>
+
+      {preferredIds.length < 5 && (
+        <div className="mt-4 p-4 bg-bg-secondary rounded-xl">
+          <p className="text-sm font-inter font-medium text-text-primary mb-2">Ajouter un livreur</p>
+          <div className="flex gap-2">
+            <input id="driverIdInput" type="text" placeholder="ID du livreur..."
+              className="flex-1 bg-white rounded-lg px-3 h-10 text-text-primary font-inter text-sm outline-none" />
+            <button onClick={() => {
+              const input = document.getElementById('driverIdInput') as HTMLInputElement;
+              if (input?.value) handleToggle(input.value);
+            }} className="bg-green-primary text-white font-inter font-medium text-sm px-4 h-10 rounded-lg hover:bg-green-dark transition-colors">
+              <UserCheck className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Bike, Clock, MapPin, RefreshCw, CheckCircle2, Phone, Navigation, Wallet, PackageCheck, ExternalLink, Banknote, Smartphone } from 'lucide-react';
+import { Bike, Clock, MapPin, RefreshCw, CheckCircle2, Phone, Navigation, Wallet, PackageCheck, ExternalLink, Banknote, Smartphone, Star } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchAvailableDeliveries, fetchDriverOrders, acceptDelivery, getDeliveryContactPhone, getOrderPreparationMessage, markDelivered, markPickedUp, type Order } from '../lib/orders';
 import { haversineDistance, estimateTime } from '../lib/utils';
-import { fetchDriverOnlineStatus, setDriverOnline, requestPayout, fetchDriverPayouts, type PayoutRequest } from '../lib/drivers';
+import { fetchDriverOnlineStatus, setDriverOnline, requestPayout, fetchDriverPayouts, getRestaurantsThatPreferMe, type PayoutRequest } from '../lib/drivers';
 import { Skeleton } from '../components/ui/skeleton';
 import { Badge } from '../components/ui/badge';
 import { Switch } from '../components/ui/switch';
@@ -34,10 +34,12 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
   const [isOnline, setIsOnline] = useState(true);
   const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
   const [requestingPayout, setRequestingPayout] = useState(false);
+  const [preferredByRestaurants, setPreferredByRestaurants] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) return;
     fetchDriverOnlineStatus(user.id).then(setIsOnline);
+    getRestaurantsThatPreferMe(user.id).then(ids => setPreferredByRestaurants(new Set(ids)));
   }, [user]);
 
   const handleToggleOnline = async (next: boolean) => {
@@ -49,7 +51,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
   const loadAll = useCallback(async () => {
     if (!user) return;
     const [availableData, mineData, payoutsData] = await Promise.all([
-      fetchAvailableDeliveries(),
+      fetchAvailableDeliveries(user.id),
       fetchDriverOrders(user.id),
       fetchDriverPayouts(user.id),
     ]);
@@ -238,6 +240,11 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                         <span className="text-xs font-inter font-medium px-2.5 py-1 rounded-full bg-gold-light text-gold-accent">
                           Prête à récupérer
                         </span>
+                        {preferredByRestaurants.has(order.restaurantId) && (
+                          <span className="text-xs font-inter font-medium px-2 py-1 rounded-full bg-green-light text-green-primary flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-green-primary" />Prioritaire
+                          </span>
+                        )}
                       </div>
                       <p className="flex items-center gap-1.5 text-text-secondary text-sm font-inter mb-1">
                         <MapPin className="w-3.5 h-3.5 shrink-0" />

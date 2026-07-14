@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { MapPin, Wallet, Smartphone, Loader2, CheckCircle2, UserRound, Phone } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -73,6 +73,19 @@ export default function Checkout() {
   const [useOtherNeighborhood, setUseOtherNeighborhood] = useState(false);
   const [customNeighborhood, setCustomNeighborhood] = useState('');
   const [landmark, setLandmark] = useState('');
+
+  // Lock city/neighborhood to the restaurant's location
+  const restaurantCity = cartRestaurant?.city ?? '';
+  const restaurantNeighborhood = cartRestaurant?.neighborhood ?? '';
+  const locationLocked = Boolean(restaurantCity);
+
+  useEffect(() => {
+    if (restaurantCity) setCity(restaurantCity);
+  }, [restaurantCity]);
+
+  useEffect(() => {
+    if (restaurantNeighborhood) setNeighborhood(restaurantNeighborhood);
+  }, [restaurantNeighborhood]);
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentPhone, setPaymentPhone] = useState(() => user?.phone ?? '');
@@ -249,27 +262,29 @@ export default function Checkout() {
   }
 
   return (
-    <div className="pt-[72px] min-h-screen bg-gradient-to-b from-green-50/50 to-bg-secondary">
-      <div className="max-w-[720px] mx-auto px-4 sm:px-6 py-8">
-        {/* Hero Header */}
-        <div className="relative bg-white rounded-2xl border border-border-custom shadow-sm overflow-hidden mb-6">
-          <div className="h-16 bg-gradient-to-r from-green-primary via-green-500 to-emerald-400" />
-          <div className="px-5 sm:px-6 pb-5 -mt-6">
-            <div className="flex items-end gap-3">
-              <div className="w-14 h-14 rounded-xl bg-white border-4 border-white shadow-md flex items-center justify-center">
-                <MapPin className="w-7 h-7 text-green-primary" />
-              </div>
-              <div className="pb-1">
-                <h1 className="font-poppins font-bold text-text-primary text-xl sm:text-2xl">
-                  Finaliser la commande
-                </h1>
-                <p className="text-text-muted text-xs font-inter">
-                  {items.length} article{items.length !== 1 ? 's' : ''} · {total.toLocaleString()} FCFA
-                </p>
-              </div>
-            </div>
+    <div className="pt-[72px] min-h-screen bg-bg-secondary">
+      {/* ════════════════════════════════════════════════════
+          Immersive Hero (Restaurants-style)
+          ════════════════════════════════════════════════════ */}
+      <section className="bg-green-primary pt-12 pb-16 sm:pt-16 sm:pb-20 relative">
+        <div className="max-w-[720px] mx-auto px-4 sm:px-6">
+          <div className="text-white/60 text-xs font-inter mb-4">
+            <Link to="/" className="hover:text-white transition-colors">Accueil</Link>
+            <span className="mx-2">/</span>
+            <Link to="/restaurants" className="hover:text-white transition-colors">Restaurants</Link>
+            <span className="mx-2">/</span>
+            <span className="text-white">Commander</span>
           </div>
+          <h1 className="font-poppins font-semibold text-white text-3xl sm:text-4xl tracking-normal mb-3">
+            Finaliser la commande
+          </h1>
+          <p className="text-white/75 font-inter text-base">
+            {items.length} article{items.length !== 1 ? 's' : ''} · {total.toLocaleString()} FCFA
+          </p>
         </div>
+      </section>
+
+      <div className="max-w-[720px] mx-auto px-4 sm:px-6 -mt-8 relative z-10 pb-12 space-y-6">
 
         {/* Recipient */}
         <section className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 sm:p-6 mb-6">
@@ -376,11 +391,15 @@ export default function Checkout() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-text-secondary font-inter text-sm mb-1.5">Ville</label>
+              <label className="block text-text-secondary font-inter text-sm mb-1.5">
+                Ville
+                {locationLocked && <span className="text-green-primary text-[11px] ml-1">(restaurant)</span>}
+              </label>
               <select
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none"
+                disabled={locationLocked}
+                className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {activeCities.map((c) => (
                   <option key={c.id} value={c.name}>{c.name}</option>
@@ -388,7 +407,10 @@ export default function Checkout() {
               </select>
             </div>
             <div>
-              <label className="block text-text-secondary font-inter text-sm mb-1.5">Quartier</label>
+              <label className="block text-text-secondary font-inter text-sm mb-1.5">
+                Quartier
+                {locationLocked && <span className="text-green-primary text-[11px] ml-1">(restaurant)</span>}
+              </label>
               {useOtherNeighborhood ? (
                 <div className="flex gap-2">
                   <input
@@ -419,7 +441,8 @@ export default function Checkout() {
                       setNeighborhood(e.target.value);
                     }
                   }}
-                  className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none"
+                  className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none disabled:opacity-70 disabled:cursor-not-allowed"
+                  disabled={locationLocked}
                   required
                 >
                   <option value="">Sélectionnez un quartier</option>

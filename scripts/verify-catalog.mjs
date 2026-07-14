@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   cuisineCategories,
+  dishCatalog,
   mealCategoryImages,
   menuItems,
   restaurantMenuCategories,
@@ -16,6 +17,11 @@ const publicDir = join(rootDir, 'public');
 const MIN_RESTAURANTS_PER_CUISINE = 3;
 const MIN_MENU_ITEMS_PER_CATEGORY = 6;
 const GENERIC_MENU_IMAGE_PREFIX = '/cat-';
+const REQUIRED_DIETARY_TAGS = [
+  'sans-sucre', 'diabetique', 'pauvre-en-sel', 'vegetarien', 'vegan', 'halal', 'bio',
+  'riche-en-proteines', 'allege', 'epice', 'braise', 'traditionnel', 'sans-cube',
+  'fait-maison', 'sans-gluten', 'cocktail', 'detox', 'presse-du-jour',
+];
 
 const errors = [];
 
@@ -25,6 +31,34 @@ function countBy(list, key) {
     acc[value] = (acc[value] ?? 0) + 1;
     return acc;
   }, {});
+}
+
+function normalizeTag(tag) {
+  const normalized = tag
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  const aliases = {
+    protein: 'riche-en-proteines',
+    proteine: 'riche-en-proteines',
+    proteines: 'riche-en-proteines',
+    'riche-en-proteine': 'riche-en-proteines',
+    epices: 'epice',
+    traditionnelle: 'traditionnel',
+  };
+  return aliases[normalized] ?? normalized;
+}
+
+function itemDietaryTags(item) {
+  const catalogEntry = item.catalogDishId
+    ? dishCatalog.find((entry) => entry.id === item.catalogDishId)
+    : undefined;
+  return new Set([
+    ...(item.dietaryTags ?? []).map(normalizeTag),
+    ...((catalogEntry?.tags ?? []).map(normalizeTag)),
+  ]);
 }
 
 function checkImage(path, context) {
@@ -77,6 +111,8 @@ for (const category of restaurantMenuCategories) {
   }
 }
 
+const catalogIds = new Set(dishCatalog.map((entry) => entry.id));
+
 const supportedMenuCategories = new Set(restaurantMenuCategories);
 const unsupportedMenuCategories = menuItems
   .map((item) => item.category)
@@ -94,7 +130,22 @@ for (const [category, image] of Object.entries(mealCategoryImages)) {
 for (const restaurant of restaurants) {
   checkImage(restaurant.image, `Restaurant ${restaurant.name}`);
 }
+for (const entry of dishCatalog) {
+  if (entry.defaultImage.startsWith(GENERIC_MENU_IMAGE_PREFIX)) {
+    errors.push(`Catalogue ${entry.name}: image generique interdite ${entry.defaultImage}`);
+  }
+  checkImage(entry.defaultImage, `Catalogue ${entry.name}`);
+}
+for (const tag of REQUIRED_DIETARY_TAGS) {
+  const matchingItems = menuItems.filter((item) => itemDietaryTags(item).has(tag));
+  if (matchingItems.length === 0) {
+    errors.push(`Tag ${tag}: aucun plat reel rattache au catalogue ou au menu`);
+  }
+}
 for (const item of menuItems) {
+  if (item.catalogDishId && !catalogIds.has(item.catalogDishId)) {
+    errors.push(`Plat ${item.name}: catalogDishId invalide ${item.catalogDishId}`);
+  }
   if (item.image.startsWith(GENERIC_MENU_IMAGE_PREFIX)) {
     errors.push(`Plat ${item.name}: image generique interdite ${item.image}`);
   }

@@ -110,24 +110,50 @@ function isTraditionalDishText(text: string): boolean {
   return traditionalKeywords.some((keyword) => text.includes(keyword));
 }
 
+function includesAny(text: string, keywords: string[]): boolean {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
+function hasAnimalProteinText(text: string): boolean {
+  return includesAny(text, [
+    'boeuf', 'poulet', 'poisson', 'crevette', 'crevettes', 'homard', 'viande', 'jambon',
+    'pepperoni', 'saucisse', 'saucisses', 'steak', 'shawarma', 'suya', 'lait', 'fromage',
+    'oeuf', 'oeufs', 'omelette',
+  ]);
+}
+
 export function inferDietaryTags(item: MenuItem): string[] {
   const tags: string[] = [];
   const text = normalizeDishName(`${item.name} ${item.description} ${item.category}`);
+  const nameAndCategory = normalizeDishName(`${item.name} ${item.category}`);
   const catalogEntry = findDishCatalogEntry(item);
 
   if (item.dietaryTags?.length) tags.push(...item.dietaryTags.map(normalizeTag));
   if (catalogEntry?.tags.length) tags.push(...catalogEntry.tags.map(normalizeTag));
 
-  if (text.includes('jus') || text.includes('boisson') || text.includes('cocktail') || text.includes('smoothie')) tags.push('sans-sucre');
-  if (text.includes('salade') || text.includes('fruits')) { tags.push('allege'); tags.push('vegetarien'); }
-  if (text.includes('grillade') || text.includes('brochette') || text.includes('poulet') || text.includes('boeuf') || text.includes('poisson')) tags.push('riche-en-proteines');
-  if (text.includes('epice') || text.includes('piment')) tags.push('epice');
+  if (includesAny(text, ['sans sucre', 'sans sucre ajoute', 'zero sucre', 'non sucre', 'naturellement sans sucre', 'eau minerale'])) tags.push('sans-sucre');
+  if (includesAny(text, ['diabetique', 'indice glycemique', 'glycemique bas', 'pauvre en glucides'])) tags.push('diabetique');
+  if (includesAny(text, ['pauvre en sel', 'sel reduit', 'sans sel ajoute'])) tags.push('pauvre-en-sel');
+  if (includesAny(text, ['bio', 'biologique'])) tags.push('bio');
+  if (includesAny(text, ['sans gluten'])) tags.push('sans-gluten');
+  if (includesAny(text, ['cocktail'])) tags.push('cocktail');
+  if (includesAny(text, ['detox'])) tags.push('detox');
+  if (includesAny(text, ['presse du jour', 'presse a la demande', 'presse a froid', 'jus frais presse'])) tags.push('presse-du-jour');
+  if (includesAny(text, ['sans cube', 'sans bouillon'])) tags.push('sans-cube');
+
+  const vegetarianSignal = includesAny(text, ['vegetarien', 'vegetarienne'])
+    || (includesAny(nameAndCategory, ['salade', 'fruits', 'legumes']) && !hasAnimalProteinText(text));
+  if (vegetarianSignal) tags.push('vegetarien');
+
+  if (includesAny(nameAndCategory, ['salade', 'fruits']) || includesAny(text, ['allege', 'leger', 'legere', 'vapeur'])) tags.push('allege');
+  if (includesAny(text, ['grillade', 'brochette', 'poulet', 'boeuf', 'poisson', 'crevette', 'crevettes', 'homard', 'viande', 'steak', 'oeuf', 'oeufs', 'omelette'])) tags.push('riche-en-proteines');
+  if (includesAny(text, ['epice', 'piment'])) tags.push('epice');
+  if (includesAny(text, ['braise', 'braisee', 'braisees'])) tags.push('braise');
   if (isTraditionalDishText(text)) tags.push('traditionnel');
-  if (item.category === 'Boissons') tags.push('sans-sucre');
   if (item.category === 'Grillades') tags.push('riche-en-proteines');
+
   return [...new Set(tags.map(normalizeTag))];
 }
-
 /** Slug URL-safe pour la route /plat/:slug — dérivé de normalizeDishName. */
 export function dishSlug(name: string): string {
   return normalizeDishName(name).replace(/\s+/g, '-');
@@ -187,7 +213,7 @@ export function groupDishes(items: EnrichedItem[]): DishGroup[] {
       maxPrice: Math.max(...prices),
       totalRestaurants: uniqueRestaurants.size,
       avgRating: ratings.reduce((s, r) => s + r, 0) / ratings.length,
-      tags: [...new Set(allTags)].slice(0, 5),
+      tags: [...new Set(allTags)],
       bestImage,
     };
   });
