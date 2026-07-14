@@ -9,6 +9,7 @@ import Partenaires from './pages/Partenaires'
 import Livreurs from './pages/Livreurs'
 import Contact from './pages/Contact'
 import Login from './pages/Login'
+import Inscription from './pages/Inscription'
 import Checkout from './pages/Checkout'
 import Orders from './pages/Orders'
 import Profile from './pages/Profile'
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/livreurs" element={<Layout><Livreurs /></Layout>} />
         <Route path="/contact" element={<Layout><Contact /></Layout>} />
         <Route path="/connexion" element={<Layout><Login /></Layout>} />
+        <Route path="/inscription" element={<Layout><Inscription /></Layout>} />
         <Route path="/checkout" element={<Layout><Checkout /></Layout>} />
         <Route path="/commandes" element={<Layout><Orders /></Layout>} />
         <Route path="/profil" element={<Layout><Profile /></Layout>} />

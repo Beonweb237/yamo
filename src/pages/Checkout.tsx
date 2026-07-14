@@ -4,6 +4,9 @@ import { MapPin, Wallet, Smartphone, Loader2, CheckCircle2 } from 'lucide-react'
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createOrder, type PaymentMethod } from '../lib/orders';
+import { validateOrder, initiateMoMoPayment } from '../lib/payments';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { useRestaurant } from '../hooks/useCatalog';
 import { activeCities, getNeighborhoods } from '../data/locations';
 
 interface SavedAddress {
@@ -60,9 +63,10 @@ const paymentOptions: {
   ];
 
 export default function Checkout() {
-  const { items, totalPrice, clearCart } = useCart();
+  const { items, restaurantId, totalPrice, clearCart } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { restaurant: cartRestaurant } = useRestaurant(restaurantId ?? undefined);
 
   const [city, setCity] = useState('Douala');
   const [neighborhood, setNeighborhood] = useState('');
@@ -71,9 +75,13 @@ export default function Checkout() {
   const [landmark, setLandmark] = useState('');
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [paymentPhone, setPaymentPhone] = useState(() => user?.phone ?? '');
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
+  const [paymentNotice, setPaymentNotice] = useState('');
 
   const savedAddresses = useMemo(() => readAddresses(), []);
 
@@ -113,28 +121,76 @@ export default function Checkout() {
     }
   }, [items.length, placedOrderId, navigate]);
 
-  const deliveryFee = 0;
+  // Frais de livraison réels du restaurant du panier (0 tant que non chargé)
+  const deliveryFee = cartRestaurant && cartRestaurant.id === restaurantId
+    ? cartRestaurant.deliveryFee
+    : 0;
   const total = totalPrice + deliveryFee;
 
   const handlePlaceOrder = async () => {
-    if (!user || items.length === 0) return;
+    if (!user || items.length === 0 || !restaurantId) return;
     setError('');
     setSubmitting(true);
     try {
-      const restaurantId = items[0].item.restaurantId;
+      let serverSubtotal = totalPrice;
+      let serverDeliveryFee = deliveryFee;
+      let serverTotal = total;
+
+      // Validation serveur (prix, disponibilité, minimum de commande, promo)
+      // quand Supabase est configuré — les montants serveur font foi.
+      if (isSupabaseConfigured) {
+        try {
+          const validation = await validateOrder({
+            restaurantId,
+            items: items.map(({ item, quantity }) => ({ menuItemId: item.id, quantity })),
+            promoCode: promoCode.trim() || undefined,
+          });
+          serverSubtotal = validation.subtotal;
+          serverDeliveryFee = validation.deliveryFee;
+          serverTotal = validation.total;
+          setAppliedDiscount(validation.discount ?? 0);
+        } catch (validationErr) {
+          const message = (validationErr as Error).message;
+          // Erreurs métier explicites (restaurant fermé, minimum non atteint…)
+          if (message && !message.startsWith('HTTP') && !message.includes('fetch')) {
+            setError(message);
+            setSubmitting(false);
+            return;
+          }
+          // Edge function injoignable : on continue avec les montants client.
+        }
+      }
+
       const order = await createOrder({
         customerId: user.id,
         restaurantId,
-        restaurantName: '',
+        restaurantName: cartRestaurant?.name ?? '',
         contactPhone: user.phone,
         items,
-        subtotal: totalPrice,
-        deliveryFee,
-        total,
+        subtotal: serverSubtotal,
+        deliveryFee: serverDeliveryFee,
+        total: serverTotal,
         paymentMethod,
         address: { city, neighborhood: effectiveNeighborhood, landmark, fullText: `${effectiveNeighborhood}, ${city} — ${landmark}` },
         notes,
       });
+
+      // Paiement MTN MoMo : déclenche la demande de confirmation sur le téléphone
+      if (paymentMethod === 'mtn_momo' && isSupabaseConfigured) {
+        try {
+          const payment = await initiateMoMoPayment({
+            orderId: order.id,
+            amount: serverTotal,
+            phone: paymentPhone || user.phone,
+          });
+          setPaymentNotice(payment.message || 'Demande de paiement MTN MoMo envoyée. Validez-la sur votre téléphone.');
+        } catch {
+          setPaymentNotice("Le paiement MoMo n'a pas pu être initié. Vous pourrez régler à la livraison.");
+        }
+      } else if (paymentMethod === 'orange_money') {
+        setPaymentNotice('Le paiement Orange Money sera confirmé avec vous par le support. En attendant, la commande est enregistrée.');
+      }
+
       setPlacedOrderId(order.id);
       clearCart();
     } catch {
@@ -146,18 +202,25 @@ export default function Checkout() {
 
   if (placedOrderId) {
     return (
-      <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
-        <div className="w-full max-w-[480px] bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-8 text-center my-12">
-          <CheckCircle2 className="w-14 h-14 text-success mx-auto mb-4" />
+      <div className="pt-[72px] min-h-screen bg-gradient-to-b from-green-50/50 to-bg-secondary flex items-center justify-center px-4">
+        <div className="w-full max-w-[480px] bg-white rounded-2xl border border-border-custom shadow-sm p-8 text-center my-12">
+          <div className="w-16 h-16 rounded-2xl bg-green-light flex items-center justify-center mx-auto mb-5">
+            <CheckCircle2 className="w-8 h-8 text-green-primary" />
+          </div>
           <h1 className="font-poppins font-bold text-text-primary text-2xl mb-2">
             Commande confirmée !
           </h1>
           <p className="text-text-secondary font-inter text-sm mb-6">
             Référence : <span className="font-semibold text-text-primary">{placedOrderId.slice(0, 8)}</span>
           </p>
+          {paymentNotice && (
+            <p className="text-text-secondary font-inter text-sm mb-6 bg-bg-secondary rounded-lg p-3">
+              {paymentNotice}
+            </p>
+          )}
           <button
             onClick={() => navigate('/commandes')}
-            className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-lg hover:bg-green-dark transition-colors"
+            className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark hover:shadow-lg active:scale-95 transition-all"
           >
             Suivre ma commande
           </button>
@@ -167,14 +230,30 @@ export default function Checkout() {
   }
 
   return (
-    <div className="pt-[72px] min-h-screen bg-bg-secondary">
-      <div className="max-w-[720px] mx-auto px-4 sm:px-6 py-10">
-        <h1 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl mb-6">
-          Finaliser la commande
-        </h1>
+    <div className="pt-[72px] min-h-screen bg-gradient-to-b from-green-50/50 to-bg-secondary">
+      <div className="max-w-[720px] mx-auto px-4 sm:px-6 py-8">
+        {/* Hero Header */}
+        <div className="relative bg-white rounded-2xl border border-border-custom shadow-sm overflow-hidden mb-6">
+          <div className="h-16 bg-gradient-to-r from-green-primary via-green-500 to-emerald-400" />
+          <div className="px-5 sm:px-6 pb-5 -mt-6">
+            <div className="flex items-end gap-3">
+              <div className="w-14 h-14 rounded-xl bg-white border-4 border-white shadow-md flex items-center justify-center">
+                <MapPin className="w-7 h-7 text-green-primary" />
+              </div>
+              <div className="pb-1">
+                <h1 className="font-poppins font-bold text-text-primary text-xl sm:text-2xl">
+                  Finaliser la commande
+                </h1>
+                <p className="text-text-muted text-xs font-inter">
+                  {items.length} article{items.length !== 1 ? 's' : ''} · {total.toLocaleString()} FCFA
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Address */}
-        <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6 mb-6">
+        <section className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 sm:p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <MapPin className="w-5 h-5 text-green-primary" />
             <h2 className="font-poppins font-semibold text-text-primary text-lg">
@@ -289,7 +368,7 @@ export default function Checkout() {
         </section>
 
         {/* Payment */}
-        <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6 mb-6">
+        <section className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 sm:p-6 mb-6">
           <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">
             Mode de paiement
           </h2>
@@ -312,9 +391,20 @@ export default function Checkout() {
                   </div>
                 </button>
                 {paymentMethod === opt.value && (
-                  <p className="text-text-secondary text-xs font-inter mt-1.5 px-3">
-                    {opt.confirmation}
-                  </p>
+                  <div className="mt-1.5 px-3">
+                    <p className="text-text-secondary text-xs font-inter">
+                      {opt.confirmation}
+                    </p>
+                    {(opt.value === 'mtn_momo' || opt.value === 'orange_money') && (
+                      <input
+                        type="tel"
+                        value={paymentPhone}
+                        onChange={(e) => setPaymentPhone(e.target.value)}
+                        placeholder="Numéro Mobile Money (ex: 6XXXXXXXX)"
+                        className="mt-2 w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
+                      />
+                    )}
+                  </div>
                 )}
               </div>
             ))}
@@ -322,7 +412,7 @@ export default function Checkout() {
         </section>
 
         {/* Summary */}
-        <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6 mb-6">
+        <section className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 sm:p-6 mb-6">
           <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">
             Récapitulatif
           </h2>
@@ -334,11 +424,29 @@ export default function Checkout() {
               </div>
             ))}
           </div>
+          <div className="mb-4">
+            <input
+              type="text"
+              value={promoCode}
+              onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setAppliedDiscount(0); }}
+              placeholder="Code promo (ex: AKWA1000)"
+              className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted uppercase"
+            />
+            <p className="text-text-muted text-xs font-inter mt-1">
+              Le code sera vérifié à la confirmation de la commande.
+            </p>
+          </div>
           <div className="border-t border-border-light pt-3 space-y-2">
             <div className="flex justify-between text-sm font-inter text-text-secondary">
               <span>Sous-total</span>
               <span>{totalPrice.toLocaleString()} FCFA</span>
             </div>
+            {appliedDiscount > 0 && (
+              <div className="flex justify-between text-sm font-inter">
+                <span className="text-text-secondary">Remise ({promoCode})</span>
+                <span className="text-success font-medium">-{appliedDiscount.toLocaleString()} FCFA</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm font-inter">
               <span className="text-text-secondary">Livraison</span>
               <span className="text-success font-medium">{deliveryFee === 0 ? 'Gratuit' : `${deliveryFee} FCFA`}</span>
@@ -355,7 +463,7 @@ export default function Checkout() {
         <button
           onClick={handlePlaceOrder}
           disabled={submitting || !effectiveNeighborhood || !landmark}
-          className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+          className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark hover:shadow-lg active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
         >
           {submitting ? (
             <>

@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase, isSupabaseConfigured, isSupabaseAuthenticated } from './supabase';
 import { fetchDriverOrders } from './orders';
 
 export interface DriverFeedback {
@@ -79,7 +79,7 @@ export function getLocalSuspensionInfo(driverId: string): { isSuspended: boolean
 }
 
 export async function fetchDriverOnlineStatus(driverId: string): Promise<boolean> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data } = await supabase.from('profiles').select('is_online').eq('id', driverId).maybeSingle();
     return Boolean(data?.is_online);
   }
@@ -87,7 +87,7 @@ export async function fetchDriverOnlineStatus(driverId: string): Promise<boolean
 }
 
 export async function setDriverOnline(driverId: string, isOnline: boolean): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { error } = await supabase.from('profiles').update({ is_online: isOnline }).eq('id', driverId);
     if (error) throw error;
     return;
@@ -98,7 +98,7 @@ export async function setDriverOnline(driverId: string, isOnline: boolean): Prom
 }
 
 export async function setDriverSuspended(driverId: string, isSuspended: boolean, reason?: string): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { error } = await supabase
       .from('profiles')
       .update({ is_suspended: isSuspended, suspension_reason: isSuspended ? reason ?? null : null })
@@ -123,7 +123,7 @@ export async function fetchDriversStats(driverIds: string[]): Promise<Record<str
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const result: Record<string, DriverStats> = {};
 
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, is_online, is_suspended, suspension_reason')
@@ -193,7 +193,7 @@ export async function fetchDriversStats(driverIds: string[]): Promise<Record<str
 // ─────────────────────────────────────────────────────────────
 
 export async function rateDelivery(orderId: string, rating: number, comment?: string): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { error } = await supabase
       .from('deliveries')
       .update({ rating, rating_comment: comment ?? null })
@@ -224,7 +224,7 @@ function mapPayoutRow(row: Record<string, unknown>): PayoutRequest {
 }
 
 export async function requestPayout(driverId: string, amount: number): Promise<PayoutRequest> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data, error } = await supabase
       .from('payout_requests')
       .insert({ driver_id: driverId, amount })
@@ -247,7 +247,7 @@ export async function requestPayout(driverId: string, amount: number): Promise<P
 }
 
 export async function fetchDriverPayouts(driverId: string): Promise<PayoutRequest[]> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data, error } = await supabase
       .from('payout_requests')
       .select('*')
@@ -260,7 +260,7 @@ export async function fetchDriverPayouts(driverId: string): Promise<PayoutReques
 }
 
 export async function fetchAllPayouts(): Promise<PayoutRequest[]> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data, error } = await supabase
       .from('payout_requests')
       .select('*')
@@ -272,7 +272,7 @@ export async function fetchAllPayouts(): Promise<PayoutRequest[]> {
 }
 
 export async function updatePayoutStatus(id: string, status: PayoutStatus, reason?: string): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { error } = await supabase
       .from('payout_requests')
       .update({ status, processed_at: new Date().toISOString(), processed_reason: reason ?? null })

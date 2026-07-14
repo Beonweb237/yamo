@@ -88,6 +88,51 @@ function isoHoursAgo(hours) {
   return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 }
 
+function isoMinutesAgo(minutes) {
+  return new Date(Date.now() - minutes * 60 * 1000).toISOString();
+}
+
+function isoMinutesFromNow(minutes) {
+  return new Date(Date.now() + minutes * 60 * 1000).toISOString();
+}
+
+function buildPreparationFields(status) {
+  if (status === 'pending' || status === 'cancelled') {
+    return {
+      confirmed_at: null,
+      preparation_eta_minutes: null,
+      estimated_ready_at: null,
+      ready_at: null,
+    };
+  }
+
+  if (status === 'confirmed') {
+    return {
+      confirmed_at: isoMinutesAgo(5),
+      preparation_eta_minutes: 25,
+      estimated_ready_at: isoMinutesFromNow(20),
+      ready_at: null,
+    };
+  }
+
+  if (status === 'preparing') {
+    return {
+      confirmed_at: isoMinutesAgo(12),
+      preparation_eta_minutes: 25,
+      estimated_ready_at: isoMinutesFromNow(13),
+      ready_at: null,
+    };
+  }
+
+  const estimatedReadyAt = isoMinutesAgo(status === 'ready' ? 5 : 20);
+  return {
+    confirmed_at: isoMinutesAgo(status === 'ready' ? 30 : 50),
+    preparation_eta_minutes: 25,
+    estimated_ready_at: estimatedReadyAt,
+    ready_at: estimatedReadyAt,
+  };
+}
+
 async function must(label, promise) {
   const { data, error } = await promise;
   if (error) throw new Error(`${label}: ${error.message}`);
@@ -238,7 +283,7 @@ async function ensureRestaurantAndMenu(profileIds) {
     { id: IDS.menus[0], restaurant_id: IDS.restaurant, name: 'Ndolé Test', description: 'Ndolé aux arachides avec viande et crevettes.', price: 3500, category: 'Plats Principaux', image: '/plat-ndole.jpg', is_popular: true, is_available: true },
     { id: IDS.menus[1], restaurant_id: IDS.restaurant, name: 'Poulet DG Test', description: 'Poulet DG avec plantains dorés.', price: 4000, category: 'Plats Principaux', image: '/plat-pouletdg.jpg', is_popular: true, is_available: true },
     { id: IDS.menus[2], restaurant_id: IDS.restaurant, name: 'Brochettes Test', description: 'Brochettes de bœuf grillées.', price: 2500, category: 'Grillades', image: '/plat-brochettes.jpg', is_popular: false, is_available: true },
-    { id: IDS.menus[3], restaurant_id: IDS.restaurant, name: 'Jus de Gingembre Test', description: 'Jus frais maison.', price: 1200, category: 'Boissons', image: '/cat-boissons.jpg', is_popular: false, is_available: true },
+    { id: IDS.menus[3], restaurant_id: IDS.restaurant, name: 'Jus de Gingembre Test', description: 'Jus frais maison.', price: 1200, category: 'Boissons', image: '/drink-gingembre.jpg', is_popular: false, is_available: true },
   ];
   await must('upsert test menu', supabase.from('menu_items').upsert(menuRows, { onConflict: 'id' }));
 }
@@ -279,6 +324,7 @@ async function ensureOrders(profileIds) {
     payment_method: spec.method,
     payment_status: spec.payment,
     notes: spec.note,
+    ...buildPreparationFields(spec.status),
     created_at: isoHoursAgo(spec.hours),
     updated_at: isoHoursAgo(Math.max(spec.hours - 0.5, 0)),
   }));

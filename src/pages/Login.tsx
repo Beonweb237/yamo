@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Phone, ShieldCheck, User, Store, Bike, Mail, Smartphone } from 'lucide-react';
-import { useAuth, LOCAL_SESSION_KEY, LOCAL_REGISTRY_KEY, RoleMismatchError, type AuthUser, type UserRole } from '../contexts/AuthContext';
+import { useAuth, LOCAL_SESSION_KEY, LOCAL_REGISTRY_KEY, LOCAL_EMAIL_USERS_KEY, RoleMismatchError, type AuthUser, type UserRole } from '../contexts/AuthContext';
 import { getLocalSuspensionInfo } from '../lib/drivers';
 import { fetchMyApplications } from '../lib/applications';
 
@@ -131,9 +132,27 @@ export default function Login() {
         return;
       }
 
-      // Mock mode: lookup predefined accounts
-      const mockUser = MOCK_EMAIL_PASSWORDS[email.trim().toLowerCase()];
-      if (!mockUser || password !== MOCK_PASSWORD) {
+      // Mock mode: first check dynamically registered users, then predefined accounts
+      const emailUsers = JSON.parse(localStorage.getItem(LOCAL_EMAIL_USERS_KEY) ?? '{}');
+      const registered = emailUsers[email.trim().toLowerCase()];
+      let mockUser = MOCK_EMAIL_PASSWORDS[email.trim().toLowerCase()];
+
+      if (registered) {
+        // User registered via Inscription.tsx
+        if (password !== registered.password) {
+          setEmailError('Email ou mot de passe incorrect.');
+          // EN: Incorrect email or password.
+          setEmailSubmitting(false);
+          return;
+        }
+        // Build auth user from registry
+        const phoneKey = registered.phone;
+        const registryData: Record<string, any> = JSON.parse(localStorage.getItem(LOCAL_REGISTRY_KEY) ?? '{}');
+        const storedUser = registryData[phoneKey];
+        mockUser = storedUser
+          ? { phone: storedUser.phone, role: storedUser.role, approved: storedUser.isApproved }
+          : { phone: `+237${phoneKey}`, role: 'client', approved: true };
+      } else if (!mockUser || password !== MOCK_PASSWORD) {
         setEmailError('Email ou mot de passe incorrect.');
         setEmailSubmitting(false);
         return;
@@ -324,6 +343,19 @@ export default function Login() {
             </button>
           </form>
         )}
+
+        {/* ── Footer: link to sign-up ── */}
+        <p className="text-center text-text-secondary font-inter text-sm mt-6">
+          Pas encore de compte ?{' '}
+          {/* EN: Don't have an account yet?{' '} */}
+          <Link
+            to="/inscription"
+            className="text-green-primary font-semibold hover:text-green-dark underline"
+          >
+            S'inscrire
+            {/* EN: Sign up */}
+          </Link>
+        </p>
       </div>
     </div>
   );

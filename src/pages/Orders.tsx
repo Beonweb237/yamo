@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Package, Clock, Star } from 'lucide-react';
+import { Package, Clock, Star, Store } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchOrders, type Order, type OrderStatus } from '../lib/orders';
+import { fetchOrders, getOrderPreparationMessage, type Order, type OrderStatus } from '../lib/orders';
 import { toast } from 'sonner';
 import { rateDelivery } from '../lib/drivers';
+import { rateRestaurant, hasRestaurantReview } from '../lib/catalog';
 import OrderStatusStepper from '../components/OrderStatusStepper';
 import { Skeleton } from '../components/ui/skeleton';
 
@@ -40,12 +41,27 @@ export default function Orders() {
   const [reviewComment, setReviewComment] = useState('');
   const [reviewSubmitted, setReviewSubmitted] = useState<Record<string, boolean>>({});
 
+  // Restaurant review state
+  const [restoReviewingId, setRestoReviewingId] = useState<string | null>(null);
+  const [restoRating, setRestoRating] = useState(5);
+  const [restoComment, setRestoComment] = useState('');
+  const [restoReviewSubmitted, setRestoReviewSubmitted] = useState<Record<string, boolean>>({});
+
   const handleSubmitReview = async (orderId: string) => {
     await rateDelivery(orderId, reviewRating, reviewComment || undefined);
     setReviewSubmitted((prev) => ({ ...prev, [orderId]: true }));
     setReviewingId(null);
     setReviewComment('');
     setReviewRating(5);
+  };
+
+  const handleSubmitRestoReview = async (orderId: string, restaurantId: string) => {
+    if (!user) return;
+    await rateRestaurant(orderId, restaurantId, user.id, restoRating, restoComment || undefined);
+    setRestoReviewSubmitted((prev) => ({ ...prev, [orderId]: true }));
+    setRestoReviewingId(null);
+    setRestoComment('');
+    setRestoRating(5);
   };
 
   useEffect(() => {
@@ -56,9 +72,17 @@ export default function Orders() {
 
   useEffect(() => {
     if (!user) return;
-    const load = () => fetchOrders(user.id).then((data) => {
+    const load = () => fetchOrders(user.id).then(async (data) => {
       setOrders(data);
       setLoading(false);
+      // Check which orders already have restaurant reviews
+      const restoReviewed: Record<string, boolean> = {};
+      for (const order of data.filter(o => o.status === 'delivered')) {
+        if (await hasRestaurantReview(order.id)) {
+          restoReviewed[order.id] = true;
+        }
+      }
+      setRestoReviewSubmitted(restoReviewed);
     });
     load();
     const interval = setInterval(load, 5000);
@@ -66,16 +90,32 @@ export default function Orders() {
   }, [user]);
 
   return (
-    <div className="pt-[72px] min-h-screen bg-bg-secondary">
-      <div className="max-w-[720px] mx-auto px-4 sm:px-6 py-10">
-        <h1 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl mb-6">
-          Mes commandes
-        </h1>
+    <div className="pt-[72px] min-h-screen bg-gradient-to-b from-green-50/50 to-bg-secondary">
+      <div className="max-w-[720px] mx-auto px-4 sm:px-6 py-8">
+        {/* Hero Header */}
+        <div className="relative bg-white rounded-2xl border border-border-custom shadow-sm overflow-hidden mb-6">
+          <div className="h-16 bg-gradient-to-r from-green-primary via-green-500 to-emerald-400" />
+          <div className="px-5 sm:px-6 pb-5 -mt-6">
+            <div className="flex items-end gap-3">
+              <div className="w-14 h-14 rounded-xl bg-white border-4 border-white shadow-md flex items-center justify-center">
+                <Package className="w-7 h-7 text-green-primary" />
+              </div>
+              <div className="pb-1">
+                <h1 className="font-poppins font-bold text-text-primary text-xl sm:text-2xl">
+                  Mes commandes
+                </h1>
+                <p className="text-text-muted text-xs font-inter">
+                  {orders.length} commande{orders.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {loading ? (
           <div className="space-y-4">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="bg-white rounded-xl border border-border-custom p-5">
+              <div key={i} className="bg-white rounded-2xl border border-border-custom p-5">
                 <div className="flex items-center justify-between mb-3">
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-6 w-20 rounded-full" />
@@ -91,8 +131,10 @@ export default function Orders() {
             ))}
           </div>
         ) : orders.length === 0 ? (
-          <div className="bg-white rounded-xl border border-border-custom p-10 text-center">
-            <Package className="w-12 h-12 text-text-muted mx-auto mb-3" />
+          <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-10 text-center">
+            <div className="w-16 h-16 rounded-full bg-green-light flex items-center justify-center mx-auto mb-4">
+              <Package className="w-8 h-8 text-green-primary" />
+            </div>
             <p className="text-text-secondary font-inter font-medium mb-1">
               Aucune commande pour le moment
             </p>
@@ -103,7 +145,7 @@ export default function Orders() {
         ) : (
           <div className="space-y-4">
             {orders.map((order) => (
-              <div key={order.id} className="bg-white rounded-xl border border-border-custom p-5">
+              <div key={order.id} className="bg-white rounded-2xl border border-border-custom shadow-sm hover:shadow-md transition-shadow p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="font-inter font-semibold text-text-primary text-sm">
                     Commande #{order.id.slice(0, 8)}
@@ -116,6 +158,13 @@ export default function Orders() {
                 <div className="mb-4">
                   <OrderStatusStepper status={order.status} />
                 </div>
+
+                {getOrderPreparationMessage(order) && (
+                  <div className="flex items-center gap-1.5 bg-bg-secondary rounded-lg px-3 py-2 mb-3 text-xs font-inter text-text-secondary">
+                    <Clock className="w-3.5 h-3.5 text-gold-accent shrink-0" />
+                    <span>{getOrderPreparationMessage(order)}</span>
+                  </div>
+                )}
 
                 <div className="space-y-1 mb-3">
                   {order.items.map((it, i) => (
@@ -149,7 +198,7 @@ export default function Orders() {
                     {reviewingId === order.id ? (
                       <div className="space-y-2">
                         <p className="font-inter font-medium text-text-primary text-sm">
-                          Noter cette commande
+                          Noter la livraison
                         </p>
                         <div className="flex items-center gap-1">
                           {[1, 2, 3, 4, 5].map((star) => (
@@ -171,7 +220,7 @@ export default function Orders() {
                         <textarea
                           value={reviewComment}
                           onChange={(e) => setReviewComment(e.target.value)}
-                          placeholder="Votre avis (optionnel)..."
+                          placeholder="Votre avis sur la livraison (optionnel)..."
                           rows={2}
                           className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted"
                         />
@@ -193,10 +242,70 @@ export default function Orders() {
                     ) : (
                       <button
                         onClick={() => setReviewingId(order.id)}
-                        className="flex items-center gap-1.5 text-gold-accent font-inter text-sm font-medium hover:text-gold-dark transition-colors"
+                        className="flex items-center gap-1.5 text-blue-600 font-inter text-sm font-medium hover:text-blue-700 transition-colors"
                       >
                         <Star className="w-4 h-4" />
-                        Noter cette commande
+                        Noter la livraison
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Restaurant rating — shown after delivery, independent of driver rating */}
+                {order.status === 'delivered' && !restoReviewSubmitted[order.id] && (
+                  <div className="mt-3 pt-3 border-t border-border-light">
+                    {restoReviewingId === order.id ? (
+                      <div className="space-y-2">
+                        <p className="font-inter font-medium text-text-primary text-sm flex items-center gap-1.5">
+                          <Store className="w-4 h-4 text-green-primary" />
+                          Noter le restaurant
+                        </p>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setRestoRating(star)}
+                              className="transition-colors"
+                            >
+                              <Star
+                                className={`w-5 h-5 ${star <= restoRating
+                                  ? 'fill-gold-accent text-gold-accent'
+                                  : 'text-text-muted'
+                                  }`}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                        <textarea
+                          value={restoComment}
+                          onChange={(e) => setRestoComment(e.target.value)}
+                          placeholder="Votre avis sur le restaurant (optionnel)..."
+                          rows={2}
+                          className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleSubmitRestoReview(order.id, order.restaurantId)}
+                            className="bg-green-primary text-white font-inter font-medium text-xs px-4 h-9 rounded-lg hover:bg-green-dark transition-colors"
+                          >
+                            Envoyer
+                          </button>
+                          <button
+                            onClick={() => setRestoReviewingId(null)}
+                            className="text-text-secondary font-inter text-xs px-3 h-9 rounded-lg hover:bg-bg-secondary transition-colors"
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setRestoReviewingId(order.id)}
+                        className="flex items-center gap-1.5 text-green-primary font-inter text-sm font-medium hover:text-green-dark transition-colors"
+                      >
+                        <Store className="w-4 h-4" />
+                        Noter le restaurant
                       </button>
                     )}
                   </div>
@@ -209,5 +318,3 @@ export default function Orders() {
     </div>
   );
 }
-
-

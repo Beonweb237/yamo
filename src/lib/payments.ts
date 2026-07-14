@@ -42,6 +42,8 @@ export async function validateOrder(params: {
 }): Promise<{
   valid: boolean;
   subtotal: number;
+  discount: number;
+  promoCode: string | null;
   deliveryFee: number;
   total: number;
   currency: string;

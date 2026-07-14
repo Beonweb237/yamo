@@ -15,3 +15,19 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey && !f
 export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(supabaseUrl as string, supabaseAnonKey as string)
   : null;
+
+/**
+ * Returns true only when Supabase is configured AND there is a valid
+ * authenticated session. Use this guard whenever an operation requires
+ * an authenticated user (mutations, profile reads, applications…).
+ * Public reads (catalog, restaurants) can skip this check.
+ */
+export async function isSupabaseAuthenticated(): Promise<boolean> {
+  if (!isSupabaseConfigured || !supabase) return false;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return !!data.session;
+  } catch {
+    return false;
+  }
+}

@@ -18,6 +18,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { contactFAQ } from '../data/mockData';
+import { whatsappLink } from '../data/support';
 
 const contactChannels = [
   {
@@ -27,6 +28,7 @@ const contactChannels = [
     email: 'client@yamo.cm',
     phone: '+237 677 77 77 70',
     cta: 'Contacter le Support',
+    whatsapp: whatsappLink('Bonjour Yamo, j\u2019ai une question sur ma commande.'),
   },
   {
     icon: UtensilsCrossed,
@@ -35,6 +37,7 @@ const contactChannels = [
     email: 'partenaires@yamo.cm',
     phone: '+237 677 77 77 71',
     cta: 'Contacter le Support Partenaire',
+    whatsapp: whatsappLink('Bonjour Yamo, je suis restaurateur partenaire et j\u2019ai besoin d\u2019aide.'),
   },
   {
     icon: Bike,
@@ -43,6 +46,7 @@ const contactChannels = [
     email: 'livreurs@yamo.cm',
     phone: '+237 677 77 77 72',
     cta: 'Contacter le Support Livreur',
+    whatsapp: whatsappLink('Bonjour Yamo, je suis livreur et j\u2019ai besoin d\u2019aide.'),
   },
 ];
 
@@ -175,9 +179,14 @@ export default function Contact() {
                   {ch.phone}
                 </span>
               </div>
-              <button className="w-full py-2.5 border border-green-primary text-green-primary font-inter text-sm font-medium rounded-lg hover:bg-green-light transition-colors">
-                {ch.cta}
-              </button>
+              <a
+                href={ch.whatsapp}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full py-2.5 border border-green-primary text-green-primary text-center font-inter text-sm font-medium rounded-lg hover:bg-green-light transition-colors"
+              >
+                {ch.cta} (WhatsApp)
+              </a>
             </motion.div>
           ))}
         </div>

@@ -77,9 +77,6 @@ Deno.serve(async (req: Request) => {
       return corsResponse({ error: invalidItems.join("; ") }, 400);
     }
 
-    const deliveryFee = restaurant.delivery_fee || 0;
-    const total = subtotal + deliveryFee;
-
     if (subtotal < (restaurant.min_order || 0)) {
       return corsResponse(
         { error: `Commande minimum : ${restaurant.min_order} XAF` },
@@ -87,9 +84,51 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Code promo (campagnes quartier : AKWA1000, BONA1000…)
+    let discount = 0;
+    let appliedPromo: string | null = null;
+    if (body.promoCode) {
+      const code = body.promoCode.trim().toUpperCase();
+      const { data: promo } = await supabase
+        .from("promo_codes")
+        .select("code, discount_type, discount_value, min_subtotal, max_uses, use_count, is_active, valid_from, valid_until")
+        .eq("code", code)
+        .single();
+
+      const now = new Date();
+      if (
+        !promo ||
+        !promo.is_active ||
+        new Date(promo.valid_from) > now ||
+        (promo.valid_until && new Date(promo.valid_until) < now) ||
+        (promo.max_uses !== null && promo.use_count >= promo.max_uses)
+      ) {
+        return corsResponse({ error: "Code promo invalide ou expiré" }, 400);
+      }
+      if (subtotal < promo.min_subtotal) {
+        return corsResponse(
+          { error: `Ce code exige un minimum de ${promo.min_subtotal} XAF d'achats` },
+          400,
+        );
+      }
+
+      discount = promo.discount_type === "percent"
+        ? Math.round(subtotal * promo.discount_value / 100)
+        : promo.discount_value;
+      discount = Math.min(discount, subtotal);
+      appliedPromo = promo.code;
+
+      await supabase.rpc("increment_promo_use", { p_code: promo.code });
+    }
+
+    const deliveryFee = restaurant.delivery_fee || 0;
+    const total = subtotal - discount + deliveryFee;
+
     return corsResponse({
       valid: true,
       subtotal,
+      discount,
+      promoCode: appliedPromo,
       deliveryFee,
       total,
       currency: "XAF",

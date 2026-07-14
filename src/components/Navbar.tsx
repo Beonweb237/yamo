@@ -101,11 +101,28 @@ export default function Navbar() {
           </nav>
 
           <div className="flex items-center gap-2">
+            {/* Sign-up button — only visible when not logged in */}
+            {!user && (
+              <Link
+                to="/inscription"
+                className={`hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium font-inter transition-all ${isSolid
+                    ? 'bg-green-primary text-white hover:bg-green-dark'
+                    : 'bg-white text-green-primary hover:bg-green-light'
+                  }`}
+              >
+                S'inscrire
+                {/* EN: Sign Up */}
+              </Link>
+            )}
             <Link
               to={accountLink.to}
               className={`hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium font-inter transition-all ${isSolid
-                ? 'border border-green-primary text-green-primary hover:bg-green-light'
-                : 'border border-white text-white hover:bg-white/10'
+                ? !user
+                  ? 'border border-green-primary text-green-primary hover:bg-green-light'
+                  : 'border border-green-primary text-green-primary hover:bg-green-light'
+                : !user
+                  ? 'border border-white text-white hover:bg-white/10'
+                  : 'border border-white text-white hover:bg-white/10'
                 }`}
             >
               <User className="w-4 h-4" />

@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase, isSupabaseConfigured, isSupabaseAuthenticated } from './supabase';
 
 export type ApplicationType = 'restaurant' | 'livreur';
 export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
@@ -66,7 +66,7 @@ function mapApplicationRow(row: Record<string, unknown>): Application {
 }
 
 export async function submitApplication(applicantId: string, input: ApplicationInput): Promise<Application> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data, error } = await supabase
       .from('applications')
       .insert({
@@ -104,7 +104,7 @@ export async function submitApplication(applicantId: string, input: ApplicationI
 }
 
 export async function fetchMyApplications(applicantId: string): Promise<Application[]> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data, error } = await supabase
       .from('applications')
       .select('*')
@@ -117,7 +117,7 @@ export async function fetchMyApplications(applicantId: string): Promise<Applicat
 }
 
 export async function fetchAllApplications(): Promise<Application[]> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data, error } = await supabase
       .from('applications')
       .select('*')
@@ -144,7 +144,7 @@ function restaurantAddress(app: Pick<Application, 'address' | 'city'>) {
 }
 
 export async function approveApplication(id: string, restaurantId?: string): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data: app, error: fetchError } = await supabase
       .from('applications')
       .select('applicant_id, type, restaurant_name, city, address, contact_phone, notes')
@@ -214,7 +214,7 @@ export async function approveApplication(id: string, restaurantId?: string): Pro
 }
 
 export async function rejectApplication(id: string, reason?: string): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { error } = await supabase
       .from('applications')
       .update({ status: 'rejected', rejection_reason: reason ?? null, reviewed_at: new Date().toISOString() })

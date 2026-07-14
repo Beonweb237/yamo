@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Bike, Clock, MapPin, RefreshCw, CheckCircle2, Phone, Navigation, Wallet, PackageCheck, ExternalLink, Banknote, Smartphone } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchAvailableDeliveries, fetchDriverOrders, acceptDelivery, markDelivered, markPickedUp, type Order } from '../lib/orders';
+import { fetchAvailableDeliveries, fetchDriverOrders, acceptDelivery, getOrderPreparationMessage, markDelivered, markPickedUp, type Order } from '../lib/orders';
 import { haversineDistance, estimateTime } from '../lib/utils';
 import { fetchDriverOnlineStatus, setDriverOnline, requestPayout, fetchDriverPayouts, type PayoutRequest } from '../lib/drivers';
 import { Skeleton } from '../components/ui/skeleton';
@@ -77,9 +77,13 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
   const activeMine = mine.filter((o) => ['ready', 'picked_up', 'delivering'].includes(o.status));
   const completedMine = mine.filter((o) => o.status === 'delivered');
 
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const completedThisWeek = completedMine.filter((o) => new Date(o.createdAt).getTime() >= sevenDaysAgo);
-  const totalEarnings = completedThisWeek.reduce((sum, order) => sum + order.deliveryFee, 0);
+  // S4 — revenus par période (Semaine/Mois/Tout), sélectionnable dans l'onglet "Gains".
+  const [earningsPeriod, setEarningsPeriod] = useState<'week' | 'month' | 'all'>('week');
+  const earningsPeriodStart =
+    earningsPeriod === 'week' ? Date.now() - 7 * 86400000 :
+      earningsPeriod === 'month' ? Date.now() - 30 * 86400000 : 0;
+  const periodDeliveries = completedMine.filter((o) => new Date(o.createdAt).getTime() >= earningsPeriodStart);
+  const periodEarnings = periodDeliveries.reduce((sum, order) => sum + order.deliveryFee, 0);
 
   // Balance still owed to the driver: all-time earnings minus whatever has
   // already been requested (pending or paid) — rejected requests free up the balance again.
@@ -216,6 +220,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                   const restoLng = driverLng + (Math.random() - 0.5) * 0.02;
                   const km = haversineDistance(driverLat, driverLng, restoLat, restoLng);
                   const min = estimateTime(km);
+                  const prepMessage = getOrderPreparationMessage(order);
                   return (
                     <div key={order.id} className="bg-white rounded-xl border border-border-custom p-5">
                       <div className="flex items-center justify-between mb-3">
@@ -230,9 +235,15 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                         <MapPin className="w-3.5 h-3.5 shrink-0" />
                         {order.address.fullText || 'Adresse non renseignée'}
                       </p>
-                      <p className="text-xs text-text-muted font-inter mb-3">
+                      <p className="text-xs text-text-muted font-inter mb-2">
                         📍 ~{km.toFixed(1)} km · 🕐 ~{min} min
                       </p>
+                      {prepMessage && (
+                        <p className="flex items-center gap-1 text-xs text-text-secondary font-inter bg-bg-secondary rounded-lg px-3 py-2 mb-3">
+                          <Clock className="w-3.5 h-3.5 text-gold-accent" />
+                          {prepMessage}
+                        </p>
+                      )}
                       <div className="flex items-center gap-2 mb-3">
                         <Badge variant="outline" className="text-xs gap-1">
                           {order.paymentMethod === 'cash' ? (
@@ -298,6 +309,12 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                       </span>
                     </div>
                     <p className="font-inter font-medium text-text-primary text-sm mb-1">Restaurant : {order.restaurantName || 'Restaurant'}</p>
+                    {getOrderPreparationMessage(order) && (
+                      <p className="flex items-center gap-1 text-xs text-text-secondary font-inter bg-bg-secondary rounded-lg px-3 py-2 mb-3">
+                        <Clock className="w-3.5 h-3.5 text-gold-accent" />
+                        {getOrderPreparationMessage(order)}
+                      </p>
+                    )}
                     <p className="flex items-center gap-1.5 text-text-secondary text-sm font-inter mb-4">
                       <MapPin className="w-3.5 h-3.5 shrink-0" />
                       Client: {order.address.fullText || 'Adresse non renseignée'}
@@ -392,13 +409,32 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
           </div>
         ) : (
           <div className="space-y-6">
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-sm font-inter font-medium text-text-secondary">Période :</span>
+              {(['week', 'month', 'all'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setEarningsPeriod(p)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-inter font-medium transition-colors ${earningsPeriod === p ? 'bg-green-primary text-white' : 'bg-white border border-border-custom text-text-secondary hover:text-text-primary'
+                    }`}
+                >
+                  {p === 'week' ? 'Semaine' : p === 'month' ? 'Mois' : 'Tout'}
+                </button>
+              ))}
+            </div>
+
             <div className="bg-white rounded-xl border border-border-custom p-6 text-center max-w-sm mx-auto">
               <div className="w-12 h-12 bg-green-light rounded-full flex items-center justify-center mx-auto mb-4">
                 <Wallet className="w-6 h-6 text-green-primary" />
               </div>
-              <p className="text-sm font-inter text-text-secondary mb-1">Gains de la semaine</p>
+              <p className="text-sm font-inter text-text-secondary mb-1">
+                Gains — {earningsPeriod === 'week' ? 'cette semaine' : earningsPeriod === 'month' ? 'ce mois' : 'total'}
+              </p>
               <p className="font-poppins font-bold text-3xl text-text-primary mb-1">
-                {totalEarnings.toLocaleString()} FCFA
+                {periodEarnings.toLocaleString()} FCFA
+              </p>
+              <p className="text-xs font-inter text-text-muted mb-1">
+                {periodDeliveries.length} livraison{periodDeliveries.length > 1 ? 's' : ''} sur cette période
               </p>
               <p className="text-xs font-inter text-text-muted mb-6">
                 Solde disponible : {availableBalance.toLocaleString()} FCFA

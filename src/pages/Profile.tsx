@@ -1,7 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, MapPin, Save, Trash2, Plus, LogOut, Shield, Camera, Globe, Navigation } from 'lucide-react';
+import { User, MapPin, Save, Trash2, Plus, LogOut, Shield, Camera, Globe, Navigation, Wallet, Heart, ShoppingBag } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { fetchOrders, type Order } from '../lib/orders';
 import { toast } from 'sonner';
 
 interface SavedAddress {
@@ -51,6 +52,40 @@ export default function Profile() {
 
   // C2: geolocation
   const [geoLoading, setGeoLoading] = useState(false);
+
+  // S5: historique de dépenses + plats/restaurants favoris
+  const [myOrders, setMyOrders] = useState<Order[]>([]);
+  useEffect(() => {
+    if (!user) return;
+    fetchOrders(user.id).then(setMyOrders);
+  }, [user]);
+
+  const activityStats = useMemo(() => {
+    const delivered = myOrders.filter((o) => o.status === 'delivered');
+    const totalSpent = delivered.reduce((sum, o) => sum + o.total, 0);
+
+    const dishCounts: Record<string, number> = {};
+    for (const o of delivered) {
+      for (const item of o.items) {
+        dishCounts[item.name] = (dishCounts[item.name] ?? 0) + item.quantity;
+      }
+    }
+    const favoriteDish = Object.entries(dishCounts).sort((a, b) => b[1] - a[1])[0];
+
+    const restaurantCounts: Record<string, number> = {};
+    for (const o of delivered) {
+      const name = o.restaurantName || 'Restaurant';
+      restaurantCounts[name] = (restaurantCounts[name] ?? 0) + 1;
+    }
+    const favoriteRestaurant = Object.entries(restaurantCounts).sort((a, b) => b[1] - a[1])[0];
+
+    return {
+      orderCount: delivered.length,
+      totalSpent,
+      favoriteDish: favoriteDish ? { name: favoriteDish[0], count: favoriteDish[1] } : null,
+      favoriteRestaurant: favoriteRestaurant ? { name: favoriteRestaurant[0], count: favoriteRestaurant[1] } : null,
+    };
+  }, [myOrders]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -210,6 +245,48 @@ export default function Profile() {
             <Save className="w-3.5 h-3.5" /> Enregistrer le profil
           </button>
         </section>
+
+        {/* S5: Mon activité — historique de dépenses, plats/restaurants favoris */}
+        {activityStats.orderCount > 0 && (
+          <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6 mb-6">
+            <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4 flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 text-green-primary" />
+              Mon activité
+            </h2>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="bg-bg-secondary rounded-lg p-3 text-center">
+                <p className="text-text-muted text-xs font-inter mb-0.5">Commandes livrées</p>
+                <p className="font-poppins font-bold text-text-primary text-xl">{activityStats.orderCount}</p>
+              </div>
+              <div className="bg-bg-secondary rounded-lg p-3 text-center">
+                <p className="text-text-muted text-xs font-inter mb-0.5 flex items-center justify-center gap-1">
+                  <Wallet className="w-3 h-3" />Total dépensé
+                </p>
+                <p className="font-poppins font-bold text-green-primary text-xl">{activityStats.totalSpent.toLocaleString()} FCFA</p>
+              </div>
+            </div>
+            {(activityStats.favoriteDish || activityStats.favoriteRestaurant) && (
+              <div className="space-y-2">
+                {activityStats.favoriteDish && (
+                  <div className="flex items-center gap-2 text-sm font-inter">
+                    <Heart className="w-4 h-4 text-error shrink-0" />
+                    <span className="text-text-secondary">Plat préféré :</span>
+                    <span className="font-medium text-text-primary">{activityStats.favoriteDish.name}</span>
+                    <span className="text-text-muted text-xs">({activityStats.favoriteDish.count}×)</span>
+                  </div>
+                )}
+                {activityStats.favoriteRestaurant && (
+                  <div className="flex items-center gap-2 text-sm font-inter">
+                    <Heart className="w-4 h-4 text-error shrink-0" />
+                    <span className="text-text-secondary">Restaurant préféré :</span>
+                    <span className="font-medium text-text-primary">{activityStats.favoriteRestaurant.name}</span>
+                    <span className="text-text-muted text-xs">({activityStats.favoriteRestaurant.count} commande{activityStats.favoriteRestaurant.count > 1 ? 's' : ''})</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Saved addresses */}
         <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6 mb-6">

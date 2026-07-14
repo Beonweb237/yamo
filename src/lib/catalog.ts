@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase, isSupabaseConfigured, isSupabaseAuthenticated } from './supabase';
 import {
   restaurants as mockRestaurants,
   menuItems as mockMenuItems,
@@ -38,6 +38,7 @@ function mapRestaurant(row: Record<string, unknown>): Restaurant {
 }
 
 function mapMenuItem(row: Record<string, unknown>): MenuItem {
+  const rawImage = row.image as string | null | undefined;
   return {
     id: row.id as string,
     restaurantId: row.restaurant_id as string,
@@ -45,8 +46,10 @@ function mapMenuItem(row: Record<string, unknown>): MenuItem {
     description: row.description as string,
     price: row.price as number,
     category: row.category as string,
-    image: (row.image as string) || getMealCategoryImage(row.category as string),
+    image: rawImage || getMealCategoryImage(row.category as string),
     isPopular: row.is_popular as boolean,
+    isAvailable: row.is_available !== false,
+    hasImage: Boolean(rawImage),
   };
 }
 
@@ -116,7 +119,7 @@ export async function fetchRestaurantsByOwner(ownerId: string): Promise<Restaura
 }
 
 export async function updateRestaurantOpenStatus(id: string, isOpen: boolean): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { error } = await supabase.from('restaurants').update({ is_open: isOpen }).eq('id', id);
     if (error) throw error;
     return;
@@ -128,7 +131,7 @@ export async function updateRestaurantOpenStatus(id: string, isOpen: boolean): P
 }
 
 export async function updateRestaurantProfile(id: string, data: Partial<Omit<Restaurant, 'id'>>): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const updateData: any = { ...data };
     if (data.deliveryTime !== undefined) updateData.delivery_time = data.deliveryTime;
     if (data.deliveryFee !== undefined) updateData.delivery_fee = data.deliveryFee;
@@ -144,12 +147,12 @@ export async function updateRestaurantProfile(id: string, data: Partial<Omit<Res
     delete updateData.isOpen;
     delete updateData.isPremium;
     delete updateData.reviewCount;
-    
+
     const { error } = await supabase.from('restaurants').update(updateData).eq('id', id);
     if (error) throw error;
     return;
   }
-  
+
   const overrides = readOverrides();
   overrides[id] = { ...overrides[id], ...data };
   localStorage.setItem(LOCAL_OVERRIDES_KEY, JSON.stringify(overrides));
@@ -177,7 +180,7 @@ function readUpdatedMenuItems(): Record<string, Partial<MenuItem>> {
   return raw ? JSON.parse(raw) : {};
 }
 
-export async function fetchMenuItems(restaurantId: string): Promise<MenuItem[]> {
+export async function fetchMenuItems(restaurantId: string, options: { includeUnavailable?: boolean } = {}): Promise<MenuItem[]> {
   if (!isSupabaseConfigured || !supabase) {
     const deleted = new Set(readDeletedMenuItemIds());
     const base = mockMenuItems.filter((m) => m.restaurantId === restaurantId);
@@ -185,24 +188,26 @@ export async function fetchMenuItems(restaurantId: string): Promise<MenuItem[]> 
     const updated = readUpdatedMenuItems();
     return [...base, ...added]
       .filter((m) => !deleted.has(m.id))
-      .map(m => updated[m.id] ? { ...m, ...updated[m.id] } : m);
+      .map(m => updated[m.id] ? { ...m, ...updated[m.id] } : m)
+      .filter((m) => options.includeUnavailable || m.isAvailable !== false);
   }
 
   const { data, error } = await supabase
     .from('menu_items')
     .select('*')
-    .eq('restaurant_id', restaurantId)
-    .eq('is_available', true);
-  if (error || !data || data.length === 0) {
+    .eq('restaurant_id', restaurantId);
+  const visibleData = options.includeUnavailable ? data : data?.filter((row) => row.is_available !== false);
+  if (error || !visibleData || visibleData.length === 0) {
     const deleted = new Set(readDeletedMenuItemIds());
     const base = mockMenuItems.filter((m) => m.restaurantId === restaurantId);
     const added = readAddedMenuItems()[restaurantId] ?? [];
     const updated = readUpdatedMenuItems();
     return [...base, ...added]
       .filter((m) => !deleted.has(m.id))
-      .map(m => updated[m.id] ? { ...m, ...updated[m.id] } : m);
+      .map(m => updated[m.id] ? { ...m, ...updated[m.id] } : m)
+      .filter((m) => options.includeUnavailable || m.isAvailable !== false);
   }
-  return data.map(mapMenuItem);
+  return visibleData.map(mapMenuItem);
 }
 
 export interface MenuItemInput {
@@ -213,14 +218,17 @@ export interface MenuItemInput {
   category: string;
   image?: string;
   isPopular?: boolean;
+  isAvailable?: boolean;
 }
 
 export async function updateMenuItem(id: string, data: Partial<MenuItemInput>): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const updateData: any = { ...data };
     if (data.isPopular !== undefined) updateData.is_popular = data.isPopular;
+    if (data.isAvailable !== undefined) updateData.is_available = data.isAvailable;
     if (data.restaurantId !== undefined) updateData.restaurant_id = data.restaurantId;
     delete updateData.isPopular;
+    delete updateData.isAvailable;
     delete updateData.restaurantId;
     const { error } = await supabase.from('menu_items').update(updateData).eq('id', id);
     if (error) throw error;
@@ -233,7 +241,7 @@ export async function updateMenuItem(id: string, data: Partial<MenuItemInput>): 
 }
 
 export async function createMenuItem(input: MenuItemInput): Promise<MenuItem> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data, error } = await supabase
       .from('menu_items')
       .insert({
@@ -244,6 +252,7 @@ export async function createMenuItem(input: MenuItemInput): Promise<MenuItem> {
         category: input.category,
         image: input.image ?? getMealCategoryImage(input.category),
         is_popular: input.isPopular ?? false,
+        is_available: input.isAvailable ?? true,
       })
       .select()
       .single();
@@ -260,6 +269,8 @@ export async function createMenuItem(input: MenuItemInput): Promise<MenuItem> {
     category: input.category,
     image: input.image ?? getMealCategoryImage(input.category),
     isPopular: input.isPopular ?? false,
+    isAvailable: input.isAvailable ?? true,
+    hasImage: Boolean(input.image),
   };
   const added = readAddedMenuItems();
   added[input.restaurantId] = [...(added[input.restaurantId] ?? []), item];
@@ -268,7 +279,7 @@ export async function createMenuItem(input: MenuItemInput): Promise<MenuItem> {
 }
 
 export async function deleteMenuItem(id: string): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { error } = await supabase.from('menu_items').delete().eq('id', id);
     if (error) throw error;
     return;
@@ -277,4 +288,106 @@ export async function deleteMenuItem(id: string): Promise<void> {
   const deleted = new Set(readDeletedMenuItemIds());
   deleted.add(id);
   localStorage.setItem(LOCAL_MENU_DELETED_KEY, JSON.stringify([...deleted]));
+}
+
+// ─────────────────────────────────────────────────────────────
+// Restaurant reviews (client rates restaurant after delivery)
+// ─────────────────────────────────────────────────────────────
+
+export interface RestaurantReview {
+  id: string;
+  orderId: string;
+  restaurantId: string;
+  customerId: string;
+  rating: number; // 1-5
+  comment?: string;
+  createdAt: string;
+}
+
+const LOCAL_RESTAURANT_REVIEWS_KEY = 'yamo_restaurant_reviews';
+
+function readLocalRestaurantReviews(): RestaurantReview[] {
+  try { return JSON.parse(localStorage.getItem(LOCAL_RESTAURANT_REVIEWS_KEY) ?? '[]'); } catch { return []; }
+}
+
+function writeLocalRestaurantReviews(reviews: RestaurantReview[]) {
+  localStorage.setItem(LOCAL_RESTAURANT_REVIEWS_KEY, JSON.stringify(reviews));
+}
+
+export async function rateRestaurant(
+  orderId: string,
+  restaurantId: string,
+  customerId: string,
+  rating: number,
+  comment?: string
+): Promise<RestaurantReview> {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+    const { data, error } = await supabase
+      .from('restaurant_reviews')
+      .insert({
+        order_id: orderId,
+        restaurant_id: restaurantId,
+        customer_id: customerId,
+        rating,
+        comment: comment ?? null,
+      })
+      .select()
+      .single();
+    if (error || !data) throw error ?? new Error('Failed to submit restaurant review');
+    return {
+      id: data.id as string,
+      orderId: data.order_id as string,
+      restaurantId: data.restaurant_id as string,
+      customerId: data.customer_id as string,
+      rating: data.rating as number,
+      comment: (data.comment as string) ?? undefined,
+      createdAt: data.created_at as string,
+    };
+  }
+
+  const review: RestaurantReview = {
+    id: crypto.randomUUID(),
+    orderId,
+    restaurantId,
+    customerId,
+    rating,
+    comment,
+    createdAt: new Date().toISOString(),
+  };
+  const reviews = readLocalRestaurantReviews();
+  writeLocalRestaurantReviews([review, ...reviews]);
+  return review;
+}
+
+export async function fetchRestaurantReviews(restaurantId: string): Promise<RestaurantReview[]> {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+    const { data, error } = await supabase
+      .from('restaurant_reviews')
+      .select('*')
+      .eq('restaurant_id', restaurantId)
+      .order('created_at', { ascending: false });
+    if (error || !data) return [];
+    return data.map((r: Record<string, unknown>) => ({
+      id: r.id as string,
+      orderId: r.order_id as string,
+      restaurantId: r.restaurant_id as string,
+      customerId: r.customer_id as string,
+      rating: r.rating as number,
+      comment: (r.comment as string) ?? undefined,
+      createdAt: r.created_at as string,
+    }));
+  }
+  return readLocalRestaurantReviews().filter(r => r.restaurantId === restaurantId);
+}
+
+export async function hasRestaurantReview(orderId: string): Promise<boolean> {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+    const { count, error } = await supabase
+      .from('restaurant_reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('order_id', orderId);
+    if (error) return false;
+    return (count ?? 0) > 0;
+  }
+  return readLocalRestaurantReviews().some(r => r.orderId === orderId);
 }

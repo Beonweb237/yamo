@@ -8,7 +8,15 @@ export interface CartItem {
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (item: MenuItem) => void;
+  /** Restaurant du panier en cours (un panier = un seul restaurant) */
+  restaurantId: string | null;
+  /**
+   * Ajoute l'article au panier. Retourne 'conflict' (sans rien ajouter) si le
+   * panier contient déjà des articles d'un autre restaurant.
+   */
+  addToCart: (item: MenuItem) => 'added' | 'conflict';
+  /** Vide le panier puis ajoute l'article (résolution d'un conflit de restaurant) */
+  replaceCartWith: (item: MenuItem) => void;
   removeFromCart: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
@@ -21,8 +29,16 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  const addToCart = useCallback((item: MenuItem) => {
+  const restaurantId = items[0]?.item.restaurantId ?? null;
+
+  const addToCart = useCallback((item: MenuItem): 'added' | 'conflict' => {
+    let result: 'added' | 'conflict' = 'added';
     setItems((prev) => {
+      const currentRestaurant = prev[0]?.item.restaurantId;
+      if (currentRestaurant && currentRestaurant !== item.restaurantId) {
+        result = 'conflict';
+        return prev;
+      }
       const existing = prev.find((i) => i.item.id === item.id);
       if (existing) {
         return prev.map((i) =>
@@ -31,6 +47,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { item, quantity: 1 }];
     });
+    return result;
+  }, []);
+
+  const replaceCartWith = useCallback((item: MenuItem) => {
+    setItems([{ item, quantity: 1 }]);
   }, []);
 
   const removeFromCart = useCallback((itemId: string) => {
@@ -60,7 +81,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     <CartContext.Provider
       value={{
         items,
+        restaurantId,
         addToCart,
+        replaceCartWith,
         removeFromCart,
         updateQuantity,
         clearCart,
@@ -73,6 +96,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCart() {
   const context = useContext(CartContext);
   if (!context) {

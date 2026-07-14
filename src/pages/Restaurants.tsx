@@ -13,6 +13,7 @@ import {
 import { cuisineCategories } from '../data/mockData';
 import { activeCities, getNeighborhoods } from '../data/locations';
 import { useRestaurants } from '../hooks/useCatalog';
+import { useFavorites } from '../hooks/useFavorites';
 import AppImage from '../components/AppImage';
 
 const sortOptions = [
@@ -41,7 +42,7 @@ export default function Restaurants() {
   const [sortBy, setSortBy] = useState('relevance');
   const [showSort, setShowSort] = useState(false);
   const [showCityMenu, setShowCityMenu] = useState(false);
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const { favorites, toggleFavorite } = useFavorites();
 
   const neighborhoods = getNeighborhoods(selectedCity);
 
@@ -63,15 +64,6 @@ export default function Restaurants() {
       else next.set(key, value);
     });
     setSearchParams(next, { replace: true });
-  };
-
-  const toggleFavorite = (id: string) => {
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   };
 
   const filtered = useMemo(() => {

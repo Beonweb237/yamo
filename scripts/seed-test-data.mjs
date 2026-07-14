@@ -64,6 +64,51 @@ const ADMIN = { email: 'admin@yamotest.cm', phone: '+237690000031', full_name: '
 
 const APPLICANT = { email: 'christelle.manga@yamotest.cm', phone: '+237690000041', full_name: 'Christelle Manga', restaurantName: 'Le Foyer Bassa' };
 
+function isoMinutesAgo(minutes) {
+  return new Date(Date.now() - minutes * 60 * 1000).toISOString();
+}
+
+function isoMinutesFromNow(minutes) {
+  return new Date(Date.now() + minutes * 60 * 1000).toISOString();
+}
+
+function buildPreparationFields(status) {
+  if (status === 'pending' || status === 'cancelled') {
+    return {
+      confirmed_at: null,
+      preparation_eta_minutes: null,
+      estimated_ready_at: null,
+      ready_at: null,
+    };
+  }
+
+  if (status === 'confirmed') {
+    return {
+      confirmed_at: isoMinutesAgo(4),
+      preparation_eta_minutes: 20,
+      estimated_ready_at: isoMinutesFromNow(16),
+      ready_at: null,
+    };
+  }
+
+  if (status === 'preparing') {
+    return {
+      confirmed_at: isoMinutesAgo(10),
+      preparation_eta_minutes: 25,
+      estimated_ready_at: isoMinutesFromNow(15),
+      ready_at: null,
+    };
+  }
+
+  const estimatedReadyAt = isoMinutesAgo(status === 'ready' ? 3 : 18);
+  return {
+    confirmed_at: isoMinutesAgo(status === 'ready' ? 28 : 45),
+    preparation_eta_minutes: 25,
+    estimated_ready_at: estimatedReadyAt,
+    ready_at: estimatedReadyAt,
+  };
+}
+
 async function getOrCreateAuthUser(email) {
   const { data: list, error: listError } = await supabase.auth.admin.listUsers({ page: 1, perPage: 200 });
   if (listError) throw listError;
@@ -251,6 +296,7 @@ async function main() {
         payment_method: i % 3 === 0 ? 'mtn_momo' : i % 3 === 1 ? 'orange_money' : 'cash',
         payment_status: scenario.payment_status,
         notes: scenario.status === 'cancelled' ? 'Client indisponible, commande annulée.' : null,
+        ...buildPreparationFields(scenario.status),
       })
       .select('id')
       .single();

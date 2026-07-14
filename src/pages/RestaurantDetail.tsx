@@ -24,6 +24,7 @@ import {
 } from '../components/ui/dialog';
 import { useCart } from '../contexts/CartContext';
 import { useRestaurant, useMenuItems, useRestaurants } from '../hooks/useCatalog';
+import { useFavorites } from '../hooks/useFavorites';
 import { restaurantMenuCategories } from '../data/mockData';
 import type { MenuItem } from '../data/mockData';
 
@@ -41,9 +42,11 @@ export default function RestaurantDetail() {
   const restaurant = fetchedRestaurant ?? restaurants[0];
   const { items: menuItems } = useMenuItems(restaurant?.id);
   const [activeTab, setActiveTab] = useState('Populaires');
-  const [isFav, setIsFav] = useState(false);
+  const { favorites, toggleFavorite } = useFavorites();
+  const isFav = restaurant ? favorites.has(restaurant.id) : false;
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
-  const { items, addToCart, updateQuantity, totalItems, totalPrice } = useCart();
+  const { items, addToCart, replaceCartWith, updateQuantity, totalItems, totalPrice } = useCart();
+  const [conflictItem, setConflictItem] = useState<MenuItem | null>(null);
 
   // C4: customization modal
   const [customizing, setCustomizing] = useState<MenuItem | null>(null);
@@ -62,7 +65,10 @@ export default function RestaurantDetail() {
       setSelectedSupplements(new Set());
       return;
     }
-    addToCart(item);
+    if (addToCart(item) === 'conflict') {
+      setConflictItem(item);
+      return;
+    }
     toast.success(`${item.name} ajouté au panier`);
   };
 
@@ -71,9 +77,21 @@ export default function RestaurantDetail() {
     const variant = customizing.variants?.[selectedVariant];
     const suppNames = [...selectedSupplements].map((i) => customizing.supplements?.[i]?.name).filter(Boolean).join(', ');
     const fullName = [customizing.name, variant?.name, suppNames].filter(Boolean).join(' + ');
-    addToCart({ ...customizing, name: fullName, price: customPrice });
+    const customized = { ...customizing, name: fullName, price: customPrice };
+    if (addToCart(customized) === 'conflict') {
+      setConflictItem(customized);
+      setCustomizing(null);
+      return;
+    }
     toast.success(`${fullName} ajouté au panier`);
     setCustomizing(null);
+  };
+
+  const confirmReplaceCart = () => {
+    if (!conflictItem) return;
+    replaceCartWith(conflictItem);
+    toast.success(`Panier remplacé — ${conflictItem.name} ajouté`);
+    setConflictItem(null);
   };
 
   useEffect(() => {
@@ -206,7 +224,7 @@ export default function RestaurantDetail() {
             </div>
             <div className="flex gap-2 shrink-0">
               <button
-                onClick={() => setIsFav(!isFav)}
+                onClick={() => restaurant && toggleFavorite(restaurant.id)}
                 className="w-10 h-10 rounded-full bg-bg-secondary flex items-center justify-center hover:bg-border-light transition-colors"
               >
                 <Heart className={`w-5 h-5 ${isFav ? 'fill-error text-error' : 'text-text-secondary'}`} />
@@ -557,6 +575,26 @@ export default function RestaurantDetail() {
             <button onClick={() => setCustomizing(null)} className="px-4 h-10 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">Annuler</button>
             <button onClick={confirmCustomized} className="px-5 h-10 rounded-lg bg-green-primary text-white font-inter font-medium text-sm hover:bg-green-dark transition-colors">
               Ajouter — {customPrice.toLocaleString()} FCFA
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Conflit de restaurant : le panier ne peut contenir qu'un seul restaurant */}
+      <Dialog open={!!conflictItem} onOpenChange={(open) => { if (!open) setConflictItem(null); }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Commencer un nouveau panier ?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm font-inter text-text-secondary">
+            Votre panier contient des articles d'un autre restaurant. Une commande ne peut
+            concerner qu'un seul restaurant à la fois. Voulez-vous vider le panier et
+            ajouter <span className="font-semibold text-text-primary">{conflictItem?.name}</span> ?
+          </p>
+          <DialogFooter>
+            <button onClick={() => setConflictItem(null)} className="px-4 h-10 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">Garder mon panier</button>
+            <button onClick={confirmReplaceCart} className="px-5 h-10 rounded-lg bg-green-primary text-white font-inter font-medium text-sm hover:bg-green-dark transition-colors">
+              Vider et ajouter
             </button>
           </DialogFooter>
         </DialogContent>

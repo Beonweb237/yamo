@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase, isSupabaseConfigured, isSupabaseAuthenticated } from './supabase';
 import type { CartItem } from '../contexts/CartContext';
 
 export type PaymentMethod = 'cash' | 'mtn_momo' | 'orange_money';
@@ -35,6 +35,11 @@ export interface Order extends Omit<OrderInput, 'items'> {
   id: string;
   status: OrderStatus;
   createdAt: string;
+  updatedAt?: string | null;
+  confirmedAt?: string | null;
+  preparationEtaMinutes?: number | null;
+  estimatedReadyAt?: string | null;
+  readyAt?: string | null;
   driverId?: string | null;
   contactPhone?: string;
   items: { name: string; price: number; quantity: number }[];
@@ -51,8 +56,49 @@ function writeLocalOrders(orders: Order[]) {
   localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(orders));
 }
 
+function addMinutes(date: Date, minutes: number): Date {
+  return new Date(date.getTime() + minutes * 60 * 1000);
+}
+
+function isSchemaColumnMissing(error: { code?: string; message?: string }): boolean {
+  return (
+    error.code === 'PGRST204' ||
+    /column .* does not exist/i.test(error.message ?? '') ||
+    /Could not find .* column/i.test(error.message ?? '')
+  );
+}
+
+export function formatOrderTime(value?: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
+export function getOrderPreparationMessage(order: Order, now = new Date()): string | null {
+  if (order.status === 'pending') return 'En attente de confirmation du restaurant';
+  if (!order.estimatedReadyAt) return null;
+
+  const readyAt = new Date(order.estimatedReadyAt);
+  if (Number.isNaN(readyAt.getTime())) return null;
+
+  const readyTime = formatOrderTime(order.estimatedReadyAt);
+  const remainingMinutes = Math.ceil((readyAt.getTime() - now.getTime()) / 60000);
+
+  if (order.status === 'confirmed' || order.status === 'preparing') {
+    if (remainingMinutes > 1) return `Repas prêt vers ${readyTime} (${remainingMinutes} min)`;
+    if (remainingMinutes === 1) return `Repas prêt vers ${readyTime} (1 min)`;
+    return `Prévu prêt depuis ${readyTime}`;
+  }
+
+  if (order.status === 'ready') return `Prêt à récupérer depuis ${readyTime}`;
+  if (order.status === 'picked_up' || order.status === 'delivering') return `Préparé à ${readyTime}`;
+  if (order.status === 'delivered') return `Repas préparé à ${readyTime}`;
+  return null;
+}
+
 export async function createOrder(input: OrderInput): Promise<Order> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data: addressRow, error: addressError } = await supabase
       .from('addresses')
       .insert({
@@ -109,12 +155,18 @@ export async function createOrder(input: OrderInput): Promise<Order> {
       notes: input.notes,
       status: 'pending',
       createdAt: orderRow.created_at,
+      updatedAt: orderRow.updated_at,
+      confirmedAt: null,
+      preparationEtaMinutes: null,
+      estimatedReadyAt: null,
+      readyAt: null,
       items: input.items.map((ci) => ({ name: ci.item.name, price: ci.item.price, quantity: ci.quantity })),
     };
   }
 
   // Dev mode fallback: persist the order in localStorage so the "Mes commandes"
   // page has something real to show without a backend configured yet.
+  const now = new Date().toISOString();
   const order: Order = {
     id: crypto.randomUUID(),
     customerId: input.customerId,
@@ -128,7 +180,12 @@ export async function createOrder(input: OrderInput): Promise<Order> {
     notes: input.notes,
     contactPhone: input.contactPhone,
     status: 'pending',
-    createdAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
+    confirmedAt: null,
+    preparationEtaMinutes: null,
+    estimatedReadyAt: null,
+    readyAt: null,
     items: input.items.map((ci) => ({ name: ci.item.name, price: ci.item.price, quantity: ci.quantity })),
   };
   const existing = readLocalOrders();
@@ -144,11 +201,13 @@ function mapOrderRow(row: Record<string, unknown>): Order {
     landmark?: string;
     full_text?: string;
   } | null;
+  const restaurant = row.restaurants as { name?: string; phone?: string } | null;
+
   return {
     id: row.id as string,
     customerId: row.customer_id as string,
     restaurantId: row.restaurant_id as string,
-    restaurantName: '',
+    restaurantName: restaurant?.name ?? '',
     subtotal: row.subtotal as number,
     deliveryFee: row.delivery_fee as number,
     total: row.total as number,
@@ -161,14 +220,20 @@ function mapOrderRow(row: Record<string, unknown>): Order {
     },
     status: row.status as OrderStatus,
     createdAt: row.created_at as string,
+    updatedAt: (row.updated_at as string | null) ?? null,
+    confirmedAt: (row.confirmed_at as string | null) ?? null,
+    preparationEtaMinutes: (row.preparation_eta_minutes as number | null) ?? null,
+    estimatedReadyAt: (row.estimated_ready_at as string | null) ?? null,
+    readyAt: (row.ready_at as string | null) ?? null,
     items: orderItems.map((oi) => ({ name: oi.name, price: oi.price, quantity: oi.quantity })),
   };
 }
 
-const ORDER_SELECT = '*, order_items(*), addresses(*)';
+const ORDER_SELECT = '*, order_items(*), addresses(*), restaurants(name, phone)';
+const DRIVER_ORDER_SELECT = '*, orders(*, order_items(*), addresses(*), restaurants(name, phone))';
 
 export async function fetchOrders(customerId: string): Promise<Order[]> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data, error } = await supabase
       .from('orders')
       .select(ORDER_SELECT)
@@ -182,7 +247,7 @@ export async function fetchOrders(customerId: string): Promise<Order[]> {
 }
 
 export async function fetchAllOrders(): Promise<Order[]> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data, error } = await supabase
       .from('orders')
       .select(ORDER_SELECT)
@@ -195,7 +260,7 @@ export async function fetchAllOrders(): Promise<Order[]> {
 }
 
 export async function fetchOrdersByRestaurant(restaurantId: string): Promise<Order[]> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data, error } = await supabase
       .from('orders')
       .select(ORDER_SELECT)
@@ -209,14 +274,69 @@ export async function fetchOrdersByRestaurant(restaurantId: string): Promise<Ord
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase.from('orders').update({ status }).eq('id', orderId);
-    if (error) throw error;
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+    const now = new Date().toISOString();
+    const payload: Record<string, unknown> = { status, updated_at: now };
+    if (status === 'ready') payload.ready_at = now;
+
+    const { error } = await supabase.from('orders').update(payload).eq('id', orderId);
+    if (error) {
+      if (isSchemaColumnMissing(error)) {
+        const { error: fallbackError } = await supabase.from('orders').update({ status }).eq('id', orderId);
+        if (fallbackError) throw fallbackError;
+        return;
+      }
+      throw error;
+    }
     return;
   }
 
-  const orders = readLocalOrders();
-  const updated = orders.map((o) => (o.id === orderId ? { ...o, status } : o));
+  const now = new Date().toISOString();
+  const updated = readLocalOrders().map((o) =>
+    o.id === orderId
+      ? { ...o, status, updatedAt: now, readyAt: status === 'ready' ? now : o.readyAt }
+      : o
+  );
+  writeLocalOrders(updated);
+}
+
+export async function confirmOrderWithPreparation(orderId: string, preparationEtaMinutes: number): Promise<void> {
+  const minutes = Math.max(1, Math.min(240, Math.round(preparationEtaMinutes)));
+  const confirmedAt = new Date();
+  const estimatedReadyAt = addMinutes(confirmedAt, minutes);
+
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+    const payload = {
+      status: 'confirmed' as OrderStatus,
+      confirmed_at: confirmedAt.toISOString(),
+      preparation_eta_minutes: minutes,
+      estimated_ready_at: estimatedReadyAt.toISOString(),
+      updated_at: confirmedAt.toISOString(),
+    };
+    const { error } = await supabase.from('orders').update(payload).eq('id', orderId);
+    if (error) {
+      if (isSchemaColumnMissing(error)) {
+        const { error: fallbackError } = await supabase.from('orders').update({ status: 'confirmed' }).eq('id', orderId);
+        if (fallbackError) throw fallbackError;
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  const updated = readLocalOrders().map((o) =>
+    o.id === orderId
+      ? {
+        ...o,
+        status: 'confirmed' as OrderStatus,
+        updatedAt: confirmedAt.toISOString(),
+        confirmedAt: confirmedAt.toISOString(),
+        preparationEtaMinutes: minutes,
+        estimatedReadyAt: estimatedReadyAt.toISOString(),
+      }
+      : o
+  );
   writeLocalOrders(updated);
 }
 
@@ -225,26 +345,40 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus): P
 // ─────────────────────────────────────────────────────────────
 
 export async function fetchAvailableDeliveries(): Promise<Order[]> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     // RLS (0002_restaurant_driver_access.sql) already restricts this to
     // 'ready' orders with no assigned driver.
     const { data, error } = await supabase
       .from('orders')
       .select(ORDER_SELECT)
       .eq('status', 'ready')
+      .order('estimated_ready_at', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true });
+
+    if (error && isSchemaColumnMissing(error)) {
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('orders')
+        .select(ORDER_SELECT)
+        .eq('status', 'ready')
+        .order('created_at', { ascending: true });
+      if (fallbackError || !fallbackData) return [];
+      return fallbackData.map(mapOrderRow);
+    }
+
     if (error || !data) return [];
     return data.map(mapOrderRow);
   }
 
-  return readLocalOrders().filter((o) => o.status === 'ready' && !o.driverId);
+  return readLocalOrders()
+    .filter((o) => o.status === 'ready' && !o.driverId)
+    .sort((a, b) => (a.estimatedReadyAt ?? a.createdAt).localeCompare(b.estimatedReadyAt ?? b.createdAt));
 }
 
 export async function fetchDriverOrders(driverId: string): Promise<Order[]> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data, error } = await supabase
       .from('deliveries')
-      .select('*, orders(*, order_items(*), addresses(*))')
+      .select(DRIVER_ORDER_SELECT)
       .eq('driver_id', driverId)
       .order('assigned_at', { ascending: false });
     if (error || !data) return [];
@@ -257,38 +391,32 @@ export async function fetchDriverOrders(driverId: string): Promise<Order[]> {
 }
 
 export async function acceptDelivery(orderId: string, driverId: string): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { error: deliveryError } = await supabase
       .from('deliveries')
       .insert({ order_id: orderId, driver_id: driverId, status: 'assigned', assigned_at: new Date().toISOString() });
     if (deliveryError) throw deliveryError;
-
-    const { error: orderError } = await supabase
-      .from('orders')
-      .update({ status: 'delivering' })
-      .eq('id', orderId);
-    if (orderError) throw orderError;
     return;
   }
 
-  const orders = readLocalOrders();
-  const updated = orders.map((o) =>
-    o.id === orderId ? { ...o, driverId, status: 'delivering' as OrderStatus } : o
+  const updated = readLocalOrders().map((o) =>
+    o.id === orderId ? { ...o, driverId } : o
   );
   writeLocalOrders(updated);
 }
 
 export async function markPickedUp(orderId: string): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+    const now = new Date().toISOString();
     const { error: orderError } = await supabase
       .from('orders')
-      .update({ status: 'picked_up' })
+      .update({ status: 'picked_up', updated_at: now })
       .eq('id', orderId);
     if (orderError) throw orderError;
 
     await supabase
       .from('deliveries')
-      .update({ status: 'picked_up', picked_up_at: new Date().toISOString() })
+      .update({ status: 'picked_up', picked_up_at: now })
       .eq('order_id', orderId);
     return;
   }
@@ -297,16 +425,17 @@ export async function markPickedUp(orderId: string): Promise<void> {
 }
 
 export async function markDelivered(orderId: string): Promise<void> {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+    const now = new Date().toISOString();
     const { error: orderError } = await supabase
       .from('orders')
-      .update({ status: 'delivered' })
+      .update({ status: 'delivered', updated_at: now })
       .eq('id', orderId);
     if (orderError) throw orderError;
 
     const { error: deliveryError } = await supabase
       .from('deliveries')
-      .update({ status: 'delivered', delivered_at: new Date().toISOString() })
+      .update({ status: 'delivered', delivered_at: now })
       .eq('order_id', orderId);
     if (deliveryError) throw deliveryError;
     return;
@@ -314,5 +443,3 @@ export async function markDelivered(orderId: string): Promise<void> {
 
   await updateOrderStatus(orderId, 'delivered');
 }
-
-

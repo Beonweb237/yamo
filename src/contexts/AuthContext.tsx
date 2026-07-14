@@ -18,6 +18,14 @@ export interface AuthUser {
   suspensionReason?: string | null;
 }
 
+export interface SignUpParams {
+  email?: string;
+  password?: string;
+  phone: string;
+  name: string;
+  role: UserRole;
+}
+
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
@@ -27,6 +35,8 @@ interface AuthContextType {
   // Password sign-in for seeded test accounts (scripts/seed-test-data.mjs) —
   // bypasses phone OTP, which needs an SMS provider that isn't configured yet.
   signInWithPassword: (phone: string, password: string) => Promise<void>;
+  // Create a new account — Supabase: email+password signup; mock: localStorage registry.
+  signUp: (params: SignUpParams) => Promise<AuthUser>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -35,6 +45,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const LOCAL_SESSION_KEY = 'yamo_local_user';
 export const LOCAL_REGISTRY_KEY = 'yamo_local_users'; // phone -> AuthUser, so role/approval sticks across re-logins
+export const LOCAL_EMAIL_USERS_KEY = 'yamo_email_users'; // email -> { phone, password, name } for mock email signup
 
 // Thrown by verifyOtp when a phone number already has an account under a
 // different role than the one just selected — the caller should invite the
@@ -255,6 +266,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Email + password account creation. In Supabase mode this creates a real
+  // auth user + profile row; in mock mode it stores everything in localStorage
+  // so the user can log back in with the same email/password on Login.tsx.
+  const signUp = useCallback(async ({ email, password, phone, name, role }: SignUpParams): Promise<AuthUser> => {
+    if (isSupabaseConfigured && supabase && email && password) {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { phone, full_name: name } },
+      });
+      if (error) throw error;
+      if (!data.user) throw new Error("Échec de l'inscription.");
+      // Upsert the profile row — the database trigger may have already created
+      // one, so we use upsert to avoid duplicate-key errors.
+      await supabase
+        .from('profiles')
+        .upsert({ id: data.user.id, phone, role, full_name: name, is_approved: isSelfApprovingRole(role) });
+      const authUser: AuthUser = {
+        id: data.user.id,
+        phone,
+        role,
+        isApproved: isSelfApprovingRole(role),
+        isSuspended: false,
+      };
+      setUser(authUser);
+      return authUser;
+    }
+
+    // Mock mode — store in localStorage so the user can log back in.
+    const phoneKey = phone.replace(/\s/g, '');
+    const registry = readLocalRegistry();
+
+    if (registry[phoneKey]) {
+      throw new Error('Un compte existe déjà avec ce numéro de téléphone.');
+    }
+
+    const localUserId = `local-${phoneKey}`;
+    const localUser: AuthUser = {
+      id: localUserId,
+      phone,
+      role,
+      isApproved: isSelfApprovingRole(role),
+      isSuspended: false,
+    };
+    registry[phoneKey] = localUser;
+    localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(registry));
+    localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(localUser));
+
+    // Also store email credentials for mock email login.
+    if (email && password) {
+      const emailUsers = JSON.parse(localStorage.getItem(LOCAL_EMAIL_USERS_KEY) ?? '{}');
+      emailUsers[email.toLowerCase().trim()] = { phone: phoneKey, password, name };
+      localStorage.setItem(LOCAL_EMAIL_USERS_KEY, JSON.stringify(emailUsers));
+    }
+
+    setUser(localUser);
+    return localUser;
+  }, []);
+
   const signOut = useCallback(async () => {
     if (isSupabaseConfigured && supabase) {
       await supabase.auth.signOut();
@@ -287,7 +357,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, isSupabaseConfigured, sendOtp, verifyOtp, signInWithPassword, signOut, refreshUser }}
+      value={{ user, loading, isSupabaseConfigured, sendOtp, verifyOtp, signInWithPassword, signUp, signOut, refreshUser }}
     >
       {children}
     </AuthContext.Provider>

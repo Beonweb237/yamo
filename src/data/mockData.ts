@@ -29,6 +29,8 @@ export interface MenuItem {
   category: string;
   image: string;
   isPopular: boolean;
+  isAvailable?: boolean;
+  hasImage?: boolean;
   variants?: { name: string; price: number }[];
   supplements?: { name: string; price: number }[];
 }

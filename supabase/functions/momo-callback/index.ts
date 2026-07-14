@@ -1,16 +1,29 @@
 // Edge Function: momo-callback
 // Webhook MTN MoMo — reçoit les notifications de statut de paiement
-// À enregistrer comme URL de callback dans le portail MoMo
+// À enregistrer comme URL de callback dans le portail MoMo, en incluant le
+// secret dans l'URL : .../momo-callback?secret=<MOMO_CALLBACK_SECRET>
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, corsResponse } from "../_shared/cors.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// Secret partagé obligatoire : sans lui, n'importe qui pourrait marquer une
+// commande comme payée. À définir via `supabase secrets set MOMO_CALLBACK_SECRET=...`
+const CALLBACK_SECRET = Deno.env.get("MOMO_CALLBACK_SECRET") || "";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  // Authentification du webhook : header X-Callback-Secret ou ?secret= dans l'URL
+  const providedSecret = req.headers.get("x-callback-secret")
+    || new URL(req.url).searchParams.get("secret")
+    || "";
+  if (!CALLBACK_SECRET || providedSecret !== CALLBACK_SECRET) {
+    console.warn("momo-callback: secret invalide ou absent — requête rejetée");
+    return corsResponse({ error: "Unauthorized" }, 401);
   }
 
   try {

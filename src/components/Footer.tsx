@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Mail, Phone, MapPin, Facebook, Instagram, Twitter } from 'lucide-react';
+import { Mail, Phone, MapPin, Facebook, Instagram, Twitter, MessageCircle } from 'lucide-react';
+import { whatsappLink } from '../data/support';
 import { motion } from 'framer-motion';
 import { cuisineCategories } from '../data/mockData';
 
@@ -98,6 +99,17 @@ export default function Footer() {
               <li className="flex items-center gap-2 text-text-secondary text-sm font-inter">
                 <Phone className="w-4 h-4" />
                 +237 677 77 77 77
+              </li>
+              <li>
+                <a
+                  href={whatsappLink('Bonjour Yamo, j’ai besoin d’aide.')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-text-secondary text-sm font-inter hover:text-green-primary transition-colors"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Support WhatsApp
+                </a>
               </li>
               <li className="flex items-center gap-2 text-text-secondary text-sm font-inter">
                 <MapPin className="w-4 h-4" />
