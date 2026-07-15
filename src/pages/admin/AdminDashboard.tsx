@@ -4,9 +4,9 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { useRestaurants } from '../../hooks/useCatalog';
 import { fetchAllOrders } from '../../lib/orders';
 import type { OrderStatus } from '../../lib/orders';
-import DeliveryMap from '../../components/DeliveryMap';
+import LazyDeliveryMap from '../../components/LazyDeliveryMap';
 
-const YAMO_COMMISSION_RATE = 0.15;
+const MIAMEXPRESS_COMMISSION_RATE = 0.15;
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'En attente', confirmed: 'Confirmée', preparing: 'En préparation',
@@ -41,7 +41,7 @@ export default function AdminDashboard() {
   const periodStats = useMemo(() => {
     const valid = periodOrders.filter((o: any) => o.status !== 'cancelled');
     const revenue = valid.reduce((s: number, o: any) => s + o.total, 0);
-    return { revenue, commission: revenue * YAMO_COMMISSION_RATE };
+    return { revenue, commission: revenue * MIAMEXPRESS_COMMISSION_RATE };
   }, [periodOrders]);
 
   const revenueByDay = useMemo(() => {
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-xl border border-border-custom p-5 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gold-light flex items-center justify-center shrink-0"><Percent className="w-5 h-5 text-gold-accent" /></div>
           <div>
-            <p className="text-text-muted text-xs font-inter">Commission Yamo générée (15%)</p>
+            <p className="text-text-muted text-xs font-inter">Commission MiamExpress générée (15%)</p>
             <p className="font-poppins font-bold text-text-primary text-xl">{Math.round(periodStats.commission).toLocaleString()} FCFA</p>
           </div>
         </div>
@@ -178,7 +178,7 @@ export default function AdminDashboard() {
       {/* A1: Mini-map supervision */}
       <div className="bg-white rounded-xl border border-border-custom p-5 mb-6">
         <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4 flex items-center gap-2"><MapPin className="w-5 h-5 text-green-primary" />Supervision — Restaurants et livreurs actifs</h2>
-        <DeliveryMap
+        <LazyDeliveryMap
           height="280px"
           points={[
             ...restaurants.slice(0, 5).map((r, i) => ({ lat: 4.04 + i * 0.006, lng: 9.76 + i * 0.005, label: r.name, type: 'restaurant' as const })),

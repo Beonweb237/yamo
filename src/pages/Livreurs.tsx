@@ -53,8 +53,8 @@ const requirements = [
 ];
 
 const equipment = [
-  { icon: Package, text: 'Sac thermique de livraison Yamo' },
-  { icon: Shirt, text: 'T-shirt Yamo officiel' },
+  { icon: Package, text: 'Sac thermique de livraison MiamExpress' },
+  { icon: Shirt, text: 'T-shirt MiamExpress officiel' },
   { icon: BadgeCheck, text: 'Badge livreur professionnel' },
   { icon: Headphones, text: 'Support et formation gratuits' },
 ];
@@ -126,7 +126,7 @@ export default function Livreurs() {
                 transition={{ delay: 0.2, duration: 0.3 }}
                 className="text-gold-accent text-xs font-inter font-semibold tracking-normal uppercase"
               >
-                Devenez Livreur Yamo
+                Devenez Livreur MiamExpress
               </motion.span>
               <motion.h1
                 initial={{ opacity: 0, y: 40 }}
@@ -149,12 +149,12 @@ export default function Livreurs() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.95, duration: 0.4 }}
               >
-                <a
-                  href="#register"
+                <Link
+                  to="/inscription/livreur"
                   className="inline-flex items-center bg-green-primary text-white font-inter font-medium text-sm px-8 h-12 rounded-lg hover:bg-green-dark transition-colors"
                 >
                   Devenir Livreur
-                </a>
+                </Link>
                 {!isSupabaseConfigured && (
                   <Link
                     to="/livreurs/dashboard"
@@ -230,7 +230,7 @@ export default function Livreurs() {
             className="text-center mb-12"
           >
             <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
-              Pourquoi Livrer avec Yamo ?
+              Pourquoi Livrer avec MiamExpress ?
             </h2>
             <p className="text-text-secondary font-inter text-base">
               Des avantages con&ccedil;us pour votre r&eacute;ussite et votre libert&eacute;
@@ -528,7 +528,7 @@ export default function Livreurs() {
             transition={{ duration: 0.4 }}
             className="font-poppins font-semibold text-white text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-4"
           >
-            Pr&ecirc;t &agrave; Rouler avec Yamo ?
+            Pr&ecirc;t &agrave; Rouler avec MiamExpress ?
           </motion.h2>
           <motion.p
             initial={{ opacity: 0 }}
@@ -545,12 +545,12 @@ export default function Livreurs() {
             viewport={{ once: true }}
             transition={{ delay: 0.3 }}
           >
-            <a
-              href="#register"
+            <Link
+              to="/inscription/livreur"
               className="inline-flex items-center bg-white text-green-primary font-inter font-semibold text-sm h-12 px-8 rounded-lg hover:bg-green-light transition-colors"
             >
               S&apos;inscrire Maintenant
-            </a>
+            </Link>
             <p className="flex items-center justify-center gap-2 text-white/60 font-inter text-sm mt-4">
               <Phone className="w-4 h-4" />
               Questions ? Appelez-nous au +237 677 77 77 77

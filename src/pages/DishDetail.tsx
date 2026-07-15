@@ -2,9 +2,10 @@ import { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Star, MapPin, Clock, Store, Flame, ChevronRight, ImageOff,
-  Leaf, Beef, Wheat, Coffee, Apple,
+  Leaf, Beef, Wheat, Coffee, Apple, Heart,
 } from 'lucide-react';
 import { useRestaurants } from '../hooks/useCatalog';
+import { useFavoriteDishes } from '../hooks/useFavoriteDishes';
 import { menuItems as mockMenuItems } from '../data/mockData';
 import {
   buildEnrichedItems,
@@ -34,6 +35,7 @@ export default function DishDetail() {
 
 function DishDetailContent({ slug }: { slug?: string }) {
   const { restaurants } = useRestaurants();
+  const { favoriteDishes, toggleFavoriteDish } = useFavoriteDishes();
   const [galleryIndex, setGalleryIndex] = useState(0);
 
   useEffect(() => {
@@ -123,6 +125,14 @@ function DishDetailContent({ slug }: { slug?: string }) {
                 <Flame className="w-3.5 h-3.5" />Tendance
               </span>
             )}
+            <button
+              type="button"
+              onClick={() => toggleFavoriteDish(dish.key)}
+              aria-label="Ajouter aux favoris"
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors shadow-sm"
+            >
+              <Heart className={`w-5 h-5 ${favoriteDishes.has(dish.key) ? 'fill-error text-error' : 'text-text-secondary'}`} />
+            </button>
           </div>
 
           {galleryImages.length > 1 && (

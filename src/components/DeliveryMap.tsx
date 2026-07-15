@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { useEffect, useState, useCallback } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import { Navigation } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -60,8 +61,24 @@ function AutoPan({ point }: { point: MapPoint | null }) {
   return null;
 }
 
-export default function DeliveryMap({ points, height = '400px' }: { points: MapPoint[]; height?: string }) {
+// Component that handles map clicks
+function ClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
+export default function DeliveryMap({ points, height = '400px', scrollWheelZoom = true, onMapClick }: {
+  points: MapPoint[];
+  height?: string;
+  scrollWheelZoom?: boolean;
+  onMapClick?: (lat: number, lng: number) => void;
+}) {
   const driverPoint = points.find((p) => p.type === 'driver');
+  const customerPoint = points.find((p) => p.type === 'customer');
 
   // Default center: Douala
   const center: [number, number] = driverPoint
@@ -70,34 +87,64 @@ export default function DeliveryMap({ points, height = '400px' }: { points: MapP
       ? [points[0].lat, points[0].lng]
       : [4.0511, 9.7679];
 
+  // Liens de navigation
+  const dest = customerPoint || points[0];
+  const wazeUrl = dest ? `https://waze.com/ul?ll=${dest.lat},${dest.lng}&navigate=yes` : '#';
+  const googleUrl = dest ? `https://www.google.com/maps/dir/?api=1&destination=${dest.lat},${dest.lng}` : '#';
+
   return (
-    <div style={{ height }} className="rounded-xl overflow-hidden border border-border-custom">
-      <MapContainer
-        center={center}
-        zoom={14}
-        style={{ height: '100%', width: '100%' }}
-        zoomControl={true}
-        scrollWheelZoom={true}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {points.map((point, i) => {
-          const icon = point.type === 'restaurant' ? restaurantIcon : point.type === 'driver' ? driverIcon : customerIcon;
-          return (
-            <Marker key={`${point.type}-${i}`} position={[point.lat, point.lng]} icon={icon}>
-              <Popup>
-                <div className="text-sm font-inter">
-                  <p className="font-semibold">{point.label}</p>
-                  <p className="text-text-muted text-xs">{point.type === 'restaurant' ? '🏪 Restaurant' : point.type === 'driver' ? '🛵 Livreur' : '📍 Client'}</p>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-        <AutoPan point={driverPoint ?? null} />
-      </MapContainer>
+    <div>
+      <div style={{ height }} className="rounded-xl overflow-hidden border border-border-custom">
+        <MapContainer
+          center={center}
+          zoom={14}
+          style={{ height: '100%', width: '100%' }}
+          zoomControl={true}
+          scrollWheelZoom={scrollWheelZoom}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          {points.map((point, i) => {
+            const icon = point.type === 'restaurant' ? restaurantIcon : point.type === 'driver' ? driverIcon : customerIcon;
+            return (
+              <Marker key={`${point.type}-${i}`} position={[point.lat, point.lng]} icon={icon}>
+                <Popup>
+                  <div className="text-sm font-inter">
+                    <p className="font-semibold">{point.label}</p>
+                    <p className="text-text-muted text-xs">{point.type === 'restaurant' ? '🏪 Restaurant' : point.type === 'driver' ? '🛵 Livreur' : '📍 Client'}</p>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+          <AutoPan point={driverPoint ?? null} />
+          {onMapClick && <ClickHandler onClick={onMapClick} />}
+        </MapContainer>
+      </div>
+
+      {/* Navigation buttons */}
+      {dest && (
+        <div className="flex gap-2 mt-2">
+          <a
+            href={wazeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-2 bg-[#33CCFF] text-white text-xs font-inter font-medium rounded-lg hover:opacity-90 transition-opacity"
+          >
+            <Navigation className="w-3.5 h-3.5" /> Waze
+          </a>
+          <a
+            href={googleUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-2 bg-[#4285F4] text-white text-xs font-inter font-medium rounded-lg hover:opacity-90 transition-opacity"
+          >
+            <Navigation className="w-3.5 h-3.5" /> Google Maps
+          </a>
+        </div>
+      )}
     </div>
   );
 }

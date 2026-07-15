@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured, isSupabaseAuthenticated } from './supabase';
 import type { CartItem } from '../contexts/CartContext';
 import { restaurants as mockRestaurants } from '../data/mockData';
+import { parseCityFromAddress, parseNeighborhoodFromAddress } from '../data/locations';
 
 const LOCAL_USERS_KEY = 'yamo_local_users'; // shared with AuthContext/applications.ts
 
@@ -62,6 +63,8 @@ export interface OrderInput {
     neighborhood: string;
     landmark: string;
     fullText: string;
+    lat?: number;
+    lng?: number;
   };
   notes?: string;
 }
@@ -199,7 +202,7 @@ export async function createOrder(input: OrderInput): Promise<Order> {
   const recipient = normalizeRecipient(input.recipient);
 
   if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
-    const { data: addressRow, error: addressError } = await supabase
+    let { data: addressRow, error: addressError } = await supabase
       .from('addresses')
       .insert({
         user_id: input.customerId,
@@ -207,9 +210,27 @@ export async function createOrder(input: OrderInput): Promise<Order> {
         neighborhood: input.address.neighborhood,
         landmark: input.address.landmark,
         full_text: input.address.fullText,
+        lat: input.address.lat ?? null,
+        lng: input.address.lng ?? null,
       })
       .select()
       .single();
+
+    if (addressError && isSchemaColumnMissing(addressError)) {
+      const legacyAddress = await supabase
+        .from('addresses')
+        .insert({
+          user_id: input.customerId,
+          city: input.address.city,
+          neighborhood: input.address.neighborhood,
+          landmark: input.address.landmark,
+          full_text: input.address.fullText,
+        })
+        .select()
+        .single();
+      addressRow = legacyAddress.data;
+      addressError = legacyAddress.error;
+    }
 
     if (addressError || !addressRow) throw addressError ?? new Error('Address creation failed');
 
@@ -333,6 +354,8 @@ function mapOrderRow(row: Record<string, unknown>): Order {
     neighborhood?: string;
     landmark?: string;
     full_text?: string;
+    lat?: number | null;
+    lng?: number | null;
   } | null;
   const restaurant = row.restaurants as { name?: string; phone?: string } | null;
   const notes = (row.notes as string | null) ?? undefined;
@@ -360,6 +383,8 @@ function mapOrderRow(row: Record<string, unknown>): Order {
       neighborhood: addr?.neighborhood ?? '',
       landmark: addr?.landmark ?? '',
       fullText: addr?.full_text ?? '',
+      lat: addr?.lat ?? undefined,
+      lng: addr?.lng ?? undefined,
     },
     status: row.status as OrderStatus,
     contactPhone: (row.contact_phone as string | null) ?? undefined,
@@ -374,7 +399,12 @@ function mapOrderRow(row: Record<string, unknown>): Order {
   };
 }
 
-const ORDER_SELECT = '*, order_items(*), addresses(*), restaurants(name, phone, city, neighborhood)';
+// NB: le schéma réel de `restaurants` n'a pas de colonnes city/neighborhood
+// (jamais migrées) — les demander explicitement ici ferait échouer toute la
+// requête PostgREST (colonne inexistante = 400 sur l'embed entier, pas juste
+// un champ manquant). On sélectionne `address` et on en dérive ville/quartier
+// via parseCityFromAddress/parseNeighborhoodFromAddress, comme catalog.ts.
+const ORDER_SELECT = '*, order_items(*), addresses(*), restaurants(name, phone, address)';
 const DRIVER_ORDER_SELECT = '*, orders(*, order_items(*), addresses(*), restaurants(name, phone))';
 
 export async function fetchOrders(customerId: string): Promise<Order[]> {
@@ -499,15 +529,29 @@ export async function fetchAvailableDeliveries(driverId: string): Promise<Order[
     const driverCity = driverProfile?.city as string | null | undefined;
     const driverNeighborhoods = driverProfile?.service_neighborhoods as string[] | null | undefined;
 
-    // RLS (0002_restaurant_driver_access.sql) already restricts this to
-    // 'ready' orders with no assigned driver. The zone match below is a UX
-    // filter; the hard guarantee is the deliveries_check_driver_zone trigger
-    // (0019) which rejects a mismatched acceptDelivery() at the DB level.
+    // RLS (0002_restaurant_driver_access.sql) restricts this to 'ready'
+    // orders with no assigned driver OR orders already assigned to *this*
+    // driver (the "assigned driver reads their order" policy) — the two
+    // SELECT policies are OR'd, so a driver who has already accepted a
+    // still-'ready' order (not yet marked picked-up) would otherwise see it
+    // twice: once here and once under "mine". Exclude anything already in
+    // `deliveries` for this driver so a stale duplicate accept can't be
+    // attempted (it would 409 on the deliveries_order_id_key constraint).
+    const { data: ownDeliveries } = await supabase
+      .from('deliveries')
+      .select('order_id')
+      .eq('driver_id', driverId);
+    const ownOrderIds = new Set((ownDeliveries ?? []).map((d) => d.order_id as string));
+
     const filterByZone = (rows: Record<string, unknown>[]) =>
-      rows.filter((row) => {
-        const restaurant = row.restaurants as { city?: string; neighborhood?: string } | null;
-        return matchesDriverZone(restaurant?.city, restaurant?.neighborhood, driverCity, driverNeighborhoods);
-      });
+      rows
+        .filter((row) => !ownOrderIds.has(row.id as string))
+        .filter((row) => {
+          const restaurant = row.restaurants as { address?: string } | null;
+          const restaurantCity = restaurant?.address ? parseCityFromAddress(restaurant.address) : undefined;
+          const restaurantNeighborhood = restaurant?.address ? parseNeighborhoodFromAddress(restaurant.address, restaurantCity) : undefined;
+          return matchesDriverZone(restaurantCity, restaurantNeighborhood, driverCity, driverNeighborhoods);
+        });
 
     const { data, error } = await supabase
       .from('orders')
@@ -558,6 +602,22 @@ export async function fetchDriverOrders(driverId: string): Promise<Order[]> {
 
 export async function acceptDelivery(orderId: string, driverId: string): Promise<void> {
   if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+    // A `deliveries` row can already exist as an unassigned placeholder
+    // (e.g. seeded test data, or a future "mark ready" flow that pre-creates
+    // it) — claim it atomically via UPDATE ... WHERE driver_id IS NULL rather
+    // than blindly INSERT, which would 409 on the order_id unique constraint.
+    // `select=id` + an empty result tells us whether a row was actually
+    // claimed (0 rows = either no placeholder exists yet, or someone else
+    // claimed it first).
+    const { data: claimed, error: claimError } = await supabase
+      .from('deliveries')
+      .update({ driver_id: driverId, status: 'assigned', assigned_at: new Date().toISOString() })
+      .eq('order_id', orderId)
+      .is('driver_id', null)
+      .select('id');
+    if (claimError) throw claimError;
+    if (claimed && claimed.length > 0) return;
+
     const { error: deliveryError } = await supabase
       .from('deliveries')
       .insert({ order_id: orderId, driver_id: driverId, status: 'assigned', assigned_at: new Date().toISOString() });

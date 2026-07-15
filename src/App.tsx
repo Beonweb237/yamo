@@ -15,6 +15,7 @@ import Orders from './pages/Orders'
 import Profile from './pages/Profile'
 import Candidature from './pages/Candidature'
 import ExplorerMet from './pages/ExplorerMet'
+import Favorites from './pages/Favorites'
 import DishDetail from './pages/DishDetail'
 import RestaurantDashboard from './pages/RestaurantDashboard'
 import DriverDashboard from './pages/DriverDashboard'
@@ -26,6 +27,11 @@ import AdminRestaurants from './pages/admin/AdminRestaurants'
 import AdminDrivers from './pages/admin/AdminDrivers'
 import AdminDisputes from './pages/admin/AdminDisputes'
 import AdminDishCatalog from './pages/admin/AdminDishCatalog'
+import AdminZones from './pages/admin/AdminZones'
+import AdminDeliveryFees from './pages/admin/AdminDeliveryFees'
+import AdminMedia from './pages/admin/AdminMedia'
+import FoodRequestCreate from './pages/FoodRequestCreate'
+import FoodRequestList from './pages/FoodRequestList'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -39,14 +45,22 @@ export default function App() {
         <Route path="/partenaires" element={<Layout><Partenaires /></Layout>} />
         <Route path="/livreurs" element={<Layout><Livreurs /></Layout>} />
         <Route path="/contact" element={<Layout><Contact /></Layout>} />
-        <Route path="/connexion" element={<Layout><Login /></Layout>} />
-        <Route path="/inscription" element={<Layout><Inscription /></Layout>} />
+        <Route path="/connexion" element={<Layout><Login defaultRole="client" /></Layout>} />
+        <Route path="/admin/connexion" element={<Layout><Login defaultRole="admin" /></Layout>} />
+        <Route path="/partenaires/connexion" element={<Layout><Login defaultRole="restaurant" /></Layout>} />
+        <Route path="/livreurs/connexion" element={<Layout><Login defaultRole="livreur" /></Layout>} />
+        <Route path="/inscription" element={<Layout><Inscription defaultRole="client" /></Layout>} />
+        <Route path="/inscription/restaurant" element={<Layout><Inscription defaultRole="restaurant" /></Layout>} />
+        <Route path="/inscription/livreur" element={<Layout><Inscription defaultRole="livreur" /></Layout>} />
         <Route path="/checkout" element={<Layout><Checkout /></Layout>} />
         <Route path="/commandes" element={<Layout><Orders /></Layout>} />
         <Route path="/profil" element={<Layout><Profile /></Layout>} />
         <Route path="/candidature" element={<Layout><Candidature /></Layout>} />
         <Route path="/explorer" element={<Layout><ExplorerMet /></Layout>} />
+        <Route path="/favoris" element={<Layout><Favorites /></Layout>} />
         <Route path="/plat/:slug" element={<Layout><DishDetail /></Layout>} />
+        <Route path="/demandes/nouvelle" element={<Layout><FoodRequestCreate /></Layout>} />
+        <Route path="/demandes/mes-demandes" element={<Layout><FoodRequestList /></Layout>} />
 
         {/* Restaurant dashboard (sidebar + nested pages) */}
         <Route
@@ -93,6 +107,9 @@ export default function App() {
           <Route path="drivers" element={<AdminDrivers />} />
           <Route path="disputes" element={<AdminDisputes />} />
           <Route path="dishes" element={<AdminDishCatalog />} />
+          <Route path="zones" element={<AdminZones />} />
+          <Route path="delivery-fees" element={<AdminDeliveryFees />} />
+          <Route path="media" element={<AdminMedia />} />
         </Route>
 
         <Route path="*" element={<Layout><NotFound /></Layout>} />

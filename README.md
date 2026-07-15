@@ -1,4 +1,4 @@
-# Yamo — Livraison premium au Cameroun
+# MiamExpress — Livraison premium au Cameroun
 
 React + TypeScript + Vite + Tailwind + shadcn/ui.
 

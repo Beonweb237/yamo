@@ -1,9 +1,11 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, MapPin, Save, Trash2, Plus, LogOut, Shield, Camera, Globe, Navigation, Wallet, Heart, ShoppingBag } from 'lucide-react';
+import { User, MapPin, Save, Trash2, Plus, LogOut, Shield, Camera, Globe, Navigation, Wallet, Heart, ShoppingBag, MessageCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchOrders, type Order } from '../lib/orders';
 import { toast } from 'sonner';
+import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
+import AddressAutocomplete from '../components/AddressAutocomplete';
 
 interface SavedAddress {
   id: string;
@@ -20,6 +22,8 @@ const ADDRESSES_KEY = 'yamo_saved_addresses';
 const PROFILE_NAME_KEY = 'yamo_profile_name';
 const PROFILE_LANG_KEY = 'yamo_profile_lang';
 const PROFILE_PHOTO_KEY = 'yamo_profile_photo';
+const PROFILE_WHATSAPP_KEY = 'yamo_profile_whatsapp';
+const MAX_ADDRESSES = 5;
 
 function readAddresses(): SavedAddress[] {
   try {
@@ -40,6 +44,7 @@ export default function Profile() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [label, setLabel] = useState('');
+  const [fullText, setFullText] = useState('');
   const [city, setCity] = useState('Douala');
   const [neighborhood, setNeighborhood] = useState('');
   const [landmark, setLandmark] = useState('');
@@ -48,6 +53,7 @@ export default function Profile() {
   const [profileName, setProfileName] = useState(() => localStorage.getItem(PROFILE_NAME_KEY) ?? '');
   const [profileLang, setProfileLang] = useState(() => localStorage.getItem(PROFILE_LANG_KEY) ?? 'fr');
   const [profilePhoto, setProfilePhoto] = useState(() => localStorage.getItem(PROFILE_PHOTO_KEY) ?? '');
+  const [whatsapp, setWhatsapp] = useState(() => localStorage.getItem(PROFILE_WHATSAPP_KEY) ?? '');
   const photoRef = useRef<HTMLInputElement>(null);
 
   // C2: geolocation
@@ -107,6 +113,7 @@ export default function Profile() {
     try {
       localStorage.setItem(PROFILE_NAME_KEY, profileName);
       localStorage.setItem(PROFILE_LANG_KEY, profileLang);
+      localStorage.setItem(PROFILE_WHATSAPP_KEY, whatsapp);
       if (profileName.trim()) await updateProfileName(profileName.trim());
       toast.success('Profil mis à jour');
     } catch {
@@ -146,24 +153,29 @@ export default function Profile() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!neighborhood || !landmark) return;
-    const fullText = `${neighborhood}, ${city} — ${landmark}`;
+    if (!fullText && !neighborhood) return;
+    const addressFullText = fullText || `${neighborhood}, ${city} — ${landmark}`;
     let updated: SavedAddress[];
     if (editingId) {
       updated = addresses.map((a) =>
         a.id === editingId
-          ? { ...a, label, city, neighborhood, landmark, fullText, lat: geoCoords?.lat ?? a.lat, lng: geoCoords?.lng ?? a.lng }
+          ? { ...a, label, city, neighborhood, landmark, fullText: addressFullText, lat: geoCoords?.lat ?? a.lat, lng: geoCoords?.lng ?? a.lng }
           : a
       );
     } else {
+      if (addresses.length >= MAX_ADDRESSES) {
+        toast.error(`Maximum ${MAX_ADDRESSES} adresses enregistrées. Supprimez-en une pour en ajouter une nouvelle.`);
+        return;
+      }
       const newAddr: SavedAddress = {
-        id: crypto.randomUUID(), label, city, neighborhood, landmark, fullText,
+        id: crypto.randomUUID(), label, city, neighborhood, landmark, fullText: addressFullText,
         lat: geoCoords?.lat, lng: geoCoords?.lng,
       };
       updated = [newAddr, ...addresses];
     }
     setAddresses(updated);
     writeAddresses(updated);
+    toast.success('Adresse enregistrée avec GPS ✅');
     resetForm();
   };
 
@@ -175,6 +187,7 @@ export default function Profile() {
 
   const handleEdit = (addr: SavedAddress) => {
     setLabel(addr.label);
+    setFullText(addr.fullText);
     setCity(addr.city);
     setNeighborhood(addr.neighborhood);
     setLandmark(addr.landmark);
@@ -187,6 +200,7 @@ export default function Profile() {
     setShowForm(false);
     setEditingId(null);
     setLabel('');
+    setFullText('');
     setCity('Douala');
     setNeighborhood('');
     setLandmark('');
@@ -252,6 +266,17 @@ export default function Profile() {
                 </div>
                 <span className="text-text-muted text-xs font-inter">{user.phone}</span>
               </div>
+              <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-10">
+                <MessageCircle className="w-4 h-4 text-green-primary shrink-0" />
+                <span className="text-text-primary font-inter text-sm font-medium shrink-0 select-none">+237</span>
+                <input
+                  type="tel"
+                  value={whatsapp.replace('+237 ', '')}
+                  onChange={(e) => setWhatsapp('+237 ' + e.target.value.replace(/\s/g, ''))}
+                  placeholder="6XX XX XX XX (WhatsApp)"
+                  className="flex-1 bg-transparent text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
+                />
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -310,6 +335,43 @@ export default function Profile() {
           </section>
         )}
 
+        {/* Adresse de livraison par défaut */}
+        {addresses.length === 0 && (
+          <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6 mb-6 border-l-4 border-l-gold-accent">
+            <div className="flex items-center gap-2 mb-3">
+              <MapPin className="w-5 h-5 text-gold-accent" />
+              <h2 className="font-poppins font-semibold text-text-primary text-lg">
+                Adresse de livraison
+              </h2>
+            </div>
+            <p className="text-text-secondary font-inter text-sm mb-4">
+              Ajoutez votre adresse pour passer votre première commande. Sans adresse, vous ne pourrez pas commander.
+            </p>
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 bg-green-primary text-white font-inter font-medium text-sm px-5 h-10 rounded-lg hover:bg-green-dark transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Ajouter mon adresse
+            </button>
+          </section>
+        )}
+        {addresses.length > 0 && (
+          <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6 mb-6 border-l-4 border-l-green-primary">
+            <div className="flex items-center gap-2 mb-2">
+              <MapPin className="w-5 h-5 text-green-primary" />
+              <h2 className="font-poppins font-semibold text-text-primary text-lg">
+                Adresse de livraison
+              </h2>
+              <span className="text-xs font-inter text-text-muted bg-bg-secondary px-2 py-0.5 rounded-full">par défaut</span>
+            </div>
+            <p className="text-text-primary font-inter text-sm font-medium">{addresses[0].fullText}</p>
+            {addresses[0].label && (
+              <p className="text-text-muted text-xs font-inter mt-0.5">{addresses[0].label}</p>
+            )}
+          </section>
+        )}
+
         {/* Saved addresses */}
         <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
@@ -317,7 +379,7 @@ export default function Profile() {
               <MapPin className="w-5 h-5 text-green-primary" />
               Adresses enregistrées
             </h2>
-            {!showForm && (
+            {!showForm && addresses.length < MAX_ADDRESSES && (
               <button
                 onClick={() => setShowForm(true)}
                 className="flex items-center gap-1.5 text-green-primary font-inter font-medium text-sm"
@@ -325,6 +387,11 @@ export default function Profile() {
                 <Plus className="w-4 h-4" />
                 Ajouter
               </button>
+            )}
+            {!showForm && addresses.length >= MAX_ADDRESSES && (
+              <p className="text-text-muted text-xs font-inter">
+                Maximum {MAX_ADDRESSES} adresses
+              </p>
             )}
           </div>
 
@@ -340,36 +407,35 @@ export default function Profile() {
                 placeholder="Nom (ex. Maison, Bureau)"
                 className="w-full bg-white rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
               />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <select
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className="bg-white rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none"
-                >
-                  <option value="Douala">Douala</option>
-                  <option value="Yaoundé">Yaoundé</option>
-                </select>
-                <input
-                  type="text"
-                  value={neighborhood}
-                  onChange={(e) => setNeighborhood(e.target.value)}
-                  placeholder="Quartier"
-                  className="bg-white rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
-                  required
-                />
-              </div>
+              <AddressAutocomplete
+                value={fullText}
+                onChange={(display, lat, lng) => {
+                  setFullText(display);
+                  if (lat != null && lng != null) setGeoCoords({ lat, lng });
+                  // Parse city from display: "Quartier, Ville — ..."
+                  const parts = display.split(',');
+                  if (parts.length >= 2) {
+                    const cityPart = parts[1]?.trim().split('—')[0]?.trim() || '';
+                    const cityGuess = cityPart || 'Douala';
+                    setCity(cityGuess);
+                    setNeighborhood(parts[0]?.trim() || display);
+                  }
+                }}
+                onNavigate={(lat, lng) => setGeoCoords({ lat, lng })}
+                placeholder="Quartier, rue, ville..."
+              />
               <input
                 type="text"
                 value={landmark}
                 onChange={(e) => setLandmark(e.target.value)}
-                placeholder="Point de repère"
+                placeholder="Point de repère (ex. Carrefour Bastos, face Orange)"
                 className="w-full bg-white rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
-                required
               />
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="bg-green-primary text-white font-inter font-medium text-sm px-5 h-10 rounded-lg hover:bg-green-dark transition-colors flex items-center gap-1.5"
+                  disabled={!fullText}
+                  className="bg-green-primary text-white font-inter font-medium text-sm px-5 h-10 rounded-lg hover:bg-green-dark transition-colors flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" /> Enregistrer
                 </button>
@@ -390,6 +456,34 @@ export default function Profile() {
                   Annuler
                 </button>
               </div>
+              {geoCoords && (
+                <div className="pt-1">
+                  <p className="text-xs text-text-muted font-inter mb-1">📍 Cliquez sur la carte pour ajuster la position</p>
+                  <LazyDeliveryMap
+                    height="180px"
+                    scrollWheelZoom={false}
+                    points={[{ lat: geoCoords.lat, lng: geoCoords.lng, label: label || 'Position détectée', type: 'customer' }]}
+                    onMapClick={(lat, lng) => {
+                      setGeoCoords({ lat, lng });
+                      toast.success('Position mise à jour');
+                    }}
+                  />
+                </div>
+              )}
+              {!geoCoords && showForm && (
+                <div className="pt-1">
+                  <p className="text-xs text-text-muted font-inter mb-1">📍 Cliquez sur la carte pour placer votre adresse</p>
+                  <LazyDeliveryMap
+                    height="180px"
+                    scrollWheelZoom={false}
+                    points={[{ lat: city === 'Yaoundé' ? 3.8480 : 4.0511, lng: city === 'Yaoundé' ? 11.5021 : 9.7679, label: city, type: 'customer' }]}
+                    onMapClick={(lat, lng) => {
+                      setGeoCoords({ lat, lng });
+                      toast.success('Position placée ! Vous pouvez l\'ajuster en cliquant à nouveau');
+                    }}
+                  />
+                </div>
+              )}
             </form>
           )}
 
@@ -400,27 +494,38 @@ export default function Profile() {
           ) : (
             <div className="space-y-2">
               {addresses.map((addr) => (
-                <div key={addr.id} className="flex items-center justify-between p-3 bg-bg-secondary rounded-lg">
-                  <div>
-                    {addr.label && (
-                      <p className="font-inter font-semibold text-text-primary text-sm">{addr.label}</p>
-                    )}
-                    <p className="text-text-secondary text-xs font-inter">{addr.fullText}</p>
+                <div key={addr.id} className="p-3 bg-bg-secondary rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      {addr.label && (
+                        <p className="font-inter font-semibold text-text-primary text-sm">{addr.label}</p>
+                      )}
+                      <p className="text-text-secondary text-xs font-inter">{addr.fullText}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleEdit(addr)}
+                        className="text-xs font-inter font-medium text-text-secondary hover:text-green-primary px-2 py-1 transition-colors"
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        onClick={() => handleDelete(addr.id)}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted hover:text-error hover:bg-error/10 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleEdit(addr)}
-                      className="text-xs font-inter font-medium text-text-secondary hover:text-green-primary px-2 py-1 transition-colors"
-                    >
-                      Modifier
-                    </button>
-                    <button
-                      onClick={() => handleDelete(addr.id)}
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted hover:text-error hover:bg-error/10 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {addr.lat != null && addr.lng != null && (
+                    <div className="mt-2">
+                      <LazyDeliveryMap
+                        height="120px"
+                        scrollWheelZoom={false}
+                        points={[{ lat: addr.lat, lng: addr.lng, label: addr.label || addr.fullText, type: 'customer' } as MapPoint]}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -8,6 +8,7 @@ import {
   X,
   Minus,
   Plus,
+  Heart,
 } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -76,9 +77,9 @@ export default function Navbar() {
       >
         <div className="max-w-[1280px] mx-auto h-full flex items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-12">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="Yamo Logo" className="w-10 h-10 object-contain rounded-xl shadow-sm bg-white" />
+            <img src="/logo-icon.png" alt="MiamExpress Logo" className="w-10 h-10 object-contain" />
             <span className={`font-inter font-semibold text-xl tracking-normal ${isSolid ? 'text-green-primary' : 'text-white'}`}>
-              Yamo
+              MiamExpress
             </span>
           </Link>
 
@@ -128,6 +129,17 @@ export default function Navbar() {
             >
               <User className="w-4 h-4" />
               {accountLink.label}
+            </Link>
+            {/* Desktop: favoris */}
+            <Link
+              to="/favoris"
+              className={`hidden lg:flex p-2 rounded-lg transition-colors ${isSolid
+                ? 'text-text-primary hover:bg-bg-secondary'
+                : 'text-white hover:bg-white/10'
+                }`}
+              aria-label="Mes favoris"
+            >
+              <Heart className="w-5 h-5" />
             </Link>
             {/* Desktop: cart preview popover */}
             <div className="hidden lg:block">
@@ -253,9 +265,9 @@ export default function Navbar() {
             >
               <div className="flex items-center justify-between p-4 border-b border-border-light">
                 <Link to="/" className="flex items-center gap-2">
-                  <img src="/logo.png" alt="Yamo Logo" className="w-8 h-8 object-contain rounded-lg shadow-sm bg-white" />
+                  <img src="/logo-icon.png" alt="MiamExpress Logo" className="w-8 h-8 object-contain" />
                   <span className="font-inter font-semibold text-lg tracking-normal text-green-primary">
-                    Yamo
+                    MiamExpress
                   </span>
                 </Link>
                 <button

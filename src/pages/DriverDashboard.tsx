@@ -7,7 +7,8 @@ import { fetchDriverOnlineStatus, setDriverOnline, requestPayout, fetchDriverPay
 import { Skeleton } from '../components/ui/skeleton';
 import { Badge } from '../components/ui/badge';
 import { Switch } from '../components/ui/switch';
-import DeliveryMap, { type MapPoint } from '../components/DeliveryMap';
+import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
+import { getRestaurantCoords, getCustomerCoords, simulateDriverPosition } from '../lib/tracking';
 import { toast } from 'sonner';
 
 type Tab = 'available' | 'mine' | 'wallet';
@@ -69,9 +70,14 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
 
   const handleAccept = async (order: Order) => {
     if (!user) return;
-    await acceptDelivery(order.id, user.id);
-    setTab('mine');
-    loadAll();
+    try {
+      await acceptDelivery(order.id, user.id);
+      setTab('mine');
+    } catch {
+      toast.error('Cette livraison vient d\'être acceptée par un autre livreur.');
+    } finally {
+      loadAll();
+    }
   };
 
   const handleMarkPickedUp = async (order: Order) => {
@@ -305,18 +311,18 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
               <>
                 {/* Map for active deliveries */}
                 {activeMine.length > 0 && (
-                  <DeliveryMap
+                  <LazyDeliveryMap
                     height="280px"
-                    points={activeMine.flatMap((order): MapPoint[] => [
-                      { lat: 4.0511, lng: 9.7679, label: order.restaurantName || 'Restaurant', type: 'restaurant' },
-                      { lat: 4.0611, lng: 9.7779, label: 'Votre position', type: 'driver' },
-                      {
-                        lat: 4.0650,
-                        lng: 9.7850,
-                        label: order.address?.fullText?.slice(0, 30) || 'Client',
-                        type: 'customer',
-                      },
-                    ])}
+                    points={activeMine.flatMap((order): MapPoint[] => {
+                      const resto = getRestaurantCoords(order.restaurantId) ?? { lat: 4.0511, lng: 9.7679 };
+                      const customer = getCustomerCoords(order) ?? resto;
+                      const driver = simulateDriverPosition(resto, customer, order);
+                      return [
+                        { ...resto, label: order.restaurantName || 'Restaurant', type: 'restaurant' },
+                        { ...driver, label: 'Votre position', type: 'driver' },
+                        { ...customer, label: order.address?.fullText?.slice(0, 30) || 'Client', type: 'customer' },
+                      ];
+                    })}
                   />
                 )}
                 {activeMine.map((order) => (

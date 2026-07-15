@@ -8,6 +8,19 @@ import { rateDelivery } from '../lib/drivers';
 import { rateRestaurant, hasRestaurantReview } from '../lib/catalog';
 import OrderStatusStepper from '../components/OrderStatusStepper';
 import { Skeleton } from '../components/ui/skeleton';
+import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
+import { getRestaurantCoords, getCustomerCoords, simulateDriverPosition } from '../lib/tracking';
+
+function buildTrackingPoints(order: Order): MapPoint[] {
+  const resto = getRestaurantCoords(order.restaurantId) ?? { lat: 4.0511, lng: 9.7679 };
+  const customer = getCustomerCoords(order) ?? resto;
+  const driver = simulateDriverPosition(resto, customer, order);
+  return [
+    { ...resto, label: order.restaurantName || 'Restaurant', type: 'restaurant' },
+    { ...driver, label: 'Votre livreur', type: 'driver' },
+    { ...customer, label: 'Vous', type: 'customer' },
+  ];
+}
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'En attente',
@@ -155,6 +168,12 @@ export default function Orders() {
                 <div className="mb-4">
                   <OrderStatusStepper status={order.status} />
                 </div>
+
+                {(order.status === 'picked_up' || order.status === 'delivering') && (
+                  <div className="mb-3">
+                    <LazyDeliveryMap height="220px" scrollWheelZoom={false} points={buildTrackingPoints(order)} />
+                  </div>
+                )}
 
                 {getOrderPreparationMessage(order) && (
                   <div className="flex items-center gap-1.5 bg-bg-secondary rounded-lg px-3 py-2 mb-3 text-xs font-inter text-text-secondary">

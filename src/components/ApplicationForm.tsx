@@ -217,14 +217,17 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
         </div>
         <div>
           <label className="block text-text-secondary font-inter text-sm mb-1.5">Téléphone</label>
-          <input
-            type="tel"
-            value={contactPhone}
-            onChange={(e) => setContactPhone(e.target.value)}
-            placeholder="+237 6XX XX XX XX"
-            className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
-            required
-          />
+          <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-11">
+            <span className="text-text-primary font-inter text-sm font-medium shrink-0 select-none">+237</span>
+            <input
+              type="tel"
+              value={contactPhone.replace('+237 ', '')}
+              onChange={(e) => setContactPhone('+237 ' + e.target.value.replace(/\s/g, ''))}
+              placeholder="6XX XX XX XX"
+              className="flex-1 bg-transparent text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
+              required
+            />
+          </div>
         </div>
       </div>
       {type === 'restaurant' ? (

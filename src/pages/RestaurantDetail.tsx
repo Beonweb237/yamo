@@ -27,6 +27,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { useCart } from '../contexts/CartContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useRestaurant, useMenuItems, useRestaurants } from '../hooks/useCatalog';
 import { useFavorites } from '../hooks/useFavorites';
 import { fetchRestaurantReviews, type RestaurantReview } from '../lib/catalog';
@@ -64,7 +65,19 @@ export default function RestaurantDetail() {
   const isFav = restaurant ? favorites.has(restaurant.id) : false;
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const { items, addToCart, replaceCartWith, updateQuantity, totalItems, totalPrice } = useCart();
+  const { user } = useAuth();
   const [conflictItem, setConflictItem] = useState<MenuItem | null>(null);
+
+  // Le panier reste accessible sans compte, mais passer commande exige une
+  // session — direct vers la connexion plutôt que de laisser /checkout
+  // afficher puis rediriger (évite le flash de la page commande).
+  const handleCheckout = () => {
+    if (!user) {
+      navigate('/connexion', { state: { from: '/checkout' } });
+      return;
+    }
+    navigate('/checkout');
+  };
 
   // C4: customization modal
   const [customizing, setCustomizing] = useState<MenuItem | null>(null);
@@ -436,7 +449,7 @@ export default function RestaurantDetail() {
           {/* Cart Sidebar - Desktop */}
           <div className="hidden lg:block w-[380px] shrink-0">
             <div className="sticky top-[140px] bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-5">
-              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} deliveryFee={restaurant.deliveryFee} onUpdate={updateQuantity} onCheckout={() => navigate('/checkout')} />
+              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} deliveryFee={restaurant.deliveryFee} onUpdate={updateQuantity} onCheckout={handleCheckout} />
             </div>
           </div>
         </div>
@@ -519,7 +532,7 @@ export default function RestaurantDetail() {
                           </div>
                           <div>
                             <span className="font-inter font-semibold text-text-primary text-sm">
-                              Client Yamo
+                              Client MiamExpress
                             </span>
                             <span className="text-text-muted text-xs font-inter ml-2">
                               {timeAgoFr(review.createdAt)}
@@ -629,7 +642,7 @@ export default function RestaurantDetail() {
                   <ChevronDown className="w-6 h-6 text-text-secondary" />
                 </button>
               </div>
-              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} deliveryFee={restaurant.deliveryFee} onUpdate={updateQuantity} onCheckout={() => navigate('/checkout')} />
+              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} deliveryFee={restaurant.deliveryFee} onUpdate={updateQuantity} onCheckout={handleCheckout} />
             </motion.div>
           </>
         )}

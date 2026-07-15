@@ -3,6 +3,7 @@ import { RefreshCw, UserCheck, Check, X, Store, Bike, Search, Clock, ThumbsUp, T
 import { useRestaurants } from '../../hooks/useCatalog';
 import { fetchAllApplications, approveApplication, rejectApplication, type Application, type ApplicationStatus } from '../../lib/applications';
 import { toast } from 'sonner';
+import PageHeader from '../../components/PageHeader';
 
 type Tab = 'pending' | 'approved' | 'rejected';
 
@@ -82,26 +83,16 @@ export default function AdminApplications() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      {/* Hero Header */}
-      <div className="relative bg-white rounded-2xl border border-border-custom shadow-sm overflow-hidden mb-6">
-        <div className="h-16 bg-gradient-to-r from-green-primary via-green-500 to-emerald-400" />
-        <div className="px-5 sm:px-6 pb-5 -mt-6">
-          <div className="flex items-end justify-between gap-4 flex-wrap">
-            <div className="flex items-end gap-3">
-              <div className="w-14 h-14 rounded-xl bg-white border-4 border-white shadow-md flex items-center justify-center">
-                <UserCheck className="w-7 h-7 text-green-primary" />
-              </div>
-              <div className="pb-1">
-                <h1 className="font-poppins font-bold text-text-primary text-xl sm:text-2xl">Candidatures</h1>
-                <p className="text-text-muted text-xs font-inter">{applications.length} candidature{applications.length !== 1 ? 's' : ''} au total</p>
-              </div>
-            </div>
-            <button onClick={load} className="flex items-center gap-1.5 text-text-secondary text-sm font-inter hover:text-text-primary bg-white rounded-lg px-3 py-2 border border-border-custom mb-1">
-              <RefreshCw className="w-4 h-4" />Actualiser
-            </button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        icon={UserCheck}
+        title="Candidatures"
+        subtitle={`${applications.length} candidature${applications.length !== 1 ? 's' : ''} au total`}
+        action={
+          <button onClick={load} className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors">
+            <RefreshCw className="w-4 h-4" />Actualiser
+          </button>
+        }
+      />
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

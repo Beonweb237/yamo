@@ -3,6 +3,7 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import {
   Bike, Home, LayoutDashboard, LogOut, ShoppingBag, Store, Menu, X,
   Package, Utensils, User, Wallet, AlertTriangle, UserCheck, UserCircle, ChevronDown, ChefHat,
+  MapPin, DollarSign, Image,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -20,6 +21,9 @@ const adminSidebar: SidebarLink[] = [
   { name: 'Livreurs', path: '/admin/drivers', icon: Bike },
   { name: 'Litiges', path: '/admin/disputes', icon: AlertTriangle },
   { name: 'Catalogue plats', path: '/admin/dishes', icon: ChefHat },
+  { name: 'Zones', path: '/admin/zones', icon: MapPin },
+  { name: 'Frais livraison', path: '/admin/delivery-fees', icon: DollarSign },
+  { name: 'Médiathèque', path: '/admin/media', icon: Image },
 ];
 
 const restaurantSidebar: SidebarLink[] = [
@@ -92,8 +96,8 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
               <Menu className="w-5 h-5" />
             </button>
             <Link to={user?.role === 'admin' ? '/admin' : '/'} className="flex items-center gap-2">
-              <img src="/logo.png" alt="Yamo" className="w-7 h-7 object-contain rounded-md shadow-sm bg-white" />
-              <span className="font-poppins font-bold text-white text-base">Yamo</span>
+              <img src="/logo-icon.png" alt="MiamExpress" className="w-7 h-7 object-contain" />
+              <span className="font-poppins font-bold text-white text-base">MiamExpress</span>
             </Link>
 
             {/* Admin quick-jump links (desktop only) */}

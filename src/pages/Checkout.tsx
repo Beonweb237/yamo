@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { MapPin, Wallet, Smartphone, Loader2, CheckCircle2, UserRound, Phone } from 'lucide-react';
+import { MapPin, Wallet, Smartphone, Loader2, CheckCircle2, UserRound, Phone, Navigation } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createOrder, type PaymentMethod } from '../lib/orders';
@@ -9,6 +9,8 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { useRestaurant } from '../hooks/useCatalog';
 import { activeCities, getNeighborhoods, getNeighborhoodCoords } from '../data/locations';
 import { haversineDistance, estimateTime } from '../lib/utils';
+import LazyAddressPickerMap from '../components/LazyAddressPickerMap';
+import { toast } from 'sonner';
 
 interface SavedAddress {
   id: string;
@@ -17,7 +19,11 @@ interface SavedAddress {
   neighborhood: string;
   landmark: string;
   fullText: string;
+  lat?: number;
+  lng?: number;
 }
+
+const DEFAULT_COORDS = { lat: 4.0511, lng: 9.7679 };
 
 const ADDRESSES_KEY = 'yamo_saved_addresses';
 
@@ -65,7 +71,7 @@ const paymentOptions: {
 
 export default function Checkout() {
   const { items, restaurantId, totalPrice, clearCart } = useCart();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { restaurant: cartRestaurant } = useRestaurant(restaurantId ?? undefined);
 
@@ -75,28 +81,28 @@ export default function Checkout() {
   const [customNeighborhood, setCustomNeighborhood] = useState('');
   const [landmark, setLandmark] = useState('');
 
-  // Lock city/neighborhood to the restaurant's location
+  // Lock city to the restaurant's location (customer must be in same city).
+  // Neighborhood is free choice — customer can be in any neighborhood of that city.
   const restaurantCity = cartRestaurant?.city ?? '';
-  const restaurantNeighborhood = cartRestaurant?.neighborhood ?? '';
-  const locationLocked = Boolean(restaurantCity);
+  const cityLocked = Boolean(restaurantCity);
 
   useEffect(() => {
     if (restaurantCity) setCity(restaurantCity);
   }, [restaurantCity]);
 
-  useEffect(() => {
-    if (restaurantNeighborhood) setNeighborhood(restaurantNeighborhood);
-  }, [restaurantNeighborhood]);
-
-  // Delivery zone estimation
+  // Delivery zone estimation — only once the customer has actually picked a
+  // neighborhood. Falling back to the city center (as before) produced a
+  // spurious "hors zone" warning on page load, before any selection, since a
+  // city-wide center point can easily sit outside a restaurant's radius even
+  // though most of the city is well within it.
   const deliveryInfo = useMemo(() => {
     if (!cartRestaurant?.lat || !cartRestaurant?.lng) return null;
+    if (!neighborhood) return null;
     const restoLat = cartRestaurant.lat;
     const restoLng = cartRestaurant.lng;
     const radius = cartRestaurant.deliveryRadiusKm ?? 5;
 
-    // Try to get neighborhood coordinates
-    const coords = getNeighborhoodCoords(neighborhood || city);
+    const coords = getNeighborhoodCoords(neighborhood);
     if (!coords) return { withinZone: true, distanceKm: null, estimatedMin: null, radius };
 
     const distKm = haversineDistance(restoLat, restoLng, coords.lat, coords.lng);
@@ -108,6 +114,34 @@ export default function Checkout() {
       radius,
     };
   }, [cartRestaurant, neighborhood, city]);
+  const [pinCoords, setPinCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+
+  const neighborhoodCoords = useMemo(() => getNeighborhoodCoords(neighborhood || city), [neighborhood, city]);
+  const mapCoords = pinCoords
+    ?? neighborhoodCoords
+    ?? (cartRestaurant?.lat != null && cartRestaurant?.lng != null ? { lat: cartRestaurant.lat, lng: cartRestaurant.lng } : DEFAULT_COORDS);
+
+  const handleGeolocate = () => {
+    if (!navigator.geolocation) {
+      toast.error('Géolocalisation non supportée par votre navigateur');
+      return;
+    }
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setPinCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setGeoLoading(false);
+        toast.success('Position détectée — ajustez le repère sur la carte si besoin');
+      },
+      () => {
+        toast.error('Géolocalisation refusée — placez le repère manuellement sur la carte');
+        setGeoLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentPhone, setPaymentPhone] = useState(() => user?.phone ?? '');
@@ -140,6 +174,7 @@ export default function Checkout() {
       setNeighborhood('');
     }
     setLandmark(addr.landmark);
+    setPinCoords(addr.lat != null && addr.lng != null ? { lat: addr.lat, lng: addr.lng } : null);
   };
 
   useEffect(() => {
@@ -149,10 +184,13 @@ export default function Checkout() {
   }, [city, neighborhood, neighborhoods, useOtherNeighborhood]);
 
   useEffect(() => {
-    if (!user) {
+    // Wait for the auth session to finish resolving before deciding — otherwise
+    // a genuinely logged-in user gets bounced to /connexion during the brief
+    // window where `user` is still null while the session loads.
+    if (!authLoading && !user) {
       navigate('/connexion', { state: { from: '/checkout' } });
     }
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (items.length === 0 && !placedOrderId) {
@@ -167,11 +205,24 @@ export default function Checkout() {
   const total = totalPrice + deliveryFee;
   const recipientMissing = orderForSomeoneElse && (!recipientName.trim() || !recipientPhone.trim());
 
+  // Certains restaurants (découverts via /explorer ou un plat, voir dishes.ts)
+  // n'existent que dans le catalogue de démo local et n'ont pas de ligne
+  // réelle en base — commander échouerait au dernier moment côté serveur
+  // ("Restaurant introuvable"). Repère le même format d'ID que catalog.ts
+  // (isMockId) pour bloquer la commande plus tôt, avec un message clair.
+  const isPreviewOnlyRestaurant = isSupabaseConfigured
+    && !!restaurantId
+    && (!restaurantId.includes('-') || restaurantId.length < 30);
+
   const handlePlaceOrder = async () => {
     if (!user || items.length === 0 || !restaurantId) return;
     setError('');
     setSubmitting(true);
     try {
+      if (isPreviewOnlyRestaurant) {
+        setError("Ce restaurant est un aperçu de démonstration et n'est pas encore disponible à la commande. Choisissez un restaurant depuis la recherche pour commander.");
+        return;
+      }
       if (recipientMissing) {
         setError('Renseignez le nom et le numéro du bénéficiaire.');
         return;
@@ -225,7 +276,14 @@ export default function Checkout() {
         deliveryFee: serverDeliveryFee,
         total: serverTotal,
         paymentMethod,
-        address: { city, neighborhood: effectiveNeighborhood, landmark, fullText: `${effectiveNeighborhood}, ${city} — ${landmark}` },
+        address: {
+          city,
+          neighborhood: effectiveNeighborhood,
+          landmark,
+          fullText: `${effectiveNeighborhood}, ${city} — ${landmark}`,
+          lat: pinCoords?.lat,
+          lng: pinCoords?.lng,
+        },
         notes,
       });
 
@@ -253,6 +311,16 @@ export default function Checkout() {
       setSubmitting(false);
     }
   };
+
+  // Auth still resolving, or resolved and no session — never flash the
+  // checkout form itself; the effect above handles the redirect.
+  if (authLoading || !user) {
+    return (
+      <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
+        <p className="text-text-secondary font-inter text-sm">Chargement...</p>
+      </div>
+    );
+  }
 
   if (placedOrderId) {
     return (
@@ -354,11 +422,12 @@ export default function Checkout() {
                 <label className="block text-text-secondary font-inter text-sm mb-1.5">Téléphone du bénéficiaire</label>
                 <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
                   <Phone className="w-4 h-4 text-text-muted shrink-0" />
+                  <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
                   <input
                     type="tel"
-                    value={recipientPhone}
-                    onChange={(e) => setRecipientPhone(e.target.value)}
-                    placeholder="+237 6XX XX XX XX"
+                    value={recipientPhone.replace('+237 ', '')}
+                    onChange={(e) => setRecipientPhone('+237 ' + e.target.value.replace(/\s/g, ''))}
+                    placeholder="6XX XX XX XX"
                     className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
                     required={orderForSomeoneElse}
                   />
@@ -415,12 +484,12 @@ export default function Checkout() {
             <div>
               <label className="block text-text-secondary font-inter text-sm mb-1.5">
                 Ville
-                {locationLocked && <span className="text-green-primary text-[11px] ml-1">(restaurant)</span>}
+                {cityLocked && <span className="text-green-primary text-[11px] ml-1">(restaurant)</span>}
               </label>
               <select
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                disabled={locationLocked}
+                disabled={cityLocked}
                 className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {activeCities.map((c) => (
@@ -431,7 +500,6 @@ export default function Checkout() {
             <div>
               <label className="block text-text-secondary font-inter text-sm mb-1.5">
                 Quartier
-                {locationLocked && <span className="text-green-primary text-[11px] ml-1">(restaurant)</span>}
               </label>
               {useOtherNeighborhood ? (
                 <div className="flex gap-2">
@@ -463,8 +531,7 @@ export default function Checkout() {
                       setNeighborhood(e.target.value);
                     }
                   }}
-                  className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none disabled:opacity-70 disabled:cursor-not-allowed"
-                  disabled={locationLocked}
+                  className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none"
                   required
                 >
                   <option value="">Sélectionnez un quartier</option>
@@ -474,6 +541,36 @@ export default function Checkout() {
                   <option value="__other__">Mon quartier n&apos;est pas listé</option>
                 </select>
               )}
+            </div>
+            <div className="sm:col-span-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-text-secondary font-inter text-sm">
+                  Repère sur la carte
+                </label>
+                <button
+                  type="button"
+                  onClick={handleGeolocate}
+                  disabled={geoLoading}
+                  className="flex items-center gap-1.5 text-green-primary font-inter text-xs font-medium hover:underline disabled:opacity-50"
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  {geoLoading ? 'Détection...' : 'Me géolocaliser'}
+                </button>
+              </div>
+              <LazyAddressPickerMap
+                height="220px"
+                lat={mapCoords.lat}
+                lng={mapCoords.lng}
+                onChange={(lat, lng) => setPinCoords({ lat, lng })}
+              />
+              {pinCoords && (
+                <p className="text-green-primary text-[11px] font-inter mt-1.5 font-medium">
+                  📍 Coordonnées : {pinCoords.lat.toFixed(6)}, {pinCoords.lng.toFixed(6)}
+                </p>
+              )}
+              <p className="text-text-muted text-[11px] font-inter mt-1.5">
+                Déplacez le repère rouge à l&apos;endroit exact de la livraison. Le point de repère ci-dessous reste indispensable (adressage informel).
+              </p>
             </div>
             <div className="sm:col-span-2">
               <label className="block text-text-secondary font-inter text-sm mb-1.5">
@@ -489,7 +586,7 @@ export default function Checkout() {
               />
             </div>
             {/* Delivery zone info */}
-            {deliveryInfo && (
+            {deliveryInfo && deliveryInfo.distanceKm != null && (
               <div className={`sm:col-span-2 rounded-xl p-3 text-xs font-inter flex items-center gap-2 ${deliveryInfo.withinZone ? 'bg-green-light text-green-primary' : 'bg-error/10 text-error'}`}>
                 {deliveryInfo.withinZone ? (
                   <>
@@ -618,11 +715,16 @@ export default function Checkout() {
           </div>
         </section>
 
+        {isPreviewOnlyRestaurant && (
+          <p className="text-gold-accent bg-gold-light rounded-lg px-3 py-2 text-sm font-inter mb-4">
+            Ce restaurant est un aperçu de démonstration et n&apos;est pas encore disponible à la commande.
+          </p>
+        )}
         {error && <p className="text-error text-sm font-inter mb-4">{error}</p>}
 
         <button
           onClick={handlePlaceOrder}
-          disabled={submitting || !effectiveNeighborhood || !landmark}
+          disabled={submitting || !effectiveNeighborhood || !landmark || isPreviewOnlyRestaurant}
           className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark hover:shadow-lg active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
         >
           {submitting ? (

@@ -3,9 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Search, SlidersHorizontal, Star, ArrowUpDown, X, Leaf, Beef, Wheat,
-  Coffee, Apple, Clock, Store, Flame, ImageOff, MapPin, ChevronDown,
+  Coffee, Apple, Clock, Store, Flame, ImageOff, MapPin, ChevronDown, Heart,
 } from 'lucide-react';
 import { useRestaurants } from '../hooks/useCatalog';
+import { useFavoriteDishes } from '../hooks/useFavoriteDishes';
 import { activeCities, getNeighborhoods } from '../data/locations';
 import { menuItems as mockMenuItems } from '../data/mockData';
 import {
@@ -49,6 +50,7 @@ export default function ExplorerMet() {
   const initialCity = searchParams.get('ville') ?? '';
   const initialNeighborhood = searchParams.get('quartier') ?? '';
   const { restaurants } = useRestaurants();
+  const { favoriteDishes, toggleFavoriteDish } = useFavoriteDishes();
 
   const [query, setQuery] = useState(initialQuery);
   const [selectedCity, setSelectedCity] = useState(() => activeCities.some((city) => city.name === initialCity) ? initialCity : '');
@@ -300,9 +302,19 @@ export default function ExplorerMet() {
                         <Flame className="w-3 h-3" />Tendance
                       </span>
                     )}
-                    <span className="absolute top-2 right-2 flex items-center gap-0.5 bg-white/90 backdrop-blur-sm text-gold-accent text-[11px] font-inter font-bold px-2 py-0.5 rounded-full shadow-sm">
-                      <Star className="w-3 h-3 fill-gold-accent" />{group.avgRating.toFixed(1)}
-                    </span>
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                      <span className="flex items-center gap-0.5 bg-white/90 backdrop-blur-sm text-gold-accent text-[11px] font-inter font-bold px-2 py-0.5 rounded-full shadow-sm">
+                        <Star className="w-3 h-3 fill-gold-accent" />{group.avgRating.toFixed(1)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); toggleFavoriteDish(group.key); }}
+                        aria-label="Ajouter aux favoris"
+                        className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors shadow-sm shrink-0"
+                      >
+                        <Heart className={`w-3.5 h-3.5 ${favoriteDishes.has(group.key) ? 'fill-error text-error' : 'text-text-secondary'}`} />
+                      </button>
+                    </div>
                     <div className="absolute bottom-0 left-0 right-0 p-3">
                       <h3 className="font-inter font-semibold text-white text-sm leading-tight drop-shadow-sm line-clamp-2">{group.displayName}</h3>
                     </div>

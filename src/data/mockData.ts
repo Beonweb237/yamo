@@ -19,7 +19,7 @@ export interface Restaurant {
   isPremium: boolean;
   description: string;
   gallery?: string[]; // Additional restaurant photos (interior, dishes, ambiance...)
-  /** Taux de commission Yamo pour ce restaurant (0.15 = 15%). Défaut si absent : 0.15. */
+  /** Taux de commission MiamExpress pour ce restaurant (0.15 = 15%). Défaut si absent : 0.15. */
   commissionRate?: number;
   lat?: number;
   lng?: number;
@@ -842,7 +842,7 @@ export const customerReviews: Review[] = [
     avatar: '/testimonial-avatar-1.jpg',
     initial: 'M',
     rating: 5,
-    comment: 'Yamo a chang\u00e9 mes pauses d\u00e9jeuner \u00e0 Douala. La vari\u00e9t\u00e9 des restaurants est incroyable, et la livraison est toujours ponctuelle !',
+    comment: 'MiamExpress a chang\u00e9 mes pauses d\u00e9jeuner \u00e0 Douala. La vari\u00e9t\u00e9 des restaurants est incroyable, et la livraison est toujours ponctuelle !',
     date: 'il y a 2 semaines',
     location: 'Douala, Akwa',
     order: 'Ndol\u00e9 avec B\u0153uf et Crevettes',
@@ -864,7 +864,7 @@ export const customerReviews: Review[] = [
     avatar: '/testimonial-avatar-3.jpg',
     initial: 'E',
     rating: 5,
-    comment: 'En tant que m\u00e8re de famille, Yamo me simplifie la vie. La qualit\u00e9 des plats est toujours au rendez-vous et les enfants adorent.',
+    comment: 'En tant que m\u00e8re de famille, MiamExpress me simplifie la vie. La qualit\u00e9 des plats est toujours au rendez-vous et les enfants adorent.',
     date: 'il y a 1 mois',
     location: 'Douala, Bonapriso',
     order: 'Riz Sauce Tomate + Poisson',
@@ -877,7 +877,7 @@ export const partnerReviews: Review[] = [
     name: 'Kouam\u00e9 B.',
     initial: 'K',
     rating: 5,
-    comment: 'Gr\u00e2ce \u00e0 Yamo, nous avons doubl\u00e9 notre chiffre d\'affaires en 3 mois. Le syst\u00e8me est simple et l\'\u00e9quipe est toujours disponible.',
+    comment: 'Gr\u00e2ce \u00e0 MiamExpress, nous avons doubl\u00e9 notre chiffre d\'affaires en 3 mois. Le syst\u00e8me est simple et l\'\u00e9quipe est toujours disponible.',
     date: 'il y a 1 mois',
     role: 'Propri\u00e9taire, Chez Mama',
   },
@@ -886,7 +886,7 @@ export const partnerReviews: Review[] = [
     name: 'Aminata D.',
     initial: 'A',
     rating: 5,
-    comment: 'La visibilit\u00e9 que Yamo nous apporte est incroyable. Des clients nous d\u00e9couvrent chaque jour. C\'est devenu notre canal de vente le plus important.',
+    comment: 'La visibilit\u00e9 que MiamExpress nous apporte est incroyable. Des clients nous d\u00e9couvrent chaque jour. C\'est devenu notre canal de vente le plus important.',
     date: 'il y a 2 semaines',
     role: 'G\u00e9rante, Poulet DG Royal',
   },
@@ -895,7 +895,7 @@ export const partnerReviews: Review[] = [
     name: 'Jean-Claude N.',
     initial: 'J',
     rating: 5,
-    comment: 'Je n\'avais jamais fait de livraison avant. L\'\u00e9quipe Yamo m\'a accompagn\u00e9 \u00e0 chaque \u00e9tape. Aujourd\'hui, 40% de mon CA vient de la livraison.',
+    comment: 'Je n\'avais jamais fait de livraison avant. L\'\u00e9quipe MiamExpress m\'a accompagn\u00e9 \u00e0 chaque \u00e9tape. Aujourd\'hui, 40% de mon CA vient de la livraison.',
     date: 'il y a 3 semaines',
     role: 'Chef, Le B\u00fbcheron',
   },
@@ -907,7 +907,7 @@ export const driverReviews: Review[] = [
     name: 'Pierre K.',
     initial: 'P',
     rating: 5,
-    comment: 'J\'ai commenc\u00e9 \u00e0 livrer le week-end pour compl\u00e9ter mes revenus. En 3 mois, j\'ai pu quitter mon ancien travail. Yamo m\'a chang\u00e9 la vie.',
+    comment: 'J\'ai commenc\u00e9 \u00e0 livrer le week-end pour compl\u00e9ter mes revenus. En 3 mois, j\'ai pu quitter mon ancien travail. MiamExpress m\'a chang\u00e9 la vie.',
     date: 'il y a 1 mois',
     role: 'Livreur \u00e0 Douala, 6 mois',
   },
@@ -968,21 +968,21 @@ export const contactFAQ: FAQItem[] = [
     category: 'Partenaires',
   },
   {
-    question: 'Quelles villes sont couvertes par Yamo ?',
-    answer: 'Yamo couvre les grandes villes du Cameroun, avec une présence dans les principales capitales régionales et zones économiques du pays.',
+    question: 'Quelles villes sont couvertes par MiamExpress ?',
+    answer: 'MiamExpress couvre les grandes villes du Cameroun, avec une présence dans les principales capitales régionales et zones économiques du pays.',
     category: 'G\u00e9n\u00e9ral',
   },
   {
     question: 'Comment contacter le support ?',
-    answer: 'Vous pouvez nous contacter par email \u00e0 support@yamo.cm, par t\u00e9l\u00e9phone au +237 677 77 77 77, ou via le formulaire de contact.',
+    answer: 'Vous pouvez nous contacter par email \u00e0 support@miamexpress.cm, par t\u00e9l\u00e9phone au +237 677 77 77 77, ou via le formulaire de contact.',
     category: 'Support',
   },
 ];
 
 export const partnerFAQ: FAQItem[] = [
   {
-    question: 'Quelle est la commission de Yamo ?',
-    answer: 'Yamo pr\u00e9l\u00e8ve une commission de 15% sur chaque commande. Il n\'y a aucun frais d\'inscription ni d\'abonnement mensuel.',
+    question: 'Quelle est la commission de MiamExpress ?',
+    answer: 'MiamExpress pr\u00e9l\u00e8ve une commission de 15% sur chaque commande. Il n\'y a aucun frais d\'inscription ni d\'abonnement mensuel.',
   },
   {
     question: 'Comment sont vers\u00e9s les paiements ?',
@@ -997,7 +997,7 @@ export const partnerFAQ: FAQItem[] = [
     answer: 'Il vous faut une pi\u00e8ce d\'identit\u00e9, un registre de commerce, et un compte bancaire ou Mobile Money pour recevoir les paiements.',
   },
   {
-    question: 'Yamo fournit-il des photos professionnelles ?',
+    question: 'MiamExpress fournit-il des photos professionnelles ?',
     answer: 'Oui, notre \u00e9quipe peut venir prendre des photos professionnelles de vos plats gratuitement apr\u00e8s votre inscription.',
   },
 ];
@@ -1016,8 +1016,8 @@ export const driverFAQ: FAQItem[] = [
     answer: 'Vous avez besoin d\'un smartphone (Android ou iOS), d\'un moyen de transport (moto, v\u00e9lo, voiture) et d\'une pi\u00e8ce d\'identit\u00e9 valide.',
   },
   {
-    question: 'Yamo fournit-il le sac thermique ?',
-    answer: 'Oui, nous vous fournissons un sac thermique de livraison Yamo, un T-shirt officiel et un badge professionnel apr\u00e8s votre inscription.',
+    question: 'MiamExpress fournit-il le sac thermique ?',
+    answer: 'Oui, nous vous fournissons un sac thermique de livraison MiamExpress, un T-shirt officiel et un badge professionnel apr\u00e8s votre inscription.',
   },
   {
     question: 'Puis-je livrer \u00e0 v\u00e9lo ?',

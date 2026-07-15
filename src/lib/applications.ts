@@ -153,9 +153,14 @@ function restaurantAddress(app: Pick<Application, 'address' | 'city'>) {
 
 export async function approveApplication(id: string, restaurantId?: string): Promise<void> {
   if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+    // NB: `applications.service_neighborhoods` was added by a migration that
+    // was never applied to the live schema — requesting it here would fail
+    // the whole select with a hard "column does not exist" error (unlike a
+    // plain `select('*')`, PostgREST rejects the entire query when an
+    // explicitly named column is missing). Omitted; see profiles update below.
     const { data: app, error: fetchError } = await supabase
       .from('applications')
-      .select('applicant_id, type, restaurant_name, city, address, contact_phone, notes, service_neighborhoods')
+      .select('applicant_id, type, restaurant_name, city, address, contact_phone, notes')
       .eq('id', id)
       .single();
     if (fetchError || !app) throw fetchError ?? new Error('Application not found');
@@ -189,7 +194,7 @@ export async function approveApplication(id: string, restaurantId?: string): Pro
             is_open: false,
             is_premium: false,
             tags: app.city ? [app.city] : [],
-            description: app.notes || 'Restaurant partenaire Yamo. Informations à compléter.',
+            description: app.notes || 'Restaurant partenaire MiamExpress. Informations à compléter.',
           })
           .select('id')
           .single();
@@ -205,12 +210,25 @@ export async function approveApplication(id: string, restaurantId?: string): Pro
       .from('profiles')
       .update({
         is_approved: true,
-        ...(app.type === 'livreur'
-          ? { city: app.city ?? null, service_neighborhoods: app.service_neighborhoods ?? null }
-          : {}),
+        ...(app.type === 'livreur' ? { city: app.city ?? null } : {}),
       })
       .eq('id', app.applicant_id);
-    if (profileError) throw profileError;
+    if (profileError) {
+      // PGRST204 = PostgREST's schema cache doesn't know about this column
+      // yet (stale cache after a migration was applied directly, outside the
+      // CLI's tracked flow) — not a real absence. Retry without `city` so
+      // approval itself isn't blocked; the driver just won't have a
+      // pre-filled service zone until the cache catches up.
+      if (profileError.code === 'PGRST204' && app.type === 'livreur') {
+        const { error: retryError } = await supabase
+          .from('profiles')
+          .update({ is_approved: true })
+          .eq('id', app.applicant_id);
+        if (retryError) throw retryError;
+      } else {
+        throw profileError;
+      }
+    }
 
     const { error: appError } = await supabase
       .from('applications')

@@ -72,7 +72,7 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
           <div className="w-full max-w-[420px] bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-6 sm:p-8 my-12">
             <div className="text-center mb-6">
               <ShieldAlert className="w-10 h-10 text-green-primary mx-auto mb-3" />
-              <h1 className="font-poppins font-bold text-text-primary text-xl mb-1">Administration Yamo</h1>
+              <h1 className="font-poppins font-bold text-text-primary text-xl mb-1">Administration MiamExpress</h1>
               <p className="text-text-secondary font-inter text-sm">Connectez-vous avec votre numéro de téléphone.</p>
             </div>
 
@@ -88,11 +88,12 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
                   <label className="block text-text-secondary font-inter text-sm mb-1.5">Numéro de téléphone</label>
                   <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
                     <Phone className="w-4 h-4 text-text-muted shrink-0" />
+                    <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
                     <input
                       type="tel"
-                      value={adminPhone}
-                      onChange={(e) => setAdminPhone(e.target.value)}
-                      placeholder="+237 6XX XX XX XX"
+                      value={adminPhone.replace('+237 ', '')}
+                      onChange={(e) => setAdminPhone('+237 ' + e.target.value.replace(/\s/g, ''))}
+                      placeholder="6XX XX XX XX"
                       className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
                       required
                     />
@@ -155,7 +156,7 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
       : !roleMatches
         ? "Ce compte n'a pas les droits nécessaires pour accéder à cet espace."
         : user.isSuspended
-          ? "Votre compte a été suspendu par l'équipe Yamo. Contactez le support pour plus d'informations."
+          ? "Votre compte a été suspendu par l'équipe MiamExpress. Contactez le support pour plus d'informations."
           : needsApplication
             ? "Complétez votre candidature pour que notre équipe puisse l'examiner."
             : 'Votre candidature est en cours de validation par notre équipe. Vous recevrez un accès dès son approbation.';

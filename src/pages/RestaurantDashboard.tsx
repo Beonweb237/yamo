@@ -10,6 +10,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
+import PageHeader from '../components/PageHeader';
+import { ZoneAlertBanner, useZoneAlert } from '../components/ZoneAlertBanner';
 import { fetchRestaurantsByOwner, createMenuItem, deleteMenuItem, fetchMenuItems, updateMenuItem, updateRestaurantProfile } from '../lib/catalog';
 import { useRestaurants } from '../hooks/useCatalog';
 import { restaurantMenuCategories, dishCatalog } from '../data/mockData';
@@ -80,6 +82,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
   }, [soundEnabled]);
 
   const activeRestaurant = restaurants.find(r => r.id === restaurantId);
+  const { disabledZones } = useZoneAlert(activeRestaurant?.id);
 
   const loadMenu = useCallback(async () => {
     if (!restaurantId) return;
@@ -215,58 +218,50 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
   return (
     <div className="pt-[72px] min-h-screen bg-gradient-to-b from-green-50/50 to-bg-secondary">
       <div className="max-w-[900px] mx-auto px-4 sm:px-6 py-8">
-        {/* Hero Header */}
-        <div className="relative bg-white rounded-2xl border border-border-custom shadow-sm overflow-hidden mb-6">
-          <div className="h-20 bg-gradient-to-r from-green-primary via-green-500 to-emerald-400" />
-          <div className="px-5 sm:px-6 pb-5 -mt-8">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-              <div className="flex items-end gap-3">
-                <div className="w-16 h-16 rounded-2xl bg-white border-4 border-white shadow-md flex items-center justify-center">
-                  <ChefHat className="w-8 h-8 text-green-primary" />
-                </div>
-                <div className="pb-1">
-                  <h1 className="font-poppins font-bold text-text-primary text-xl sm:text-2xl">Espace Restaurant</h1>
-                  {activeRestaurant && (
-                    <span className={`inline-flex items-center gap-1 text-xs font-inter mt-0.5 px-2 py-0.5 rounded-full ${activeRestaurant.isOpen ? 'bg-green-light text-green-primary' : 'bg-error/10 text-error'}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${activeRestaurant.isOpen ? 'bg-green-primary' : 'bg-error'}`} />
-                      {activeRestaurant.isOpen ? 'Ouvert' : 'Fermé'}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setSoundEnabled(!soundEnabled)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-inter font-medium transition-colors ${soundEnabled ? 'bg-green-light text-green-primary' : 'bg-bg-secondary text-text-muted'}`}
-                  title={soundEnabled ? 'Son activé' : 'Son désactivé'}>
-                  {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                </button>
-                <button onClick={loadOrders}
-                  className="flex items-center gap-1.5 bg-bg-secondary text-text-secondary text-xs font-inter font-medium px-3 py-2 rounded-lg hover:text-text-primary transition-colors">
-                  <RefreshCw className="w-3.5 h-3.5" /> Actualiser
-                </button>
-              </div>
+        <PageHeader
+          icon={ChefHat}
+          title="Espace Restaurant"
+          subtitle={activeRestaurant && (
+            <span className={`inline-flex items-center gap-1 text-xs font-inter px-2 py-0.5 rounded-full ${activeRestaurant.isOpen ? 'bg-white/20 text-white' : 'bg-black/20 text-white'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${activeRestaurant.isOpen ? 'bg-white' : 'bg-white/60'}`} />
+              {activeRestaurant.isOpen ? 'Ouvert' : 'Fermé'}
+            </span>
+          )}
+          action={
+            <div className="flex items-center gap-2">
+              <button onClick={() => setSoundEnabled(!soundEnabled)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-inter font-medium bg-white/15 hover:bg-white/25 text-white backdrop-blur-sm transition-colors"
+                title={soundEnabled ? 'Son activé' : 'Son désactivé'}>
+                {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </button>
+              <button onClick={loadOrders}
+                className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-inter font-medium px-3 py-2 rounded-lg backdrop-blur-sm transition-colors">
+                <RefreshCw className="w-3.5 h-3.5" /> Actualiser
+              </button>
             </div>
+          }
+        />
 
-            {/* Stats Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-border-light">
-              {[
-                { icon: AlertCircle, value: pendingOrders, label: 'En attente', color: pendingOrders > 0 ? 'text-amber-600 bg-amber-50' : 'text-text-muted bg-bg-secondary' },
-                { icon: PackageCheck, value: activeOrders, label: 'Actives', color: 'text-blue-600 bg-blue-50' },
-                { icon: DollarSign, value: `${todayRevenue.toLocaleString()} FCFA`, label: 'Aujourd\'hui', color: 'text-green-600 bg-green-50' },
-                { icon: Star, value: menuItems.length, label: 'Plats au menu', color: 'text-purple-600 bg-purple-50' },
-              ].map((s, i) => (
-                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl ${s.color.split(' ')[1]}`}>
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${s.color}`}>
-                    <s.icon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="font-poppins font-bold text-text-primary text-sm">{s.value}</p>
-                    <p className="text-text-muted text-[10px] font-inter">{s.label}</p>
-                  </div>
-                </div>
-              ))}
+        <ZoneAlertBanner zones={disabledZones} />
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          {[
+            { icon: AlertCircle, value: pendingOrders, label: 'En attente', color: pendingOrders > 0 ? 'text-amber-600 bg-amber-50' : 'text-text-muted bg-bg-secondary' },
+            { icon: PackageCheck, value: activeOrders, label: 'Actives', color: 'text-blue-600 bg-blue-50' },
+            { icon: DollarSign, value: `${todayRevenue.toLocaleString()} FCFA`, label: 'Aujourd\'hui', color: 'text-green-600 bg-green-50' },
+            { icon: Star, value: menuItems.length, label: 'Plats au menu', color: 'text-purple-600 bg-purple-50' },
+          ].map((s, i) => (
+            <div key={i} className="bg-white rounded-xl border border-border-custom shadow-sm flex items-center gap-3 p-3">
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${s.color}`}>
+                <s.icon className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-poppins font-bold text-text-primary text-sm">{s.value}</p>
+                <p className="text-text-muted text-[10px] font-inter">{s.label}</p>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
 
         {restaurants.length === 0 ? (
@@ -275,7 +270,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
               <Store className="w-8 h-8 text-green-primary" />
             </div>
             <p className="text-text-secondary font-inter font-medium">
-              Aucun restaurant associé à votre compte. Contactez le support Yamo.
+              Aucun restaurant associé à votre compte. Contactez le support MiamExpress.
             </p>
           </div>
         ) : (
@@ -985,7 +980,7 @@ function MenuTab({
         </div>
       ) : (
         <>
-          <div className="sticky top-[72px] z-20 bg-bg-secondary/95 backdrop-blur py-3 -mx-1 px-1 space-y-3">
+          <div className="py-3 -mx-1 px-1 space-y-3">
             <div className="flex items-center gap-2 bg-white rounded-lg border border-border-custom px-3 h-11 shadow-sm">
               <Search className="w-4 h-4 text-text-muted shrink-0" />
               <input
@@ -1497,7 +1492,7 @@ function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRa
           <div className="w-9 h-9 rounded-lg bg-error/10 flex items-center justify-center mx-auto mb-3">
             <TrendingUp className="w-4 h-4 text-error" />
           </div>
-          <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">Commission Yamo ({Math.round(yamoCommissionRate * 100)}%)</p>
+          <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">Commission MiamExpress ({Math.round(yamoCommissionRate * 100)}%)</p>
           <p className="font-poppins font-bold text-2xl text-error">-{commission.toLocaleString()} FCFA</p>
         </div>
         <div className="bg-white rounded-2xl border border-green-primary/20 shadow-sm p-5 text-center hover:shadow-md transition-shadow bg-green-50/30">

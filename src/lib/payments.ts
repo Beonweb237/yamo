@@ -30,7 +30,7 @@ export async function initiateMoMoPayment(params: {
     orderId: params.orderId,
     amount: params.amount,
     phone: params.phone,
-    payerMessage: params.payerMessage || "Commande Yamo",
+    payerMessage: params.payerMessage || "Commande MiamExpress",
   });
 }
 

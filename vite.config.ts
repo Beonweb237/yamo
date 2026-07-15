@@ -12,10 +12,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'logo.png'],
+      includeAssets: ['logo-icon.png', 'logo-horizontal.png'],
       manifest: {
-        name: 'Yamo — Livraison Premium',
-        short_name: 'Yamo',
+        name: 'Miamexpress — Livraison Premium',
+        short_name: 'Miamexpress',
         description: 'Livraison de repas premium au Cameroun — Douala, Yaoundé et plus',
         theme_color: '#2D6A4F',
         background_color: '#ffffff',
@@ -25,15 +25,15 @@ export default defineConfig({
         scope: '/',
         icons: [
           {
-            src: 'pwa-192.svg',
+            src: 'pwa-192.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any',
           },
           {
-            src: 'pwa-512.svg',
+            src: 'pwa-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any',
           },
         ],

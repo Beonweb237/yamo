@@ -57,7 +57,7 @@ export default function Home() {
               (e.target as HTMLImageElement).src =
                 'data:image/svg+xml,' +
                 encodeURIComponent(
-                  '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><rect fill="#1a1a1a" width="100%" height="100%"/><text x="50%" y="50%" fill="#2d6a4f" font-size="48" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Yamo</text></svg>'
+                  '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><rect fill="#1a1a1a" width="100%" height="100%"/><text x="50%" y="50%" fill="#2d6a4f" font-size="48" text-anchor="middle" dominant-baseline="middle" font-family="Arial">MiamExpress</text></svg>'
                 );
             }}
           />
@@ -380,7 +380,7 @@ export default function Home() {
                 Commandez O&ugrave; Que Vous Soyez
               </h2>
               <p className="text-white/70 font-inter text-base leading-relaxed max-w-[480px] mx-auto lg:mx-0 mb-6">
-                T&eacute;l&eacute;chargez l&apos;application Yamo pour une exp&eacute;rience encore plus rapide. Recevez des notifications en temps r&eacute;el, sauvegardez vos adresses favorites, et profitez d&apos;offres exclusives.
+                T&eacute;l&eacute;chargez l&apos;application MiamExpress pour une exp&eacute;rience encore plus rapide. Recevez des notifications en temps r&eacute;el, sauvegardez vos adresses favorites, et profitez d&apos;offres exclusives.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-6">

@@ -130,7 +130,7 @@ export default function Partenaires() {
                 transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 className="font-poppins font-semibold text-white text-[34px]/[1.18] sm:text-[40px]/[1.16] lg:text-[44px]/[1.16] tracking-normal mt-4 mb-5 max-w-[560px]"
               >
-                D&eacute;veloppez Votre Activit&eacute; avec Yamo
+                D&eacute;veloppez Votre Activit&eacute; avec MiamExpress
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
@@ -146,9 +146,9 @@ export default function Partenaires() {
                 transition={{ delay: 1, duration: 0.4 }}
                 className="flex flex-wrap gap-3 mb-10"
               >
-                <a href="#signup" className="bg-green-primary text-white font-inter font-medium text-sm px-6 h-12 rounded-lg hover:bg-green-dark transition-colors inline-flex items-center">
+                <Link to="/inscription/restaurant" className="bg-green-primary text-white font-inter font-medium text-sm px-6 h-12 rounded-lg hover:bg-green-dark transition-colors inline-flex items-center">
                   Devenir Partenaire
-                </a>
+                </Link>
                 <a href="#howitworks" className="border border-white text-white font-inter font-medium text-sm px-6 h-12 rounded-lg hover:bg-white/10 transition-colors inline-flex items-center">
                   En Savoir Plus
                 </a>
@@ -206,7 +206,7 @@ export default function Partenaires() {
             className="text-center mb-12"
           >
             <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
-              Pourquoi Rejoindre Yamo ?
+              Pourquoi Rejoindre MiamExpress ?
             </h2>
             <p className="text-text-secondary font-inter text-base">
               Une solution compl&egrave;te pour faire cro&icirc;tre votre restaurant sans complexit&eacute;
@@ -376,12 +376,12 @@ export default function Partenaires() {
                 </motion.div>
               ))}
             </div>
-            <a
-              href="#signup"
+            <Link
+              to="/inscription/restaurant"
               className="block w-full mt-8 bg-green-primary text-white font-inter font-semibold h-12 rounded-lg hover:bg-green-dark transition-colors text-center leading-[48px]"
             >
-              Rejoindre Yamo
-            </a>
+              Rejoindre MiamExpress
+            </Link>
           </motion.div>
         </div>
       </section>
@@ -405,7 +405,7 @@ export default function Partenaires() {
             transition={{ delay: 0.15, duration: 0.5 }}
             className="text-white/80 font-inter text-base max-w-[560px] mx-auto mb-8"
           >
-            Rejoignez les 500+ restaurants qui font d&eacute;j&agrave; confiance &agrave; Yamo. Inscrivez-vous aujourd&apos;hui et recevez votre premi&egrave;re commande sous 48h.
+            Rejoignez les 500+ restaurants qui font d&eacute;j&agrave; confiance &agrave; MiamExpress. Inscrivez-vous aujourd&apos;hui et recevez votre premi&egrave;re commande sous 48h.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}

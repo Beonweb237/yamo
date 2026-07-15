@@ -1,4 +1,4 @@
-// Canaux de support Yamo (business plan §13 : WhatsApp Business en priorité)
+// Canaux de support MiamExpress (business plan §13 : WhatsApp Business en priorité)
 
 /** Numéro WhatsApp Business au format international sans '+' ni espaces */
 export const WHATSAPP_NUMBER = '237677777777';

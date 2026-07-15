@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340">
+  <rect width="1200" height="340" fill="#ffffff"/>
+
+  <!-- Mark, scaled down -->
+  <g transform="translate(2,-133) scale(0.62)">
+    <g transform="translate(-10,60)">
+      <path d="M 118 610 A 152 152 0 0 0 300 622" fill="none" stroke="#F2622E" stroke-width="30" stroke-linecap="round"/>
+      <path d="M 340 380 A 145 145 0 1 0 348 545" fill="none" stroke="#1FA9B8" stroke-width="52" stroke-linecap="round"/>
+      <g transform="translate(360,540) rotate(-52)">
+        <polygon points="-8,-42 62,0 -8,42" fill="#1FA9B8"/>
+      </g>
+      <path d="M 342 300 C 368 272 348 246 370 216" fill="none" stroke="#F9A03F" stroke-width="24" stroke-linecap="round"/>
+      <path d="M 296 282 C 314 262 300 242 314 220" fill="none" stroke="#F2622E" stroke-width="18" stroke-linecap="round"/>
+      <ellipse cx="272" cy="330" rx="92" ry="30" fill="#F2622E"/>
+      <circle cx="272" cy="298" r="17" fill="#F2622E"/>
+      <path d="M 184 346 L 360 346 L 338 478 Q 336 492 322 492 L 222 492 Q 208 492 206 478 Z" fill="#F2622E"/>
+      <circle cx="237" cy="403" r="13" fill="#ffffff"/>
+      <circle cx="307" cy="403" r="13" fill="#ffffff"/>
+      <path d="M 231 438 Q 272 472 313 438" fill="none" stroke="#ffffff" stroke-width="13" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <!-- Wordmark only, no tagline -->
+  <text x="310" y="212" font-family="Arial Rounded MT Bold, Nunito, Verdana, Arial, sans-serif" font-size="118" font-weight="bold"><tspan fill="#1D6E8F">Miam</tspan><tspan fill="#F2622E">Express</tspan></text>
+</svg>

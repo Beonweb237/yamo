@@ -38,7 +38,7 @@ interface AuthContextType {
   verifyOtp: (phone: string, code: string, requestedRole?: UserRole) => Promise<AuthUser>;
   // Password sign-in for seeded test accounts (scripts/seed-test-data.mjs) —
   // bypasses phone OTP, which needs an SMS provider that isn't configured yet.
-  signInWithPassword: (phone: string, password: string) => Promise<void>;
+  signInWithPassword: (phone: string, password: string) => Promise<AuthUser>;
   // Create a new account — Supabase: email+password signup; mock: localStorage registry.
   signUp: (params: SignUpParams) => Promise<AuthUser>;
   signOut: () => Promise<void>;
@@ -265,10 +265,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    if (data.user) {
-      const { role, isApproved, isSuspended, suspensionReason, phone } = await resolveSupabaseProfile(data.user.id, '', 'client');
-      setUser({ id: data.user.id, phone, role, isApproved, isSuspended, suspensionReason });
-    }
+    if (!data.user) throw new Error('Échec de la connexion.');
+    const { role, isApproved, isSuspended, suspensionReason, phone } = await resolveSupabaseProfile(data.user.id, '', 'client');
+    const authUser: AuthUser = { id: data.user.id, phone, role, isApproved, isSuspended, suspensionReason };
+    setUser(authUser);
+    return authUser;
   }, []);
 
   // Email + password account creation. In Supabase mode this creates a real

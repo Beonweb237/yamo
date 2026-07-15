@@ -25,28 +25,28 @@ const contactChannels = [
     icon: User,
     title: 'Support Client',
     description: 'Vous avez une question sur votre commande ? Notre \u00e9quipe client est l\u00e0 pour vous.',
-    email: 'client@yamo.cm',
+    email: 'client@miamexpress.cm',
     phone: '+237 677 77 77 70',
     cta: 'Contacter le Support',
-    whatsapp: whatsappLink('Bonjour Yamo, j\u2019ai une question sur ma commande.'),
+    whatsapp: whatsappLink('Bonjour MiamExpress, j\u2019ai une question sur ma commande.'),
   },
   {
     icon: UtensilsCrossed,
     title: 'Support Restaurateur',
     description: 'Besoin d\'aide avec votre tableau de bord, votre menu, ou vos paiements ?',
-    email: 'partenaires@yamo.cm',
+    email: 'partenaires@miamexpress.cm',
     phone: '+237 677 77 77 71',
     cta: 'Contacter le Support Partenaire',
-    whatsapp: whatsappLink('Bonjour Yamo, je suis restaurateur partenaire et j\u2019ai besoin d\u2019aide.'),
+    whatsapp: whatsappLink('Bonjour MiamExpress, je suis restaurateur partenaire et j\u2019ai besoin d\u2019aide.'),
   },
   {
     icon: Bike,
     title: 'Support Livreur',
     description: 'Questions sur l\'application livreur, vos revenus, ou votre compte ?',
-    email: 'livreurs@yamo.cm',
+    email: 'livreurs@miamexpress.cm',
     phone: '+237 677 77 77 72',
     cta: 'Contacter le Support Livreur',
-    whatsapp: whatsappLink('Bonjour Yamo, je suis livreur et j\u2019ai besoin d\u2019aide.'),
+    whatsapp: whatsappLink('Bonjour MiamExpress, je suis livreur et j\u2019ai besoin d\u2019aide.'),
   },
 ];
 
@@ -136,7 +136,7 @@ export default function Contact() {
             className="flex flex-wrap items-center justify-center gap-6 sm:gap-10"
           >
             {[
-              { icon: Mail, text: 'support@yamo.cm' },
+              { icon: Mail, text: 'support@miamexpress.cm' },
               { icon: Phone, text: '+237 677 77 77 77' },
               { icon: Clock, text: 'Lun\u2013Sam, 8h\u201322h' },
             ].map((item, i) => (
@@ -308,7 +308,7 @@ export default function Contact() {
                 {/* Address */}
                 <div className="mb-5">
                   <p className="font-inter font-semibold text-text-primary text-base">
-                    Yamo SARL
+                    MiamExpress SARL
                   </p>
                   <p className="text-text-secondary font-inter text-sm">
                     Rue des Palmiers, Bonapriso
