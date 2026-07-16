@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured, isSupabaseAuthenticated } from './supabase';
+import { trashItem } from './trash';
 import {
   restaurants as mockRestaurants,
   menuItems as mockMenuItems,
@@ -304,6 +305,10 @@ export async function createMenuItem(input: MenuItemInput): Promise<MenuItem> {
 }
 
 export async function deleteMenuItem(id: string): Promise<void> {
+  // Sauvegarde dans la corbeille avant suppression (7 jours de rétention)
+  const item = mockMenuItems.find((mi) => mi.id === id);
+  if (item) trashItem(id, 'menu_item', item);
+
   if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { error } = await supabase.from('menu_items').delete().eq('id', id);
     if (error) throw error;

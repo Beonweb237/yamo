@@ -92,6 +92,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [menuLoading, setMenuLoading] = useState(true);
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
+  const [deleteTargetItem, setDeleteTargetItem] = useState<MenuItem | null>(null);
   const [prepTimes, setPrepTimes] = useState<Record<string, number>>({});
   const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
   // Livraison directe (restaurant → ses propres livreurs) : liste des
@@ -289,6 +290,14 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
   const handleDeleteMenuItem = async (id: string) => {
     await deleteMenuItem(id);
     loadMenu();
+    toast.success('Plat mis en corbeille', { description: 'Récupérable pendant 7 jours.' });
+  };
+
+  const confirmDeleteMenuItem = () => {
+    if (deleteTargetItem) {
+      handleDeleteMenuItem(deleteTargetItem.id);
+      setDeleteTargetItem(null);
+    }
   };
 
   const pendingOrders = orders.filter(o => o.status === 'pending').length;
@@ -579,33 +588,33 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                       </button>
                                     </div>
                                   )}
-                                <div className="flex gap-2 items-center">
-                                  {next ? (
-                                    <button
-                                      onClick={() => handleAdvance(order)}
-                                      disabled={isProcessing}
-                                      className="flex-1 bg-green-primary text-white font-inter font-medium text-sm h-10 rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60"
-                                    >
-                                      {isProcessing ? 'Mise à jour...' : `Marquer : ${statusLabels[next]}`}
-                                    </button>
-                                  ) : (
-                                    // Borne restaurant atteinte : la suite du cycle
-                                    // (récupération, livraison) appartient au livreur.
-                                    <span className="flex-1 inline-flex items-center gap-1.5 bg-gold-light text-gold-accent font-inter font-medium text-sm h-10 px-3 rounded-lg">
-                                      <Clock className="w-4 h-4 shrink-0" />
-                                      {order.status === 'ready' ? 'En attente du livreur' : 'Prise en charge par le livreur'}
-                                    </span>
-                                  )}
-                                  {restaurantCanCancel(order.status) && (
-                                    <button
-                                      onClick={() => openCancelDialog(order)}
-                                      disabled={isProcessing}
-                                      className="px-4 h-10 rounded-lg border border-error text-error font-inter font-medium text-sm hover:bg-error/5 transition-colors disabled:opacity-60"
-                                    >
-                                      Annuler
-                                    </button>
-                                  )}
-                                </div>
+                                  <div className="flex gap-2 items-center">
+                                    {next ? (
+                                      <button
+                                        onClick={() => handleAdvance(order)}
+                                        disabled={isProcessing}
+                                        className="flex-1 bg-green-primary text-white font-inter font-medium text-sm h-10 rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60"
+                                      >
+                                        {isProcessing ? 'Mise à jour...' : `Marquer : ${statusLabels[next]}`}
+                                      </button>
+                                    ) : (
+                                      // Borne restaurant atteinte : la suite du cycle
+                                      // (récupération, livraison) appartient au livreur.
+                                      <span className="flex-1 inline-flex items-center gap-1.5 bg-gold-light text-gold-accent font-inter font-medium text-sm h-10 px-3 rounded-lg">
+                                        <Clock className="w-4 h-4 shrink-0" />
+                                        {order.status === 'ready' ? 'En attente du livreur' : 'Prise en charge par le livreur'}
+                                      </span>
+                                    )}
+                                    {restaurantCanCancel(order.status) && (
+                                      <button
+                                        onClick={() => openCancelDialog(order)}
+                                        disabled={isProcessing}
+                                        className="px-4 h-10 rounded-lg border border-error text-error font-inter font-medium text-sm hover:bg-error/5 transition-colors disabled:opacity-60"
+                                      >
+                                        Annuler
+                                      </button>
+                                    )}
+                                  </div>
                                 </>
                               )}
                             </div>
@@ -668,6 +677,29 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+
+                {/* ── Suppression plat menu ── */}
+                <AlertDialog open={!!deleteTargetItem} onOpenChange={(open) => { if (!open) setDeleteTargetItem(null); }}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Supprimer ce plat ?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        <strong>{deleteTargetItem?.name}</strong> sera déplacé dans la corbeille pour 7 jours.
+                        Vous pourrez le restaurer depuis le tableau de bord pendant cette période.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={confirmDeleteMenuItem}
+                        className="bg-error text-white hover:bg-error/90"
+                      >
+                        Supprimer
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
               </>
             ) : tab === 'menu' ? (
               <MenuTab
@@ -956,6 +988,7 @@ function MenuTab({
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('Tous');
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
+  const [deleteTargetItem, setDeleteTargetItem] = useState<MenuItem | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>('category');
   const [viewMode, setViewMode] = useState<ViewMode>('lanes');
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
@@ -1179,11 +1212,18 @@ function MenuTab({
   };
 
   const handleDelete = async (item: MenuItem) => {
-    setBusyItemId(item.id);
+    setDeleteTargetItem(item);
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!deleteTargetItem) return;
+    setBusyItemId(deleteTargetItem.id);
     try {
-      await onDelete(item.id);
+      await onDelete(deleteTargetItem.id);
+      toast.success('Plat mis en corbeille', { description: 'Récupérable pendant 7 jours.' });
     } finally {
       setBusyItemId(null);
+      setDeleteTargetItem(null);
     }
   };
 

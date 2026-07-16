@@ -188,7 +188,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
           {/* Full name */}
           <div>
             <label className="block text-text-secondary font-inter text-sm mb-1.5">Nom complet</label>
-            <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
+            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
               <User className="w-4 h-4 text-text-muted shrink-0" />
               <input
                 type="text"
@@ -204,7 +204,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
           {/* Email */}
           <div>
             <label className="block text-text-secondary font-inter text-sm mb-1.5">Adresse email</label>
-            <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
+            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
               <Mail className="w-4 h-4 text-text-muted shrink-0" />
               <input
                 type="email"
@@ -220,7 +220,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
           {/* Phone */}
           <div>
             <label className="block text-text-secondary font-inter text-sm mb-1.5">Numéro de téléphone</label>
-            <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
+            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
               <Phone className="w-4 h-4 text-text-muted shrink-0" />
               <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
               <input
@@ -237,7 +237,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
           {/* Password */}
           <div>
             <label className="block text-text-secondary font-inter text-sm mb-1.5">Mot de passe</label>
-            <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
+            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
               <ShieldCheck className="w-4 h-4 text-text-muted shrink-0" />
               <input
                 type="password"
@@ -254,7 +254,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
           {/* Confirm Password */}
           <div>
             <label className="block text-text-secondary font-inter text-sm mb-1.5">Confirmer le mot de passe</label>
-            <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
+            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
               <ShieldCheck className="w-4 h-4 text-text-muted shrink-0" />
               <input
                 type="password"

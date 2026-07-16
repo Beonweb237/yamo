@@ -308,7 +308,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div>
               <label className="block text-text-secondary font-inter text-sm mb-1.5">Adresse email</label>
-              <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
+              <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
                 <Mail className="w-4 h-4 text-text-muted shrink-0" />
                 <input
                   type="email"
@@ -322,7 +322,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
             </div>
             <div>
               <label className="block text-text-secondary font-inter text-sm mb-1.5">Mot de passe</label>
-              <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
+              <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
                 <ShieldCheck className="w-4 h-4 text-text-muted shrink-0" />
                 <input
                   type="password"
@@ -367,7 +367,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
           <form onSubmit={handlePhoneOtp} className="space-y-4">
             <div>
               <label className="block text-text-secondary font-inter text-sm mb-1.5">Numéro de téléphone</label>
-              <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
+              <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
                 <Phone className="w-4 h-4 text-text-muted shrink-0" />
                 <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
                 <input
@@ -407,7 +407,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
           <form onSubmit={handleVerify} className="space-y-4">
             <div>
               <label className="block text-text-secondary font-inter text-sm mb-1.5">Code reçu par SMS</label>
-              <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
+              <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
                 <ShieldCheck className="w-4 h-4 text-text-muted shrink-0" />
                 <input
                   type="text"

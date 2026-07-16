@@ -448,7 +448,7 @@ export default function Checkout() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <div>
                 <label className="block text-text-secondary font-inter text-sm mb-1.5">Nom du bénéficiaire</label>
-                <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
                   <UserRound className="w-4 h-4 text-text-muted shrink-0" />
                   <input
                     type="text"
@@ -462,7 +462,7 @@ export default function Checkout() {
               </div>
               <div>
                 <label className="block text-text-secondary font-inter text-sm mb-1.5">Téléphone du bénéficiaire</label>
-                <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
                   <Phone className="w-4 h-4 text-text-muted shrink-0" />
                   <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
                   <input
@@ -509,7 +509,7 @@ export default function Checkout() {
                   const addr = savedAddresses.find(a => a.id === e.target.value);
                   if (addr) applySavedAddress(addr);
                 }}
-                className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none"
+                className="w-full bg-white rounded-xl border border-border-custom px-4 h-12 text-text-primary font-inter text-[15px] outline-none focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
                 defaultValue=""
               >
                 <option value="" disabled>Sélectionner une adresse</option>
@@ -532,7 +532,7 @@ export default function Checkout() {
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 disabled={cityLocked}
-                className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none disabled:opacity-70 disabled:cursor-not-allowed"
+                className="w-full bg-white rounded-xl border border-border-custom px-4 h-12 text-text-primary font-inter text-[15px] outline-none focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {activeCities.map((c) => (
                   <option key={c.id} value={c.name}>{c.name}</option>
@@ -551,13 +551,13 @@ export default function Checkout() {
                     value={customNeighborhood}
                     onChange={(e) => setCustomNeighborhood(e.target.value)}
                     placeholder="Nom de votre quartier"
-                    className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
+                    className="w-full bg-white rounded-xl border border-border-custom px-4 h-12 text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => { setUseOtherNeighborhood(false); setCustomNeighborhood(''); }}
-                    className="shrink-0 px-3 h-12 rounded-lg border border-border-custom text-text-secondary font-inter text-sm hover:bg-bg-secondary"
+                    className="shrink-0 px-3 h-12 rounded-xl border border-border-custom text-text-secondary font-inter text-sm hover:bg-bg-secondary"
                   >
                     Liste
                   </button>
@@ -573,7 +573,7 @@ export default function Checkout() {
                       setNeighborhood(e.target.value);
                     }
                   }}
-                  className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none"
+                  className="w-full bg-white rounded-xl border border-border-custom px-4 h-12 text-text-primary font-inter text-[15px] outline-none focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
                   required
                 >
                   <option value="">Sélectionnez un quartier</option>
@@ -623,7 +623,7 @@ export default function Checkout() {
                 value={landmark}
                 onChange={(e) => setLandmark(e.target.value)}
                 placeholder="Ex. Près de la pharmacie, portail bleu"
-                className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
+                className="w-full bg-white rounded-xl border border-border-custom px-4 h-12 text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
                 required
               />
             </div>
@@ -654,7 +654,7 @@ export default function Checkout() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
-                className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted resize-none"
+                className="w-full bg-white rounded-xl border border-border-custom px-4 py-3 text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted resize-none focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
               />
             </div>
           </div>
@@ -694,7 +694,7 @@ export default function Checkout() {
                         value={paymentPhone}
                         onChange={(e) => setPaymentPhone(e.target.value)}
                         placeholder="Numéro Mobile Money (ex: 6XXXXXXXX)"
-                        className="mt-2 w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
+                        className="mt-2 w-full bg-white rounded-xl border border-border-custom px-4 py-2.5 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
                       />
                     )}
                   </div>
@@ -729,7 +729,7 @@ export default function Checkout() {
               value={promoCode}
               onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setAppliedDiscount(0); }}
               placeholder="Code promo (ex: AKWA1000)"
-              className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted uppercase"
+              className="w-full bg-white rounded-xl border border-border-custom px-4 py-2.5 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted uppercase focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
             />
             <p className="text-text-muted text-xs font-inter mt-1">
               Le code sera vérifié à la confirmation de la commande.
