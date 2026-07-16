@@ -99,7 +99,9 @@ export async function fetchRestaurant(id: string): Promise<Restaurant | undefine
 
 export async function fetchRestaurantByOwner(ownerId: string): Promise<Restaurant | undefined> {
   if (!isSupabaseConfigured || !supabase) {
-    return mockRestaurants[0];
+    // LOT-14 : sans applyOverrides, les modifications du profil (horaires,
+    // temps de livraison…) disparaissaient du dashboard au rechargement.
+    return applyOverrides(mockRestaurants.slice(0, 1))[0];
   }
 
   const { data, error } = await supabase
@@ -113,7 +115,7 @@ export async function fetchRestaurantByOwner(ownerId: string): Promise<Restauran
 
 export async function fetchRestaurantsByOwner(ownerId: string): Promise<Restaurant[]> {
   if (!isSupabaseConfigured || !supabase) {
-    return mockRestaurants.slice(0, 1);
+    return applyOverrides(mockRestaurants.slice(0, 1));
   }
 
   const { data, error } = await supabase.from('restaurants').select('*').eq('owner_id', ownerId);
@@ -228,6 +230,10 @@ export interface MenuItemInput {
   isAvailable?: boolean;
   dietaryTags?: string[];
   catalogDishId?: string;
+  /** Variantes (taille/portion) — price = surcoût par rapport au prix de base (CONF-14). */
+  variants?: { name: string; price: number }[];
+  /** Suppléments payants proposés avec le plat (CONF-14). */
+  supplements?: { name: string; price: number }[];
 }
 
 export async function updateMenuItem(id: string, data: Partial<MenuItemInput>): Promise<void> {
@@ -288,6 +294,8 @@ export async function createMenuItem(input: MenuItemInput): Promise<MenuItem> {
     hasImage: Boolean(input.image),
     dietaryTags: input.dietaryTags,
     catalogDishId: input.catalogDishId,
+    variants: input.variants,
+    supplements: input.supplements,
   };
   const added = readAddedMenuItems();
   added[input.restaurantId] = [...(added[input.restaurantId] ?? []), item];
@@ -319,6 +327,8 @@ export interface RestaurantReview {
   rating: number; // 1-5
   comment?: string;
   createdAt: string;
+  /** Nom d'affichage de l'auteur (« Marie N. ») — preuve sociale (CONF-26). */
+  authorName?: string | null;
 }
 
 const LOCAL_RESTAURANT_REVIEWS_KEY = 'yamo_restaurant_reviews';
@@ -336,7 +346,8 @@ export async function rateRestaurant(
   restaurantId: string,
   customerId: string,
   rating: number,
-  comment?: string
+  comment?: string,
+  authorName?: string
 ): Promise<RestaurantReview> {
   if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data, error } = await supabase
@@ -369,6 +380,7 @@ export async function rateRestaurant(
     customerId,
     rating,
     comment,
+    authorName: authorName?.trim() || null,
     createdAt: new Date().toISOString(),
   };
   const reviews = readLocalRestaurantReviews();

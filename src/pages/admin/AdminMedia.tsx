@@ -5,11 +5,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Upload, Trash2, Copy, Check, Search, Grid3X3, List,
-  FolderOpen, Image, X, Download, Filter, Loader2, Plus
+  FolderOpen, Image, X, Download, Loader2, Plus,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_BASE = '/api/media';
+const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48, 96];
 
 interface MediaItem {
   id: string;
@@ -43,8 +45,27 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
+async function downloadMedia(item: MediaItem) {
+  try {
+    const res = await fetch(item.url);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = item.originalName || item.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+    toast.success('Téléchargement lancé');
+  } catch {
+    // Fallback: open in new tab
+    window.open(item.url, '_blank');
+  }
+}
+
 export default function AdminMedia() {
-  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [allMedia, setAllMedia] = useState<MediaItem[]>([]);
   const [folder, setFolder] = useState('all');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -53,6 +74,8 @@ export default function AdminMedia() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [preview, setPreview] = useState<MediaItem | null>(null);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(24);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -63,10 +86,10 @@ export default function AdminMedia() {
       const params = new URLSearchParams();
       if (folder !== 'all') params.set('folder', folder);
       if (search) params.set('search', search);
-      params.set('limit', '200');
+      params.set('limit', '500');
       const res = await fetch(`${API_BASE}?${params}`);
       const data = await res.json();
-      setMedia(data.items || []);
+      setAllMedia(data.items || []);
     } catch {
       toast.error('Impossible de charger les médias.');
     } finally {
@@ -75,6 +98,15 @@ export default function AdminMedia() {
   }, [folder, search]);
 
   useEffect(() => { fetchMedia(); }, [fetchMedia]);
+  // Reset page when folder/search changes
+  useEffect(() => { setPage(1); }, [folder, search]);
+
+  // Pagination logic
+  const totalPages = Math.max(1, Math.ceil(allMedia.length / perPage));
+  const safePage = Math.min(page, totalPages);
+  const paginatedMedia = allMedia.slice((safePage - 1) * perPage, safePage * perPage);
+
+  const goToPage = (p: number) => setPage(Math.max(1, Math.min(p, totalPages)));
 
   const handleUpload = async (files: FileList | File[]) => {
     setUploading(true);
@@ -115,7 +147,7 @@ export default function AdminMedia() {
     try {
       const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        setMedia(prev => prev.filter(m => m.id !== id));
+        setAllMedia(prev => prev.filter(m => m.id !== id));
         toast.success('Média supprimé.');
       }
     } catch {
@@ -154,6 +186,87 @@ export default function AdminMedia() {
       return next;
     });
   };
+
+  // Pagination component
+  const Pagination = () => (
+    <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-3 border-t border-border-light">
+      <div className="flex items-center gap-2 text-text-muted text-xs font-inter">
+        <span>{allMedia.length} fichier{allMedia.length > 1 ? 's' : ''}</span>
+        <span>·</span>
+        <select
+          value={perPage}
+          onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}
+          className="bg-bg-secondary border border-border-custom rounded px-2 py-1 text-xs outline-none"
+        >
+          {ITEMS_PER_PAGE_OPTIONS.map(n => (
+            <option key={n} value={n}>{n} par page</option>
+          ))}
+        </select>
+        <span>· Page {safePage} / {totalPages}</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => goToPage(1)}
+          disabled={safePage <= 1}
+          className="p-1.5 rounded hover:bg-border-light disabled:opacity-30 transition-colors"
+          title="Première page"
+        >
+          <ChevronsLeft className="w-4 h-4 text-text-muted" />
+        </button>
+        <button
+          onClick={() => goToPage(safePage - 1)}
+          disabled={safePage <= 1}
+          className="p-1.5 rounded hover:bg-border-light disabled:opacity-30 transition-colors"
+          title="Page précédente"
+        >
+          <ChevronLeft className="w-4 h-4 text-text-muted" />
+        </button>
+        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+          let pageNum: number;
+          if (totalPages <= 5) {
+            pageNum = i + 1;
+          } else if (safePage <= 3) {
+            pageNum = i + 1;
+          } else if (safePage >= totalPages - 2) {
+            pageNum = totalPages - 4 + i;
+          } else {
+            pageNum = safePage - 2 + i;
+          }
+          return (
+            <button
+              key={pageNum}
+              onClick={() => goToPage(pageNum)}
+              className={`w-8 h-8 rounded text-xs font-inter font-medium transition-colors ${
+                pageNum === safePage
+                  ? 'bg-green-primary text-white'
+                  : 'text-text-secondary hover:bg-border-light'
+              }`}
+            >
+              {pageNum}
+            </button>
+          );
+        })}
+        <button
+          onClick={() => goToPage(safePage + 1)}
+          disabled={safePage >= totalPages}
+          className="p-1.5 rounded hover:bg-border-light disabled:opacity-30 transition-colors"
+          title="Page suivante"
+        >
+          <ChevronRight className="w-4 h-4 text-text-muted" />
+        </button>
+        <button
+          onClick={() => goToPage(totalPages)}
+          disabled={safePage >= totalPages}
+          className="p-1.5 rounded hover:bg-border-light disabled:opacity-30 transition-colors"
+          title="Dernière page"
+        >
+          <ChevronsRight className="w-4 h-4 text-text-muted" />
+        </button>
+      </div>
+    </div>
+  );
+
+  const empty = allMedia.length === 0 && !loading;
 
   return (
     <div className="min-h-screen bg-bg-secondary">
@@ -208,10 +321,11 @@ export default function AdminMedia() {
               <button
                 key={f.id}
                 onClick={() => setFolder(f.id)}
-                className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-inter font-medium transition-colors whitespace-nowrap ${folder === f.id
+                className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-inter font-medium transition-colors whitespace-nowrap ${
+                  folder === f.id
                     ? 'bg-white text-text-primary shadow-sm'
                     : 'text-text-secondary hover:text-text-primary'
-                  }`}
+                }`}
               >
                 <f.icon className="w-3 h-3 inline mr-1" />
                 {f.label}
@@ -253,12 +367,13 @@ export default function AdminMedia() {
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
-          className={`rounded-xl border-2 border-dashed transition-colors mb-6 ${dragOver
+          className={`rounded-xl border-2 border-dashed transition-colors mb-6 ${
+            dragOver
               ? 'border-green-primary bg-green-light/30'
               : 'border-border-custom bg-white/50'
-            } ${media.length === 0 ? 'py-16' : 'py-4 px-4'}`}
+          } ${empty ? 'py-16' : 'py-4 px-4'}`}
         >
-          {media.length === 0 && !loading ? (
+          {empty ? (
             <div className="text-center">
               <Image className="w-12 h-12 text-text-muted mx-auto mb-3" />
               <p className="text-text-secondary font-inter text-sm mb-2">
@@ -272,13 +387,14 @@ export default function AdminMedia() {
             <>
               {viewMode === 'grid' ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                  {media.map(item => (
+                  {paginatedMedia.map(item => (
                     <div
                       key={item.id}
-                      className={`relative group rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${selected.has(item.id)
+                      className={`relative group rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                        selected.has(item.id)
                           ? 'border-green-primary ring-2 ring-green-primary/20'
                           : 'border-transparent hover:border-border-custom'
-                        }`}
+                      }`}
                       onClick={(e) => {
                         if (e.ctrlKey || e.metaKey) {
                           toggleSelect(item.id);
@@ -296,7 +412,14 @@ export default function AdminMedia() {
                         />
                       </div>
                       {/* Hover actions */}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-end justify-end p-2 opacity-0 group-hover:opacity-100">
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-end justify-end gap-1 p-2 opacity-0 group-hover:opacity-100">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); downloadMedia(item); }}
+                          className="p-1.5 rounded-lg bg-white/90 hover:bg-white text-text-primary transition-colors"
+                          title="Télécharger"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); copyUrl(item.url, item.id); }}
                           className="p-1.5 rounded-lg bg-white/90 hover:bg-white text-text-primary transition-colors"
@@ -308,10 +431,11 @@ export default function AdminMedia() {
                       {/* Selection checkbox */}
                       <button
                         onClick={(e) => { e.stopPropagation(); toggleSelect(item.id); }}
-                        className={`absolute top-2 left-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${selected.has(item.id)
+                        className={`absolute top-2 left-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                          selected.has(item.id)
                             ? 'bg-green-primary border-green-primary'
                             : 'bg-white/80 border-white hover:border-green-primary'
-                          }`}
+                        }`}
                       >
                         {selected.has(item.id) && <Check className="w-3 h-3 text-white" />}
                       </button>
@@ -324,7 +448,7 @@ export default function AdminMedia() {
                 </div>
               ) : (
                 <div className="divide-y divide-border-light">
-                  {media.map(item => (
+                  {paginatedMedia.map(item => (
                     <div key={item.id} className="flex items-center gap-3 py-2 px-2 hover:bg-bg-secondary rounded-lg transition-colors">
                       <img src={item.thumbUrl || item.url} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
                       <div className="flex-1 min-w-0">
@@ -333,6 +457,9 @@ export default function AdminMedia() {
                           {item.width}×{item.height} · {formatSize(item.size)} · {item.folder}
                         </p>
                       </div>
+                      <button onClick={() => downloadMedia(item)} className="p-1.5 rounded hover:bg-border-light transition-colors" title="Télécharger">
+                        <Download className="w-3.5 h-3.5 text-text-muted" />
+                      </button>
                       <button onClick={() => copyUrl(item.url, item.id)} className="p-1.5 rounded hover:bg-border-light transition-colors">
                         {copiedId === item.id ? <Check className="w-3.5 h-3.5 text-green-primary" /> : <Copy className="w-3.5 h-3.5 text-text-muted" />}
                       </button>
@@ -343,6 +470,14 @@ export default function AdminMedia() {
                   ))}
                 </div>
               )}
+
+              {/* Pagination */}
+              <Pagination />
+
+              {/* Drop hint */}
+              <p className="text-center text-text-muted text-[11px] font-inter mt-4">
+                Glissez-déposez des images ici · Ctrl+clic pour sélection multiple
+              </p>
             </>
           )}
 
@@ -350,13 +485,6 @@ export default function AdminMedia() {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-green-primary" />
             </div>
-          )}
-
-          {/* Drop hint */}
-          {media.length > 0 && (
-            <p className="text-center text-text-muted text-[11px] font-inter mt-4">
-              Glissez-déposez des images ici · Ctrl+clic pour sélection multiple
-            </p>
           )}
         </div>
       </div>
@@ -379,15 +507,25 @@ export default function AdminMedia() {
                 {preview.width}×{preview.height} · {formatSize(preview.size)}
               </p>
             </div>
+            {/* Top-right action buttons */}
             <button
               onClick={() => setPreview(null)}
               className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-white text-text-primary flex items-center justify-center shadow-lg hover:bg-bg-secondary transition-colors"
+              title="Fermer"
             >
               <X className="w-4 h-4" />
             </button>
             <button
-              onClick={() => copyUrl(preview.url, preview.id)}
+              onClick={() => downloadMedia(preview)}
               className="absolute -top-2 right-8 w-8 h-8 rounded-full bg-white text-text-primary flex items-center justify-center shadow-lg hover:bg-bg-secondary transition-colors"
+              title="Télécharger"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => copyUrl(preview.url, preview.id)}
+              className="absolute -top-2 right-[4.5rem] w-8 h-8 rounded-full bg-white text-text-primary flex items-center justify-center shadow-lg hover:bg-bg-secondary transition-colors"
+              title="Copier l'URL"
             >
               <Copy className="w-3.5 h-3.5" />
             </button>

@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from './components/ui/sonner'
 import Layout from './components/Layout'
 import BackOfficeLayout from './components/BackOfficeLayout'
@@ -14,7 +14,6 @@ import Checkout from './pages/Checkout'
 import Orders from './pages/Orders'
 import Profile from './pages/Profile'
 import Candidature from './pages/Candidature'
-import ExplorerMet from './pages/ExplorerMet'
 import Favorites from './pages/Favorites'
 import DishDetail from './pages/DishDetail'
 import RestaurantDashboard from './pages/RestaurantDashboard'
@@ -30,9 +29,19 @@ import AdminDishCatalog from './pages/admin/AdminDishCatalog'
 import AdminZones from './pages/admin/AdminZones'
 import AdminDeliveryFees from './pages/admin/AdminDeliveryFees'
 import AdminMedia from './pages/admin/AdminMedia'
+import AdminCustomers from './pages/admin/AdminCustomers'
 import FoodRequestCreate from './pages/FoodRequestCreate'
 import FoodRequestList from './pages/FoodRequestList'
 import NotFound from './pages/NotFound'
+
+// LOT-13 (CONF-33) : /explorer est fusionné dans /restaurants (mode plats).
+// Redirection qui préserve les deep-links ?q=&ville=&quartier=.
+function ExplorerRedirect() {
+  const { search } = useLocation()
+  const params = new URLSearchParams(search)
+  params.set('mode', 'plats')
+  return <Navigate to={`/restaurants?${params.toString()}`} replace />
+}
 
 export default function App() {
   return (
@@ -41,7 +50,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Layout><Home /></Layout>} />
         <Route path="/restaurants" element={<Layout><Restaurants /></Layout>} />
-        <Route path="/restaurant/:id" element={<Layout><RestaurantDetail /></Layout>} />
+        <Route path="/restaurant/:slug" element={<Layout><RestaurantDetail /></Layout>} />
         <Route path="/partenaires" element={<Layout><Partenaires /></Layout>} />
         <Route path="/livreurs" element={<Layout><Livreurs /></Layout>} />
         <Route path="/contact" element={<Layout><Contact /></Layout>} />
@@ -56,9 +65,9 @@ export default function App() {
         <Route path="/commandes" element={<Layout><Orders /></Layout>} />
         <Route path="/profil" element={<Layout><Profile /></Layout>} />
         <Route path="/candidature" element={<Layout><Candidature /></Layout>} />
-        <Route path="/explorer" element={<Layout><ExplorerMet /></Layout>} />
+        <Route path="/explorer" element={<ExplorerRedirect />} />
         <Route path="/favoris" element={<Layout><Favorites /></Layout>} />
-        <Route path="/plat/:slug" element={<Layout><DishDetail /></Layout>} />
+        <Route path="/article/:slug" element={<Layout><DishDetail /></Layout>} />
         <Route path="/demandes/nouvelle" element={<Layout><FoodRequestCreate /></Layout>} />
         <Route path="/demandes/mes-demandes" element={<Layout><FoodRequestList /></Layout>} />
 
@@ -73,6 +82,7 @@ export default function App() {
         >
           <Route index element={<RestaurantDashboard />} />
           <Route path="menu" element={<RestaurantDashboard tab="menu" />} />
+          <Route path="livreurs" element={<RestaurantDashboard tab="drivers" />} />
           <Route path="profile" element={<RestaurantDashboard tab="profile" />} />
           <Route path="finances" element={<RestaurantDashboard tab="finances" />} />
         </Route>
@@ -100,7 +110,8 @@ export default function App() {
             </BackOfficeLayout>
           }
         >
-          <Route index element={<AdminDashboard />} />
+          <Route index element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="applications" element={<AdminApplications />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="restaurants" element={<AdminRestaurants />} />
@@ -110,6 +121,7 @@ export default function App() {
           <Route path="zones" element={<AdminZones />} />
           <Route path="delivery-fees" element={<AdminDeliveryFees />} />
           <Route path="media" element={<AdminMedia />} />
+          <Route path="customers" element={<AdminCustomers />} />
         </Route>
 
         <Route path="*" element={<Layout><NotFound /></Layout>} />

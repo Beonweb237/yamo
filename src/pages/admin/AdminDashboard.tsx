@@ -1,10 +1,12 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { RefreshCw, ShoppingBag, Wallet, Store, TrendingUp, MapPin, Trophy, ChefHat, Percent } from 'lucide-react';
+import { usePolling } from '../../hooks/usePolling';
+import { useState, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { RefreshCw, ShoppingBag, Wallet, Store, TrendingUp, Trophy, ChefHat, Percent } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useRestaurants } from '../../hooks/useCatalog';
 import { fetchAllOrders } from '../../lib/orders';
 import type { OrderStatus } from '../../lib/orders';
-import LazyDeliveryMap from '../../components/LazyDeliveryMap';
+import { CHART_PRIMARY, CHART_GRID, CHART_TICK, CHART_TOOLTIP_STYLE } from '../../lib/chartTheme';
 
 const MIAMEXPRESS_COMMISSION_RATE = 0.15;
 
@@ -22,7 +24,7 @@ export default function AdminDashboard() {
     setOrders(data);
   }, []);
 
-  useEffect(() => { loadOrders(); const i = setInterval(loadOrders, 5000); return () => clearInterval(i); }, [loadOrders]);
+  usePolling(loadOrders, 30000);
 
   // S6 — top plateforme + CA/commission par période
   const [period, setPeriod] = useState<'week' | 'month' | 'all'>('week');
@@ -175,24 +177,22 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* A1: Mini-map supervision */}
-      <div className="bg-white rounded-xl border border-border-custom p-5 mb-6">
-        <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4 flex items-center gap-2"><MapPin className="w-5 h-5 text-green-primary" />Supervision — Restaurants et livreurs actifs</h2>
-        <LazyDeliveryMap
-          height="280px"
-          points={[
-            ...restaurants.slice(0, 5).map((r, i) => ({ lat: 4.04 + i * 0.006, lng: 9.76 + i * 0.005, label: r.name, type: 'restaurant' as const })),
-            { lat: 4.045, lng: 9.775, label: 'Livreur dispo 1', type: 'driver' as const },
-            { lat: 4.055, lng: 9.78, label: 'Livreur dispo 2', type: 'driver' as const },
-          ]}
-        />
-      </div>
-
+      {/* Carte de supervision retirée (CONF-35) : elle affichait des positions
+          inventées. À réintroduire uniquement avec de vraies positions livreur
+          (backend VPS). Remplacée par l'accès direct aux commandes par statut. */}
       <div className="bg-white rounded-xl border border-border-custom p-5 mb-6">
         <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">Commandes par statut</h2>
         <div className="flex flex-wrap gap-2">
           {(Object.keys(statusLabels) as OrderStatus[]).map((s) => (
-            <span key={s} className="text-xs font-inter font-medium px-3 py-1.5 rounded-full bg-bg-secondary text-text-secondary">{statusLabels[s]} : {stats.byStatus[s] ?? 0}</span>
+            <Link
+              key={s}
+              to={`/admin/orders?status=${s}`}
+              className={`text-xs font-inter font-medium px-3 py-1.5 rounded-full transition-colors ${(stats.byStatus[s] ?? 0) > 0
+                ? 'bg-green-light text-green-primary hover:bg-green-primary hover:text-white'
+                : 'bg-bg-secondary text-text-secondary hover:text-text-primary'}`}
+            >
+              {statusLabels[s]} : {stats.byStatus[s] ?? 0}
+            </Link>
           ))}
         </div>
       </div>
@@ -202,11 +202,11 @@ export default function AdminDashboard() {
           <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4 flex items-center gap-2"><TrendingUp className="w-5 h-5 text-green-primary" />CA — 7 derniers jours</h2>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={revenueByDay}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#6B7280' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} />
-              <Tooltip formatter={(v: number) => [`${v.toLocaleString()} FCFA`, 'CA']} contentStyle={{ borderRadius: 8, border: '1px solid #E5E7EB' }} />
-              <Bar dataKey="total" fill="#2D6A4F" radius={[4, 4, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+              <XAxis dataKey="day" tick={{ fontSize: 11, fill: CHART_TICK }} />
+              <YAxis tick={{ fontSize: 11, fill: CHART_TICK }} />
+              <Tooltip formatter={(v: number) => [`${v.toLocaleString()} FCFA`, 'CA']} contentStyle={CHART_TOOLTIP_STYLE} />
+              <Bar dataKey="total" fill={CHART_PRIMARY} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

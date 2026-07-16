@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { User, MapPin, Save, Trash2, Plus, LogOut, Shield, Camera, Globe, Navigation, Wallet, Heart, ShoppingBag, MessageCircle } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { User, MapPin, Save, Trash2, Plus, LogOut, Shield, Camera, Globe, Navigation, Wallet, Heart, ShoppingBag, MessageCircle, Gauge } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useSettings } from '../contexts/SettingsContext';
+import { Switch } from '../components/ui/switch';
 import { fetchOrders, type Order } from '../lib/orders';
 import { toast } from 'sonner';
 import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
@@ -39,6 +41,7 @@ function writeAddresses(addrs: SavedAddress[]) {
 
 export default function Profile() {
   const { user, loading: authLoading, signOut, updateProfileName } = useAuth();
+  const { dataSaver, setDataSaver } = useSettings();
   const navigate = useNavigate();
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -250,15 +253,15 @@ export default function Profile() {
                 value={profileName}
                 onChange={(e) => setProfileName(e.target.value)}
                 placeholder="Votre nom complet"
-                className="w-full bg-bg-secondary rounded-lg px-3 h-10 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
+                className="w-full bg-white rounded-xl border border-border-custom px-4 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted transition-all focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 hover:border-text-muted"
               />
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 bg-bg-secondary rounded-lg px-3 h-10">
-                  <Globe className="w-4 h-4 text-text-muted" />
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-11 transition-all focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 hover:border-text-muted">
+                  <Globe className="w-4 h-4 text-text-muted shrink-0" />
                   <select
                     value={profileLang}
                     onChange={(e) => setProfileLang(e.target.value)}
-                    className="bg-transparent text-text-primary font-inter text-sm outline-none"
+                    className="bg-transparent text-text-primary font-inter text-sm outline-none cursor-pointer"
                   >
                     <option value="fr">Français</option>
                     <option value="en">English</option>
@@ -266,9 +269,9 @@ export default function Profile() {
                 </div>
                 <span className="text-text-muted text-xs font-inter">{user.phone}</span>
               </div>
-              <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-10">
+              <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-11 transition-all focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 hover:border-text-muted">
                 <MessageCircle className="w-4 h-4 text-green-primary shrink-0" />
-                <span className="text-text-primary font-inter text-sm font-medium shrink-0 select-none">+237</span>
+                <span className="text-text-primary font-inter text-sm font-semibold shrink-0 select-none">+237</span>
                 <input
                   type="tel"
                   value={whatsapp.replace('+237 ', '')}
@@ -288,9 +291,66 @@ export default function Profile() {
               <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gold-light text-gold-accent">En attente</span>
             )}
           </div>
-          <button onClick={saveProfile} disabled={savingProfile} className="mt-3 flex items-center gap-1.5 text-green-primary text-sm font-inter font-medium hover:underline disabled:opacity-60">
+          <button onClick={saveProfile} disabled={savingProfile} className="mt-3 flex items-center gap-1.5 text-green-primary text-sm font-inter font-semibold hover:underline disabled:opacity-60 transition-all">
             <Save className="w-3.5 h-3.5" /> {savingProfile ? 'Enregistrement...' : 'Enregistrer le profil'}
           </button>
+        </section>
+
+        {/* ── Préférences d'affichage (CONF-30) ── */}
+        <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6 mb-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-lg bg-green-light flex items-center justify-center shrink-0">
+                <Gauge className="w-5 h-5 text-green-primary" />
+              </div>
+              <div className="min-w-0">
+                <label htmlFor="data-saver-switch" className="block font-inter font-semibold text-text-primary text-sm cursor-pointer">
+                  Économie de données
+                </label>
+                <p className="text-text-secondary font-inter text-xs mt-0.5">
+                  Désactive les animations et diffère le chargement des images — recommandé en 3G ou forfait limité.
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="data-saver-switch"
+              checked={dataSaver}
+              onCheckedChange={(checked) => {
+                setDataSaver(checked);
+                toast.success(checked ? 'Économie de données activée' : 'Économie de données désactivée');
+              }}
+              aria-label="Économie de données"
+            />
+          </div>
+        </section>
+
+        {/* ── Accès rapides ── */}
+        <section className="mb-6">
+          <h2 className="font-poppins font-semibold text-text-primary text-sm uppercase tracking-wider text-text-muted mb-3 px-1">
+            Accès rapides
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { to: '/commandes', icon: '📦', label: 'Mes commandes', desc: 'Historique et suivi' },
+              { to: '/favoris', icon: '❤️', label: 'Favoris', desc: 'Restos & plats sauvegardés' },
+              { to: '/demandes/mes-demandes', icon: '🍽️', label: 'Demandes de plats', desc: 'Mes demandes sur mesure' },
+              { to: '/restaurants?mode=plats', icon: '🔍', label: 'Explorer', desc: 'Trouver un plat' },
+            ].map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="flex items-center gap-3 bg-white rounded-2xl border border-border-custom shadow-sm p-4 hover:border-green-primary hover:shadow-md hover:-translate-y-0.5 transition-all group"
+              >
+                <span className="text-2xl shrink-0">{link.icon}</span>
+                <div className="min-w-0">
+                  <p className="font-inter font-semibold text-text-primary text-sm group-hover:text-green-primary transition-colors">
+                    {link.label}
+                  </p>
+                  <p className="text-text-muted text-[11px] font-inter truncate">{link.desc}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
         </section>
 
         {/* S5: Mon activité — historique de dépenses, plats/restaurants favoris */}
@@ -405,7 +465,7 @@ export default function Profile() {
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder="Nom (ex. Maison, Bureau)"
-                className="w-full bg-white rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
+                className="w-full bg-white rounded-xl border border-border-custom px-4 h-12 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted transition-all focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 hover:border-text-muted"
               />
               <AddressAutocomplete
                 value={fullText}
@@ -429,7 +489,7 @@ export default function Profile() {
                 value={landmark}
                 onChange={(e) => setLandmark(e.target.value)}
                 placeholder="Point de repère (ex. Carrefour Bastos, face Orange)"
-                className="w-full bg-white rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
+                className="w-full bg-white rounded-xl border border-border-custom px-4 h-12 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted transition-all focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 hover:border-text-muted"
               />
               <div className="flex gap-2">
                 <button

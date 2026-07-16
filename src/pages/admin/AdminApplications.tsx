@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { usePolling } from '../../hooks/usePolling';
+import { useState, useCallback, useMemo } from 'react';
 import { RefreshCw, UserCheck, Check, X, Store, Bike, Search, Clock, ThumbsUp, ThumbsDown, Phone, MapPin, ChevronDown, ChevronUp, Image } from 'lucide-react';
 import { useRestaurants } from '../../hooks/useCatalog';
 import { fetchAllApplications, approveApplication, rejectApplication, type Application, type ApplicationStatus } from '../../lib/applications';
@@ -39,7 +40,7 @@ export default function AdminApplications() {
     setApplications(await fetchAllApplications());
     setLoading(false);
   }, []);
-  useEffect(() => { load(); const i = setInterval(load, 5000); return () => clearInterval(i); }, [load]);
+  usePolling(load, 30000);
 
   const byStatus = useMemo(() => {
     const acc: Record<ApplicationStatus, Application[]> = { pending: [], approved: [], rejected: [] };

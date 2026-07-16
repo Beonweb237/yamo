@@ -28,16 +28,20 @@ export function useRestaurants() {
 }
 
 export function useRestaurant(id: string | undefined) {
-  const fallback = mockRestaurants.find((r) => r.id === id) ?? mockRestaurants[0];
-  const [restaurant, setRestaurant] = useState<Restaurant | undefined>(fallback);
-  const [loading, setLoading] = useState(true);
+  // Pas de repli vers un autre restaurant : un id inconnu doit produire
+  // `restaurant === undefined` (la page affiche alors un état "introuvable")
+  // plutôt que la fiche d'un mauvais établissement.
+  const initial = mockRestaurants.find((r) => r.id === id);
+  const [restaurant, setRestaurant] = useState<Restaurant | undefined>(initial);
+  // Rien à charger sans id ; avec une donnée sync, pas de flash de chargement.
+  const [loading, setLoading] = useState(() => Boolean(id) && !initial);
 
   useEffect(() => {
     if (!id) return;
     let active = true;
     fetchRestaurant(id).then((data) => {
       if (active) {
-        setRestaurant(data ?? fallback);
+        setRestaurant(data ?? initial);
         setLoading(false);
       }
     });

@@ -1,9 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Package, Clock, Star, Store, UserRound } from 'lucide-react';
+import { Package, Clock, Star, Store, UserRound, XCircle, RotateCcw } from 'lucide-react';
+import { useCart } from '../contexts/CartContext';
+import { fetchMenuItems } from '../lib/catalog';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchOrders, getOrderPreparationMessage, type Order, type OrderStatus } from '../lib/orders';
+import { fetchOrders, getOrderPreparationMessage, getDriverPhone, cancelOrder, type Order, type OrderStatus } from '../lib/orders';
+import { whatsappLink, SUPPORT_PHONE } from '../data/support';
+import { usePolling } from '../hooks/usePolling';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
+
+// Motifs d'annulation proposés au client (CONF-04 — motif obligatoire).
+const CANCEL_REASONS = [
+  'Erreur dans ma commande',
+  'Le délai est trop long',
+  "J'ai changé d'avis",
+  'Autre',
+] as const;
 import { rateDelivery } from '../lib/drivers';
 import { rateRestaurant, hasRestaurantReview } from '../lib/catalog';
 import OrderStatusStepper from '../components/OrderStatusStepper';
@@ -11,15 +33,25 @@ import { Skeleton } from '../components/ui/skeleton';
 import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
 import { getRestaurantCoords, getCustomerCoords, simulateDriverPosition } from '../lib/tracking';
 
-function buildTrackingPoints(order: Order): MapPoint[] {
-  const resto = getRestaurantCoords(order.restaurantId) ?? { lat: 4.0511, lng: 9.7679 };
-  const customer = getCustomerCoords(order) ?? resto;
+// Points de suivi — uniquement si les coordonnées du restaurant ET du client
+// sont réellement résolues (pas de positions inventées : sans coordonnées, la
+// carte n'est pas affichée). La position livreur reste une estimation
+// (interpolation), signalée par le badge `estimated` de la carte.
+function buildTrackingPoints(order: Order): MapPoint[] | null {
+  const resto = getRestaurantCoords(order.restaurantId);
+  const customer = getCustomerCoords(order);
+  if (!resto || !customer) return null;
   const driver = simulateDriverPosition(resto, customer, order);
   return [
     { ...resto, label: order.restaurantName || 'Restaurant', type: 'restaurant' },
     { ...driver, label: 'Votre livreur', type: 'driver' },
     { ...customer, label: 'Vous', type: 'customer' },
   ];
+}
+
+// Lien WhatsApp vers un numéro arbitraire (livreur) avec message prérempli.
+function whatsappTo(phone: string, message: string): string {
+  return `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
 }
 
 const statusLabels: Record<OrderStatus, string> = {
@@ -68,9 +100,18 @@ export default function Orders() {
     setReviewRating(5);
   };
 
+  // « Marie N. » à partir du nom de profil — preuve sociale sans exposer
+  // l'identité complète (CONF-26).
+  const reviewAuthorName = (() => {
+    const raw = (localStorage.getItem('yamo_profile_name') ?? '').trim();
+    if (!raw) return undefined;
+    const parts = raw.split(/\s+/);
+    return parts.length > 1 ? `${parts[0]} ${parts[1][0].toUpperCase()}.` : parts[0];
+  })();
+
   const handleSubmitRestoReview = async (orderId: string, restaurantId: string) => {
     if (!user) return;
-    await rateRestaurant(orderId, restaurantId, user.id, restoRating, restoComment || undefined);
+    await rateRestaurant(orderId, restaurantId, user.id, restoRating, restoComment || undefined, reviewAuthorName);
     setRestoReviewSubmitted((prev) => ({ ...prev, [orderId]: true }));
     setRestoReviewingId(null);
     setRestoComment('');
@@ -83,24 +124,112 @@ export default function Orders() {
     }
   }, [authLoading, user, navigate]);
 
-  useEffect(() => {
+  // Évite de refaire la vérification des avis à chaque tick de polling
+  // (N requêtes par commande livrée) : uniquement quand la liste des
+  // commandes livrées change réellement.
+  const checkedDeliveredKeyRef = useRef('');
+
+  const loadOrders = useCallback(() => {
     if (!user) return;
-    const load = () => fetchOrders(user.id).then(async (data) => {
+    fetchOrders(user.id).then(async (data) => {
       setOrders(data);
       setLoading(false);
-      // Check which orders already have restaurant reviews
+      const delivered = data.filter(o => o.status === 'delivered');
+      const deliveredKey = delivered.map(o => o.id).join(',');
+      if (deliveredKey === checkedDeliveredKeyRef.current) return;
+      checkedDeliveredKeyRef.current = deliveredKey;
       const restoReviewed: Record<string, boolean> = {};
-      for (const order of data.filter(o => o.status === 'delivered')) {
+      for (const order of delivered) {
         if (await hasRestaurantReview(order.id)) {
           restoReviewed[order.id] = true;
         }
       }
       setRestoReviewSubmitted(restoReviewed);
     });
-    load();
-    const interval = setInterval(load, 5000);
-    return () => clearInterval(interval);
   }, [user]);
+
+  usePolling(loadOrders, 15000);
+
+  // Annulation client (CONF-04) — possible tant que le restaurant n'a pas
+  // commencé la préparation (pending/confirmed), motif obligatoire.
+  const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelDetails, setCancelDetails] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+
+  const openCancelDialog = (order: Order) => {
+    setCancelReason('');
+    setCancelDetails('');
+    setCancelTarget(order);
+  };
+
+  const cancelReasonComplete = cancelReason !== '' && (cancelReason !== 'Autre' || cancelDetails.trim() !== '');
+
+  const handleCancelOrder = async () => {
+    if (!cancelTarget || !cancelReasonComplete) return;
+    setCancelling(true);
+    try {
+      const fullReason = cancelReason === 'Autre' ? cancelDetails.trim() : cancelReason;
+      await cancelOrder(cancelTarget.id, fullReason, 'customer');
+      setCancelTarget(null);
+      loadOrders();
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  // Re-commande 1-clic (CONF-25) : re-matche les articles contre le catalogue
+  // actuel (baseItemId pour les commandes récentes, nom sinon), signale les
+  // articles disparus/indisponibles, remplace le panier après confirmation si
+  // celui-ci contient un autre restaurant.
+  const { items: cartItems, loadCart } = useCart();
+  const [reorderTarget, setReorderTarget] = useState<Order | null>(null);
+  const [reordering, setReordering] = useState(false);
+
+  const performReorder = async (order: Order) => {
+    setReordering(true);
+    try {
+      const menu = await fetchMenuItems(order.restaurantId);
+      const matched: { item: (typeof menu)[number]; quantity: number; baseItemId: string }[] = [];
+      const missing: string[] = [];
+      for (const line of order.items) {
+        const byId = line.baseItemId ? menu.find((m) => m.id === line.baseItemId) : undefined;
+        // Les plats personnalisés portent un nom composite « Plat + Option » :
+        // on retombe sur le plat de base (la personnalisation est à refaire).
+        const baseName = line.name.split(' + ')[0].trim();
+        const found = byId ?? menu.find((m) => m.name === line.name) ?? menu.find((m) => m.name === baseName);
+        if (found && found.isAvailable !== false) {
+          const existing = matched.find((mLine) => mLine.item.id === found.id);
+          if (existing) existing.quantity += line.quantity;
+          else matched.push({ item: found, quantity: line.quantity, baseItemId: found.id });
+        } else {
+          missing.push(line.name);
+        }
+      }
+      if (matched.length === 0) {
+        toast.error('Aucun de ces plats n\'est encore disponible chez ce restaurant.');
+        return;
+      }
+      loadCart(matched);
+      if (missing.length > 0) {
+        toast.info(`${missing.length} article${missing.length > 1 ? 's' : ''} indisponible${missing.length > 1 ? 's' : ''} non repris : ${missing.join(', ')}`, { duration: 8000 });
+      }
+      toast.success(`Panier rechargé — ${matched.reduce((s, mLine) => s + mLine.quantity, 0)} article(s) de ${order.restaurantName || 'votre commande'}.`);
+      navigate('/checkout');
+    } finally {
+      setReordering(false);
+      setReorderTarget(null);
+    }
+  };
+
+  const handleReorder = (order: Order) => {
+    const cartRestaurant = cartItems[0]?.item.restaurantId;
+    if (cartRestaurant && cartRestaurant !== order.restaurantId) {
+      setReorderTarget(order);
+      return;
+    }
+    void performReorder(order);
+  };
 
   return (
     <div className="pt-[72px] min-h-screen bg-bg-secondary">
@@ -169,11 +298,22 @@ export default function Orders() {
                   <OrderStatusStepper status={order.status} />
                 </div>
 
-                {(order.status === 'picked_up' || order.status === 'delivering') && (
-                  <div className="mb-3">
-                    <LazyDeliveryMap height="220px" scrollWheelZoom={false} points={buildTrackingPoints(order)} />
+                {order.status === 'cancelled' && order.cancellationReason && (
+                  <div className="bg-error/5 text-text-secondary rounded-lg px-3 py-2 mb-3 text-xs font-inter">
+                    Annulée par{' '}
+                    {order.cancelledBy === 'customer' ? 'vous' : order.cancelledBy === 'restaurant' ? 'le restaurant' : "l'équipe MiamExpress"}
+                    {' '}· Motif : <span className="font-medium text-text-primary">{order.cancellationReason}</span>
                   </div>
                 )}
+
+                {(order.status === 'picked_up' || order.status === 'delivering') && (() => {
+                  const trackingPoints = buildTrackingPoints(order);
+                  return trackingPoints ? (
+                    <div className="mb-3">
+                      <LazyDeliveryMap height="220px" scrollWheelZoom={false} points={trackingPoints} estimated />
+                    </div>
+                  ) : null;
+                })()}
 
                 {getOrderPreparationMessage(order) && (
                   <div className="flex items-center gap-1.5 bg-bg-secondary rounded-lg px-3 py-2 mb-3 text-xs font-inter text-text-secondary">
@@ -214,13 +354,78 @@ export default function Orders() {
                   </span>
                 </div>
 
-                {order.status === 'delivering' && (
-                  <div className="mt-3 pt-3 border-t border-border-light">
-                    <div className="flex gap-1.5 flex-wrap">
-                      <button type="button" onClick={() => toast.success('Le support livraison a été notifié')} className="text-[11px] bg-bg-secondary rounded-full px-3 py-1.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors">📞 Support livraison</button>
-                      <button type="button" onClick={() => toast.success('Message envoyé au livreur')} className="text-[11px] bg-bg-secondary rounded-full px-3 py-1.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors">📍 Je suis devant</button>
-                      <button type="button" onClick={() => toast.success('Position partagée')} className="text-[11px] bg-bg-secondary rounded-full px-3 py-1.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors">📤 Partager ma position</button>
+                {/* Preuve de livraison (CONF-17) : code à donner au livreur */}
+                {(order.status === 'picked_up' || order.status === 'delivering') && order.deliveryCode && (
+                  <div className="bg-green-light rounded-lg px-4 py-3 mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-green-primary font-inter font-semibold text-xs uppercase tracking-wide mb-0.5">
+                        Code de livraison
+                      </p>
+                      <p className="text-text-secondary text-xs font-inter">
+                        Donnez ce code au livreur à la remise de votre commande.
+                      </p>
                     </div>
+                    <span className="font-poppins font-bold text-green-primary text-3xl tracking-[0.2em] shrink-0" aria-label={`Code de livraison : ${order.deliveryCode.split('').join(' ')}`}>
+                      {order.deliveryCode}
+                    </span>
+                  </div>
+                )}
+
+                {(order.status === 'pending' || order.status === 'confirmed') && (
+                  <div className="mt-3 pt-3 border-t border-border-light">
+                    <button
+                      type="button"
+                      onClick={() => openCancelDialog(order)}
+                      className="flex items-center gap-1.5 text-error font-inter text-sm font-medium hover:opacity-80 transition-opacity"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Annuler la commande
+                    </button>
+                  </div>
+                )}
+
+                {(order.status === 'picked_up' || order.status === 'delivering') && (() => {
+                  // Actions de contact réelles : appel + WhatsApp vers le
+                  // livreur quand son numéro est résolvable, sinon vers le
+                  // support MiamExpress (jamais de message simulé).
+                  const driverPhone = getDriverPhone(order.driverId);
+                  const contactMessage = `Bonjour, commande MiamExpress #${order.id.slice(0, 8)} — ${order.address.fullText || 'adresse indiquée sur la commande'}`;
+                  const waHref = driverPhone ? whatsappTo(driverPhone, contactMessage) : whatsappLink(contactMessage);
+                  return (
+                    <div className="mt-3 pt-3 border-t border-border-light">
+                      <div className="flex gap-1.5 flex-wrap">
+                        <a
+                          href={`tel:${driverPhone ?? SUPPORT_PHONE}`}
+                          aria-label={driverPhone ? 'Appeler le livreur' : 'Appeler le support MiamExpress'}
+                          className="text-[11px] bg-bg-secondary rounded-full px-3 py-1.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors"
+                        >
+                          📞 {driverPhone ? 'Appeler le livreur' : 'Appeler le support'}
+                        </a>
+                        <a
+                          href={waHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={driverPhone ? 'Écrire au livreur sur WhatsApp' : 'Écrire au support sur WhatsApp'}
+                          className="text-[11px] bg-bg-secondary rounded-full px-3 py-1.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors"
+                        >
+                          💬 WhatsApp {driverPhone ? 'livreur' : 'support'}
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {order.status === 'delivered' && (
+                  <div className="mt-3 pt-3 border-t border-border-light">
+                    <button
+                      type="button"
+                      onClick={() => handleReorder(order)}
+                      disabled={reordering}
+                      className="flex items-center gap-1.5 bg-green-primary text-white font-inter font-medium text-sm px-4 h-10 rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      {reordering ? 'Rechargement...' : 'Commander à nouveau'}
+                    </button>
                   </div>
                 )}
 
@@ -273,7 +478,7 @@ export default function Orders() {
                     ) : (
                       <button
                         onClick={() => setReviewingId(order.id)}
-                        className="flex items-center gap-1.5 text-blue-600 font-inter text-sm font-medium hover:text-blue-700 transition-colors"
+                        className="flex items-center gap-1.5 text-green-primary font-inter text-sm font-medium hover:text-green-dark transition-colors"
                       >
                         <Star className="w-4 h-4" />
                         Noter la livraison
@@ -346,6 +551,78 @@ export default function Orders() {
           </div>
         )}
       </div>
+
+      {/* Conflit re-commande : le panier contient un autre restaurant */}
+      <AlertDialog open={!!reorderTarget} onOpenChange={(open) => { if (!open) setReorderTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remplacer votre panier ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Votre panier contient des articles d&apos;un autre restaurant.
+              Recommander chez {reorderTarget?.restaurantName || 'ce restaurant'} le videra.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Garder mon panier</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { if (reorderTarget) void performReorder(reorderTarget); }}
+              className="bg-green-primary text-white hover:bg-green-dark"
+            >
+              Vider et recommander
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog d'annulation — motif obligatoire (CONF-04) */}
+      <AlertDialog open={!!cancelTarget} onOpenChange={(open) => { if (!open) setCancelTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Annuler la commande #{cancelTarget?.id.slice(0, 8)} ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le restaurant sera informé de l&apos;annulation et du motif. Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label htmlFor="cancel-reason" className="block text-text-secondary font-inter text-sm mb-1.5">
+                Motif de l&apos;annulation <span className="text-error">*</span>
+              </label>
+              <select
+                id="cancel-reason"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none"
+              >
+                <option value="" disabled>Sélectionnez un motif</option>
+                {CANCEL_REASONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+            {cancelReason === 'Autre' && (
+              <textarea
+                value={cancelDetails}
+                onChange={(e) => setCancelDetails(e.target.value)}
+                placeholder="Précisez le motif..."
+                rows={2}
+                autoFocus
+                className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted"
+              />
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Garder ma commande</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelOrder}
+              disabled={!cancelReasonComplete || cancelling}
+              className="bg-error text-white hover:bg-error/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {cancelling ? 'Annulation...' : 'Annuler la commande'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

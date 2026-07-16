@@ -3,9 +3,12 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import {
   Bike, Home, LayoutDashboard, LogOut, ShoppingBag, Store, Menu, X,
   Package, Utensils, User, Wallet, AlertTriangle, UserCheck, UserCircle, ChevronDown, ChefHat,
-  MapPin, DollarSign, Image,
+  MapPin, DollarSign, Image, Users,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { fetchAllOrders } from '../lib/orders';
+import { fetchAllIncidents } from '../lib/incidents';
+import NetworkBanner from './NetworkBanner';
 
 interface SidebarLink {
   name: string;
@@ -14,7 +17,7 @@ interface SidebarLink {
 }
 
 const adminSidebar: SidebarLink[] = [
-  { name: 'Tableau de bord', path: '/admin', icon: LayoutDashboard },
+  { name: 'Tableau de bord', path: '/admin/dashboard', icon: LayoutDashboard },
   { name: 'Candidatures', path: '/admin/applications', icon: UserCheck },
   { name: 'Commandes', path: '/admin/orders', icon: ShoppingBag },
   { name: 'Restaurants', path: '/admin/restaurants', icon: Store },
@@ -24,13 +27,15 @@ const adminSidebar: SidebarLink[] = [
   { name: 'Zones', path: '/admin/zones', icon: MapPin },
   { name: 'Frais livraison', path: '/admin/delivery-fees', icon: DollarSign },
   { name: 'Médiathèque', path: '/admin/media', icon: Image },
+  { name: 'Clients', path: '/admin/customers', icon: Users },
 ];
 
 const restaurantSidebar: SidebarLink[] = [
   { name: 'Commandes', path: '/partenaires/dashboard', icon: Package },
   { name: 'Menu', path: '/partenaires/dashboard/menu', icon: Utensils },
-  { name: 'Profil', path: '/partenaires/dashboard/profile', icon: User },
+  { name: 'Livreurs', path: '/partenaires/dashboard/livreurs', icon: Bike },
   { name: 'Finances', path: '/partenaires/dashboard/finances', icon: Wallet },
+  { name: 'Profil', path: '/partenaires/dashboard/profile', icon: User },
 ];
 
 const driverSidebar: SidebarLink[] = [
@@ -57,6 +62,23 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
+  // Compteur de litiges ouverts (CONF-20) — badge sur l'entrée « Litiges »,
+  // admin uniquement, rafraîchi toutes les 30 s (pas de polling agressif).
+  const [openDisputesCount, setOpenDisputesCount] = useState(0);
+  useEffect(() => {
+    if (user?.role !== 'admin') return;
+    const load = () => {
+      Promise.all([fetchAllOrders(), fetchAllIncidents()]).then(([orders, incidents]) => {
+        const cancellations = orders.filter((o) => o.status === 'cancelled' && !o.disputeResolved).length;
+        const open = incidents.filter((i) => i.status === 'open').length;
+        setOpenDisputesCount(cancellations + open);
+      });
+    };
+    load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
+  }, [user?.role, location.pathname]);
+
   const roleLabels: Record<string, string> = {
     client: 'Client', restaurant: 'Restaurateur', livreur: 'Livreur', admin: 'Administrateur',
   };
@@ -76,7 +98,7 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
   }, [location.pathname]);
 
   const isActive = (path: string) => {
-    if (path === '/admin' || path === '/partenaires/dashboard' || path === '/livreurs/dashboard') {
+    if (path === '/admin/dashboard' || path === '/partenaires/dashboard' || path === '/livreurs/dashboard') {
       return location.pathname === path;
     }
     return location.pathname.startsWith(path);
@@ -95,7 +117,7 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
             >
               <Menu className="w-5 h-5" />
             </button>
-            <Link to={user?.role === 'admin' ? '/admin' : '/'} className="flex items-center gap-2">
+            <Link to={user?.role === 'admin' ? '/admin/dashboard' : '/'} className="flex items-center gap-2">
               <img src="/logo-icon.png" alt="MiamExpress" className="w-7 h-7 object-contain" />
               <span className="font-poppins font-bold text-white text-base">MiamExpress</span>
             </Link>
@@ -179,6 +201,8 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
         </div>
       </header>
 
+      <NetworkBanner topOffset={56} />
+
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -214,6 +238,11 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
               >
                 <link.icon className="w-4 h-4 shrink-0" />
                 {link.name}
+                {link.path === '/admin/disputes' && openDisputesCount > 0 && (
+                  <span className="ml-auto bg-error text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center" aria-label={`${openDisputesCount} litiges ouverts`}>
+                    {openDisputesCount > 99 ? '99+' : openDisputesCount}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>

@@ -249,9 +249,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isApproved: isSelfApprovingRole(requestedRole),
       isSuspended: false,
     };
-    const suspensionInfo = getLocalSuspensionInfo(localUser.id);
-    localUser.isSuspended = suspensionInfo.isSuspended;
-    localUser.suspensionReason = suspensionInfo.reason ?? null;
+    // La map de suspension de drivers.ts ne concerne que les livreurs — pour
+    // les autres rôles elle écraserait le blocage posé par AdminCustomers
+    // directement dans le registre (LOT-16), qui doit survivre à la reconnexion.
+    if (localUser.role === 'livreur') {
+      const suspensionInfo = getLocalSuspensionInfo(localUser.id);
+      localUser.isSuspended = suspensionInfo.isSuspended;
+      localUser.suspensionReason = suspensionInfo.reason ?? null;
+    }
     registry[phone] = localUser;
     localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(registry));
     localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(localUser));

@@ -1,5 +1,9 @@
+import { slugify } from '../lib/utils';
+
 export interface Restaurant {
   id: string;
+  /** Slug URL-friendly unique, généré depuis le nom. Définitif après soumission. Auto-généré si absent. */
+  slug?: string;
   name: string;
   image: string;
   category: string;
@@ -661,6 +665,9 @@ export const restaurants: Restaurant[] = [
     description: 'Brunch de bord de mer : omelettes, pancakes, pains sucrés et boissons chaudes.',
   },
 ];
+
+// Assigner les slugs auto-générés depuis le nom du restaurant
+restaurants.forEach((r: any) => { if (!r.slug) r.slug = slugify(r.name); });
 
 export const menuItems: MenuItem[] = [
   { id: 'm1', restaurantId: '1', name: 'Ndolé avec Bœuf et Crevettes', description: 'Feuilles de ndolé mijotées dans une sauce riche aux arachides, accompagnées de bœuf tendre et de crevettes fraîches.', price: 3500, category: 'Plats Principaux', image: '/plat-ndole.jpg', isPopular: true, dietaryTags: ['riche-en-protéines', 'halal'], catalogDishId: 'dc1' },

@@ -2,118 +2,66 @@
 // MiamExpress — Admin : Gestion des Zones (villes/quartiers)
 // ============================================================
 import { useState, useEffect } from 'react';
-import { Shield, MapPin, ChevronDown, ChevronRight, Search } from 'lucide-react';
+import { MapPin, ChevronDown, ChevronRight, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { getAuthToken } from '../../lib/authToken';
 import { CAMEROON_CITIES } from '../../data/cities';
+
+const STORAGE_KEY = 'miam_disabled_zones';
 
 interface DisabledZone {
   id: string;
   city: string;
   neighborhood: string | null;
   reason: string | null;
-  disabledBy: string;
-  disabledByName: string;
   disabledAt: string;
 }
+
+function readZones(): DisabledZone[] {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch { return []; }
+}
+function writeZones(z: DisabledZone[]) { localStorage.setItem(STORAGE_KEY, JSON.stringify(z)); }
 
 export default function AdminZones() {
   const [zones, setZones] = useState<DisabledZone[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [affectedCount, setAffectedCount] = useState(0);
-  const [search, setSearch] = useState('');
   const [expandedCity, setExpandedCity] = useState<string | null>(null);
   const [reasonInput, setReasonInput] = useState('');
+  const [search, setSearch] = useState('');
 
-  useEffect(() => { fetchZones(); fetchAffected(); }, []);
+  useEffect(() => { setZones(readZones()); setLoading(false); }, []);
 
   const disabledCityNames = new Set(zones.filter(z => !z.neighborhood).map(z => z.city));
   const disabledNeighborhoods = new Set(zones.filter(z => z.neighborhood).map(z => `${z.city}::${z.neighborhood}`));
-
   function isCityDisabled(city: string) { return disabledCityNames.has(city); }
   function isNeighborhoodDisabled(city: string, nbh: string) { return disabledNeighborhoods.has(`${city}::${nbh}`); }
 
-  async function fetchZones() {
-    try {
-      const token = await getAuthToken();
-      const res = await fetch('/api/admin/zones', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const json = await res.json();
-      setZones(json.data || []);
-    } catch { /* */ } finally { setLoading(false); }
+  function toggleCity(city: string) {
+    if (isCityDisabled(city)) {
+      const updated = zones.filter(z => !(z.city === city && !z.neighborhood));
+      setZones(updated); writeZones(updated);
+      toast.success(`${city} réactivée`);
+    } else {
+      const zone: DisabledZone = { id: crypto.randomUUID(), city, neighborhood: null, reason: reasonInput || null, disabledAt: new Date().toISOString() };
+      const updated = [zone, ...zones];
+      setZones(updated); writeZones(updated);
+      toast.success(`${city} désactivée`);
+      setReasonInput('');
+    }
   }
 
-  async function fetchAffected() {
-    try {
-      const token = await getAuthToken();
-      const res = await fetch('/api/admin/zones/affected', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const json = await res.json();
-      setAffectedCount(json.count || 0);
-    } catch { /* */ }
-  }
-
-  async function toggleCity(city: string) {
-    setSubmitting(true);
-    const token = await getAuthToken();
-    try {
-      if (isCityDisabled(city)) {
-        // Reactivate entire city
-        const zone = zones.find(z => z.city === city && !z.neighborhood);
-        if (zone) {
-          await fetch(`/api/admin/zones/${zone.id}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          toast.success(`${city} réactivée`);
-        }
-      } else {
-        // Disable entire city
-        const res = await fetch('/api/admin/zones', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ city, neighborhood: null, reason: reasonInput || null }),
-        });
-        if (!res.ok) { const d = await res.json(); toast.error(d.error); return; }
-        const d = await res.json();
-        toast.success(`${city} désactivée — ${d.affectedRestaurants} restaurants impactés`);
-        setReasonInput('');
-      }
-      fetchZones(); fetchAffected();
-    } catch { toast.error('Erreur'); }
-    finally { setSubmitting(false); }
-  }
-
-  async function toggleNeighborhood(city: string, neighborhood: string) {
-    setSubmitting(true);
-    const token = await getAuthToken();
-    try {
-      if (isNeighborhoodDisabled(city, neighborhood)) {
-        const zone = zones.find(z => z.city === city && z.neighborhood === neighborhood);
-        if (zone) {
-          await fetch(`/api/admin/zones/${zone.id}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          toast.success(`${neighborhood} (${city}) réactivé`);
-        }
-      } else {
-        const res = await fetch('/api/admin/zones', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ city, neighborhood, reason: reasonInput || null }),
-        });
-        if (!res.ok) { const d = await res.json(); toast.error(d.error); return; }
-        const d = await res.json();
-        toast.success(`${neighborhood} (${city}) désactivé — ${d.affectedRestaurants} restaurants impactés`);
-        setReasonInput('');
-      }
-      fetchZones(); fetchAffected();
-    } catch { toast.error('Erreur'); }
-    finally { setSubmitting(false); }
+  function toggleNeighborhood(city: string, neighborhood: string) {
+    if (isNeighborhoodDisabled(city, neighborhood)) {
+      const updated = zones.filter(z => !(z.city === city && z.neighborhood === neighborhood));
+      setZones(updated); writeZones(updated);
+      toast.success(`${neighborhood} réactivé`);
+    } else {
+      const zone: DisabledZone = { id: crypto.randomUUID(), city, neighborhood, reason: reasonInput || null, disabledAt: new Date().toISOString() };
+      const updated = [zone, ...zones];
+      setZones(updated); writeZones(updated);
+      toast.success(`${neighborhood} (${city}) désactivé`);
+      setReasonInput('');
+    }
   }
 
   const filteredCities = search
@@ -129,7 +77,7 @@ export default function AdminZones() {
     <div className="max-w-4xl mx-auto p-4 sm:p-8">
       <div className="flex items-center gap-3 mb-2">
         <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
-          <Shield className="w-5 h-5 text-amber-600" />
+          <MapPin className="w-5 h-5 text-amber-600" />
         </div>
         <div>
           <h1 className="font-poppins font-bold text-text-primary text-2xl">Gestion des Zones</h1>
@@ -143,10 +91,7 @@ export default function AdminZones() {
           <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
           {zones.length} zone{zones.length > 1 ? 's' : ''} désactivée{zones.length > 1 ? 's' : ''}
         </div>
-        <div className="flex items-center gap-2 bg-amber-50 text-amber-700 text-xs font-inter font-medium px-3 py-1.5 rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-          {affectedCount} restaurant{affectedCount > 1 ? 's' : ''} impacté{affectedCount > 1 ? 's' : ''}
-        </div>
+
         <input
           type="text"
           value={reasonInput}
@@ -189,7 +134,7 @@ export default function AdminZones() {
               {/* Toggle switch */}
               <button
                 onClick={() => toggleCity(city.name)}
-                disabled={submitting}
+                disabled={false}
                 className={`relative w-11 h-6 rounded-full transition-colors shrink-0 disabled:opacity-50 ${isCityDisabled(city.name) ? 'bg-red-500' : 'bg-gray-300'
                   }`}
               >
@@ -206,7 +151,7 @@ export default function AdminZones() {
                     <span className="font-inter text-sm text-text-secondary">{nbh.name}</span>
                     <button
                       onClick={() => toggleNeighborhood(city.name, nbh.name)}
-                      disabled={submitting || isCityDisabled(city.name)}
+                      disabled={isCityDisabled(city.name)}
                       className={`relative w-10 h-5 rounded-full transition-colors shrink-0 disabled:opacity-40 ${isCityDisabled(city.name)
                         ? 'bg-gray-300 cursor-not-allowed'
                         : isNeighborhoodDisabled(city.name, nbh.name)

@@ -154,7 +154,7 @@ export function inferDietaryTags(item: MenuItem): string[] {
 
   return [...new Set(tags.map(normalizeTag))];
 }
-/** Slug URL-safe pour la route /plat/:slug — dérivé de normalizeDishName. */
+/** Slug URL-safe pour la route /article/:slug — dérivé de normalizeDishName. */
 export function dishSlug(name: string): string {
   return normalizeDishName(name).replace(/\s+/g, '-');
 }

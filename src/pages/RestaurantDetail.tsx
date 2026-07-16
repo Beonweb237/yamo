@@ -18,7 +18,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Camera,
+  Store,
+  Sparkles,
 } from 'lucide-react';
+import { Skeleton } from '../components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +34,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useRestaurant, useMenuItems, useRestaurants } from '../hooks/useCatalog';
 import { useFavorites } from '../hooks/useFavorites';
 import { fetchRestaurantReviews, type RestaurantReview } from '../lib/catalog';
+import { isEffectivelyOpen, parseHours } from '../lib/hours';
 import { restaurantMenuCategories } from '../data/mockData';
 import type { MenuItem } from '../data/mockData';
 
@@ -54,11 +58,16 @@ const categoryOrder = [
 ];
 
 export default function RestaurantDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { restaurant: fetchedRestaurant } = useRestaurant(id);
+  const { restaurant: fetchedById, loading: restaurantLoading } = useRestaurant(slug);
   const { restaurants } = useRestaurants();
-  const restaurant = fetchedRestaurant ?? restaurants[0];
+  // useRestaurant() ne résout que par id ; la route utilise un slug, d'où le
+  // repli sur la liste complète (déjà chargée en mémoire). Pas de dernier
+  // repli vers un restaurant arbitraire : un slug/id inconnu doit produire
+  // `undefined` (écran "introuvable" ci-dessous), jamais la fiche d'un autre
+  // établissement (CONF-09 — ux-audit-optimal.md).
+  const restaurant = fetchedById ?? restaurants.find(r => r.slug === slug || r.id === slug);
   const { items: menuItems } = useMenuItems(restaurant?.id);
   const [activeTab, setActiveTab] = useState('Populaires');
   const { favorites, toggleFavorite } = useFavorites();
@@ -66,7 +75,9 @@ export default function RestaurantDetail() {
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const { items, addToCart, replaceCartWith, updateQuantity, totalItems, totalPrice } = useCart();
   const { user } = useAuth();
-  const [conflictItem, setConflictItem] = useState<MenuItem | null>(null);
+  // Conflit de restaurant : on garde l'article ET son id de base (un plat
+  // personnalisé porte un id composite, différent de l'id du plat au menu).
+  const [conflictItem, setConflictItem] = useState<{ item: MenuItem; baseItemId: string } | null>(null);
 
   // Le panier reste accessible sans compte, mais passer commande exige une
   // session — direct vers la connexion plutôt que de laisser /checkout
@@ -84,9 +95,15 @@ export default function RestaurantDetail() {
   const [selectedVariant, setSelectedVariant] = useState(0);
   const [selectedSupplements, setSelectedSupplements] = useState<Set<number>>(new Set());
 
-  // Gallery: use explicit gallery array, or auto-generate from menu item images
+  // Gallery : deux vitrines distinctes.
+  // 1) "Galerie de nos plats" — uniquement des photos de plats réels du menu
+  //    (chaque photo reste cliquable pour ajouter le plat au panier).
+  // 2) "Coulisses" — vitrine optionnelle et facultative pour le restaurant
+  //    (ambiance, cuisine, équipe...), affichée uniquement si le restaurant a
+  //    fourni des photos qui ne sont pas déjà des photos de plats.
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [galleryMode, setGalleryMode] = useState<'plats' | 'coulisses'>('plats');
 
   // Map image URLs to menu items for the "commander depuis la galerie" feature
   const imageToMenuItem = useMemo(() => {
@@ -98,21 +115,44 @@ export default function RestaurantDetail() {
   }, [menuItems]);
 
   const galleryImages = useMemo(() => {
-    if (restaurant?.gallery?.length) return restaurant.gallery;
-    // Fallback: use menu item images (first 5 distinct ones)
-    const menuImages = [...new Set(menuItems.map(m => m.image).filter(Boolean))].slice(0, 5);
-    if (menuImages.length > 0) return menuImages;
-    // Last resort: restaurant main image
+    const restoItems = menuItems.filter((m) => m.restaurantId === restaurant?.id);
+    const dishImages = [...new Set(restoItems.map((m) => m.image).filter(Boolean))];
+    if (dishImages.length > 0) return dishImages;
+    // Aucune photo de plat : à défaut, la photo principale du restaurant.
     return restaurant?.image ? [restaurant.image] : [];
   }, [restaurant, menuItems]);
   const hasGallery = galleryImages.length > 0;
+
+  const ambianceImages = useMemo(() => {
+    if (!restaurant?.gallery?.length) return [];
+    const dishImageSet = new Set(galleryImages);
+    return restaurant.gallery.filter((img) => !dishImageSet.has(img));
+  }, [restaurant, galleryImages]);
+  const hasAmbianceGallery = ambianceImages.length > 0;
+
+  const activeGalleryImages = galleryMode === 'plats' ? galleryImages : ambianceImages;
+
+  const openGallery = (mode: 'plats' | 'coulisses', idx: number) => {
+    setGalleryMode(mode);
+    setGalleryIndex(idx);
+    setGalleryOpen(true);
+  };
 
   const customPrice = customizing
     ? customizing.price + (customizing.variants?.[selectedVariant]?.price ?? 0) +
     [...selectedSupplements].reduce((s, i) => s + (customizing.supplements?.[i]?.price ?? 0), 0)
     : 0;
 
+  // LOT-14 (CONF-36) : « ouvert » affiché/bloquant = toggle du restaurateur
+  // ET horaires réels (ancien format illisible → toggle seul, comme avant).
+  const restaurantOpen = restaurant ? isEffectivelyOpen(restaurant) : true;
+  const parsedHours = restaurant ? parseHours(restaurant.hours) : null;
+
   const handleAdd = (item: MenuItem) => {
+    if (restaurant && !restaurantOpen) {
+      toast.error('Ce restaurant est actuellement fermé.');
+      return;
+    }
     if (item.variants?.length || item.supplements?.length) {
       setCustomizing(item);
       setSelectedVariant(0);
@@ -120,7 +160,7 @@ export default function RestaurantDetail() {
       return;
     }
     if (addToCart(item) === 'conflict') {
-      setConflictItem(item);
+      setConflictItem({ item, baseItemId: item.id });
       return;
     }
     toast.success(`${item.name} ajouté au panier`);
@@ -129,11 +169,19 @@ export default function RestaurantDetail() {
   const confirmCustomized = () => {
     if (!customizing) return;
     const variant = customizing.variants?.[selectedVariant];
-    const suppNames = [...selectedSupplements].map((i) => customizing.supplements?.[i]?.name).filter(Boolean).join(', ');
+    const suppIndexes = [...selectedSupplements].sort((a, b) => a - b);
+    const suppNames = suppIndexes.map((i) => customizing.supplements?.[i]?.name).filter(Boolean).join(', ');
     const fullName = [customizing.name, variant?.name, suppNames].filter(Boolean).join(' + ');
-    const customized = { ...customizing, name: fullName, price: customPrice };
-    if (addToCart(customized) === 'conflict') {
-      setConflictItem(customized);
+    // Chaque combinaison variante/suppléments devient une ligne distincte du
+    // panier : id composite stable (indices triés), l'id d'origine restant
+    // porté par baseItemId pour le serveur et les compteurs du menu.
+    const isCustomized = Boolean(variant) || suppIndexes.length > 0;
+    const compositeId = isCustomized
+      ? `${customizing.id}::v${variant ? selectedVariant : ''}::s${suppIndexes.join('-')}`
+      : customizing.id;
+    const customized = { ...customizing, id: compositeId, name: fullName, price: customPrice };
+    if (addToCart(customized, customizing.id) === 'conflict') {
+      setConflictItem({ item: customized, baseItemId: customizing.id });
       setCustomizing(null);
       return;
     }
@@ -143,8 +191,8 @@ export default function RestaurantDetail() {
 
   const confirmReplaceCart = () => {
     if (!conflictItem) return;
-    replaceCartWith(conflictItem);
-    toast.success(`Panier remplacé — ${conflictItem.name} ajouté`);
+    replaceCartWith(conflictItem.item, conflictItem.baseItemId);
+    toast.success(`Panier remplacé — ${conflictItem.item.name} ajouté`);
     setConflictItem(null);
   };
 
@@ -153,18 +201,18 @@ export default function RestaurantDetail() {
   }, []);
 
   const menuItemsByCategory = useMemo(() => {
-    const restoItems = menuItems.filter((m) => m.restaurantId === restaurant.id);
+    const restoItems = menuItems.filter((m) => m.restaurantId === restaurant?.id);
     const groups: Record<string, MenuItem[]> = {};
     categoryOrder.forEach((cat) => {
       const items = restoItems.filter((m) => m.category === cat);
       if (items.length) groups[cat] = items;
     });
     return groups;
-  }, [restaurant.id, menuItems]);
+  }, [restaurant?.id, menuItems]);
 
   const hasPopularItems = useMemo(
-    () => menuItems.some((m) => m.restaurantId === restaurant.id && m.isPopular),
-    [restaurant.id, menuItems]
+    () => menuItems.some((m) => m.restaurantId === restaurant?.id && m.isPopular),
+    [restaurant?.id, menuItems]
   );
 
   const availableTabs = useMemo(
@@ -177,16 +225,19 @@ export default function RestaurantDetail() {
   const currentTab = availableTabs.includes(activeTab) ? activeTab : (availableTabs[0] ?? 'Populaires');
 
   const filteredItems = useMemo(() => {
-    const restoItems = menuItems.filter((m) => m.restaurantId === restaurant.id);
+    const restoItems = menuItems.filter((m) => m.restaurantId === restaurant?.id);
     if (currentTab === 'Populaires') {
       return restoItems.filter((m) => m.isPopular);
     }
     return restoItems.filter((m) => m.category === currentTab);
-  }, [currentTab, restaurant.id, menuItems]);
+  }, [currentTab, restaurant?.id, menuItems]);
 
+  // Quantité totale d'un plat du menu, toutes personnalisations confondues
+  // (les lignes personnalisées ont un id composite mais le même baseItemId).
   const getItemQuantity = (itemId: string) => {
-    const found = items.find((i) => i.item.id === itemId);
-    return found ? found.quantity : 0;
+    return items
+      .filter((i) => i.baseItemId === itemId)
+      .reduce((sum, i) => sum + i.quantity, 0);
   };
 
   // Real reviews from restaurant_reviews (fallback to empty while loading)
@@ -208,6 +259,85 @@ export default function RestaurantDetail() {
     const total = reviews.length;
     return counts.map((c) => ({ ...c, pct: total > 0 ? (c.count / total) * 100 : 0 }));
   }, [reviews]);
+
+  // Partage réel : Web Share API (mobile) avec repli copie du lien.
+  const handleShare = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: restaurant?.name ?? 'MiamExpress', url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      toast.success('Lien du restaurant copié');
+    } catch (err) {
+      // Partage annulé par l'utilisateur : silencieux. Autre échec : informer.
+      if ((err as Error)?.name !== 'AbortError') {
+        toast.error("Impossible de partager le lien");
+      }
+    }
+  };
+
+  // Restaurant dont provient le panier en cours : nom pour le message de
+  // conflit, minimum de commande pour le panier (CONF-10). C'est bien le
+  // restaurant DU PANIER (pas forcément celui de la page affichée).
+  const cartRestaurantObj = items[0]
+    ? restaurants.find((r) => r.id === items[0].item.restaurantId)
+    : undefined;
+  const cartRestaurantName = cartRestaurantObj?.name;
+  const cartMinOrder = cartRestaurantObj?.minOrder ?? 0;
+
+  // Chargement (id encore non résolu) : squelette — jamais la fiche d'un
+  // autre restaurant. Id inconnu : écran "introuvable" avec porte de sortie.
+  if (!restaurant) {
+    if (restaurantLoading) {
+      return (
+        <div className="pt-[72px] min-h-screen bg-bg-secondary">
+          <Skeleton className="h-[200px] sm:h-[280px] w-full rounded-none" />
+          <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+            <div className="bg-white rounded-xl border border-border-custom -mt-10 relative z-10 p-5 sm:p-6 mb-6">
+              <Skeleton className="h-8 w-64 mb-3" />
+              <Skeleton className="h-4 w-44 mb-4" />
+              <Skeleton className="h-4 w-full max-w-[520px]" />
+            </div>
+            <div className="bg-white rounded-xl border border-border-custom divide-y divide-border-light overflow-hidden">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-4 p-4">
+                  <div className="flex-1">
+                    <Skeleton className="h-5 w-48 mb-2" />
+                    <Skeleton className="h-3 w-72 mb-2" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                  <Skeleton className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg shrink-0" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-10 text-center max-w-[480px] w-full">
+          <div className="w-16 h-16 rounded-full bg-green-light flex items-center justify-center mx-auto mb-4">
+            <Store className="w-8 h-8 text-green-primary" />
+          </div>
+          <h1 className="font-poppins font-bold text-text-primary text-xl mb-2">
+            Restaurant introuvable
+          </h1>
+          <p className="text-text-secondary font-inter text-sm mb-6">
+            Ce restaurant n&apos;existe pas ou n&apos;est plus disponible sur MiamExpress.
+          </p>
+          <Link
+            to="/restaurants"
+            className="inline-flex items-center justify-center bg-green-primary text-white font-inter font-semibold h-11 px-6 rounded-lg hover:bg-green-dark transition-colors"
+          >
+            Voir les restaurants
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pt-[72px] min-h-screen bg-bg-secondary">
@@ -252,22 +382,36 @@ export default function RestaurantDetail() {
                 </span>
                 <span className="inline-flex items-center gap-1 text-text-muted text-xs font-inter">
                   <MapPin className="w-3.5 h-3.5" />
-                  1.2 km
+                  {restaurant.neighborhood}, {restaurant.city}
                 </span>
-                <span className="inline-flex items-center gap-1 text-text-muted text-xs font-inter">
-                  <Circle className="w-2 h-2 fill-success text-success" />
-                  Ouvert jusqu&apos;&agrave; {restaurant.hours.split(' - ')[1]}
-                </span>
+                {restaurantOpen ? (
+                  <span className="inline-flex items-center gap-1 text-text-muted text-xs font-inter">
+                    <Circle className="w-2 h-2 fill-success text-success" />
+                    {parsedHours ? <>Ouvert jusqu&apos;&agrave; {parsedHours.close}</> : 'Ouvert'}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 bg-error/10 text-error text-xs font-inter font-semibold px-2 py-0.5 rounded-full">
+                    <Circle className="w-2 h-2 fill-error text-error" />
+                    Fermé actuellement
+                    {/* Fermé par les horaires (pas par le restaurateur) → dire quand ça rouvre */}
+                    {restaurant.isOpen && parsedHours ? ` · ouvre à ${parsedHours.open}` : ''}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
               <button
                 onClick={() => restaurant && toggleFavorite(restaurant.id)}
+                aria-label={isFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
                 className="w-10 h-10 rounded-full bg-bg-secondary flex items-center justify-center hover:bg-border-light transition-colors"
               >
                 <Heart className={`w-5 h-5 ${isFav ? 'fill-error text-error' : 'text-text-secondary'}`} />
               </button>
-              <button className="w-10 h-10 rounded-full bg-bg-secondary flex items-center justify-center hover:bg-border-light transition-colors">
+              <button
+                onClick={handleShare}
+                aria-label="Partager ce restaurant"
+                className="w-10 h-10 rounded-full bg-bg-secondary flex items-center justify-center hover:bg-border-light transition-colors"
+              >
                 <Share2 className="w-5 h-5 text-text-secondary" />
               </button>
             </div>
@@ -285,7 +429,7 @@ export default function RestaurantDetail() {
                 <Camera className="w-4 h-4 text-green-primary" />
               </div>
               <h2 className="font-poppins font-semibold text-text-primary text-lg">
-                Galerie photo
+                Galerie de nos plats
               </h2>
               <span className="text-text-muted text-xs font-inter">
                 ({galleryImages.length} photos)
@@ -299,12 +443,11 @@ export default function RestaurantDetail() {
                     key={idx}
                     role="button"
                     tabIndex={0}
-                    onClick={() => { setGalleryIndex(idx); setGalleryOpen(true); }}
+                    onClick={() => openGallery('plats', idx)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        setGalleryIndex(idx);
-                        setGalleryOpen(true);
+                        openGallery('plats', idx);
                       }
                     }}
                     className={`relative overflow-hidden rounded-xl border border-border-custom hover:shadow-md transition-all group cursor-pointer ${idx === 0 ? 'sm:col-span-2 sm:row-span-2' : ''
@@ -335,8 +478,9 @@ export default function RestaurantDetail() {
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); handleAdd(linkedItem); }}
-                            className="w-7 h-7 rounded-full bg-green-primary text-white flex items-center justify-center hover:bg-green-dark hover:scale-110 transition-all shadow-md"
-                            title={`Ajouter ${linkedItem.name} au panier`}
+                            disabled={!restaurantOpen}
+                            className="w-7 h-7 rounded-full bg-green-primary text-white flex items-center justify-center hover:bg-green-dark hover:scale-110 transition-all shadow-md disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
+                            title={restaurantOpen ? `Ajouter ${linkedItem.name} au panier` : 'Restaurant actuellement fermé'}
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
@@ -354,6 +498,54 @@ export default function RestaurantDetail() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Coulisses — vitrine optionnelle du restaurant (ambiance, équipe, cuisine...) */}
+        {hasAmbianceGallery && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gold-light flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-gold-accent" />
+              </div>
+              <h2 className="font-poppins font-semibold text-text-primary text-lg">
+                Coulisses du restaurant
+              </h2>
+              <span className="text-text-muted text-xs font-inter">
+                ({ambianceImages.length} photos)
+              </span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+              {ambianceImages.map((img, idx) => (
+                <div
+                  key={idx}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openGallery('coulisses', idx)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openGallery('coulisses', idx);
+                    }
+                  }}
+                  className="relative shrink-0 w-40 sm:w-48 overflow-hidden rounded-xl border border-border-custom hover:shadow-md transition-all group cursor-pointer"
+                >
+                  <img
+                    src={img}
+                    alt={`${restaurant.name} - coulisses ${idx + 1}`}
+                    className="w-full h-full object-cover aspect-[4/3] group-hover:scale-105 transition-transform duration-300"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent(
+                        `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="#fdf5e0" width="100%" height="100%"/><text x="50%" y="50%" fill="#8a6d1f" font-size="14" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Photo ${idx + 1}</text></svg>`
+                      )}`;
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none">
+                    <Camera className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -397,7 +589,7 @@ export default function RestaurantDetail() {
                 </motion.div>
                 <div className="bg-white rounded-xl border border-border-custom overflow-hidden divide-y divide-border-light mb-8">
                   {filteredItems.map((item, i) => (
-                    <MenuRow key={item.id} item={item} index={i} getQty={getItemQuantity} onAdd={handleAdd} onUpdate={updateQuantity} />
+                    <MenuRow key={item.id} item={item} index={i} getQty={getItemQuantity} onAdd={handleAdd} onUpdate={updateQuantity} disabled={!restaurantOpen} />
                   ))}
                 </div>
                 {/* Other categories */}
@@ -411,7 +603,7 @@ export default function RestaurantDetail() {
                     </div>
                     <div className="bg-white rounded-xl border border-border-custom overflow-hidden divide-y divide-border-light">
                       {items.map((item, i) => (
-                        <MenuRow key={item.id} item={item} index={i} getQty={getItemQuantity} onAdd={handleAdd} onUpdate={updateQuantity} />
+                        <MenuRow key={item.id} item={item} index={i} getQty={getItemQuantity} onAdd={handleAdd} onUpdate={updateQuantity} disabled={!restaurantOpen} />
                       ))}
                     </div>
                   </div>
@@ -434,7 +626,7 @@ export default function RestaurantDetail() {
                 <div className="bg-white rounded-xl border border-border-custom overflow-hidden divide-y divide-border-light">
                   {filteredItems.length > 0 ? (
                     filteredItems.map((item, i) => (
-                      <MenuRow key={item.id} item={item} index={i} getQty={getItemQuantity} onAdd={handleAdd} onUpdate={updateQuantity} />
+                      <MenuRow key={item.id} item={item} index={i} getQty={getItemQuantity} onAdd={handleAdd} onUpdate={updateQuantity} disabled={!restaurantOpen} />
                     ))
                   ) : (
                     <div className="p-8 text-center text-text-secondary font-inter">
@@ -449,7 +641,7 @@ export default function RestaurantDetail() {
           {/* Cart Sidebar - Desktop */}
           <div className="hidden lg:block w-[380px] shrink-0">
             <div className="sticky top-[140px] bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-5">
-              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} deliveryFee={restaurant.deliveryFee} onUpdate={updateQuantity} onCheckout={handleCheckout} />
+              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} deliveryFee={restaurant.deliveryFee} minOrder={cartMinOrder} onUpdate={updateQuantity} onCheckout={handleCheckout} />
             </div>
           </div>
         </div>
@@ -532,7 +724,11 @@ export default function RestaurantDetail() {
                           </div>
                           <div>
                             <span className="font-inter font-semibold text-text-primary text-sm">
-                              Client MiamExpress
+                              {review.authorName || 'Client vérifié'}
+                            </span>
+                            {/* Tous les avis passent par une commande livrée (flux Orders.tsx) */}
+                            <span className="ml-2 inline-flex items-center gap-0.5 bg-green-light text-green-primary text-[10px] font-inter font-semibold px-1.5 py-0.5 rounded-full">
+                              ✓ Commande vérifiée
                             </span>
                             <span className="text-text-muted text-xs font-inter ml-2">
                               {timeAgoFr(review.createdAt)}
@@ -567,7 +763,7 @@ export default function RestaurantDetail() {
             {restaurants.filter((r) => r.id !== restaurant.id).slice(0, 4).map((resto) => (
               <Link
                 key={resto.id}
-                to={`/restaurant/${resto.id}`}
+                to={`/restaurant/${resto.slug || resto.id}`}
                 className="snap-start shrink-0 w-[260px] bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden hover:shadow-lg transition-shadow"
               >
                 <div className="aspect-[16/10] overflow-hidden">
@@ -595,27 +791,29 @@ export default function RestaurantDetail() {
             ))}
           </div>
         </section>
-      </div>
+      </div >
 
       {/* Mobile Cart Bar */}
-      {totalItems > 0 && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-border-custom shadow-[0_-4px_16px_rgba(0,0,0,0.08)] z-40 px-4 flex items-center justify-between">
-          <div>
-            <span className="text-text-secondary font-inter text-sm">
-              {totalItems} article{totalItems > 1 ? 's' : ''}
-            </span>
-            <span className="text-text-primary font-inter font-bold text-base ml-3">
-              {totalPrice.toLocaleString()} FCFA
-            </span>
+      {
+        totalItems > 0 && (
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-border-custom shadow-[0_-4px_16px_rgba(0,0,0,0.08)] z-40 px-4 flex items-center justify-between">
+            <div>
+              <span className="text-text-secondary font-inter text-sm">
+                {totalItems} article{totalItems > 1 ? 's' : ''}
+              </span>
+              <span className="text-text-primary font-inter font-bold text-base ml-3">
+                {totalPrice.toLocaleString()} FCFA
+              </span>
+            </div>
+            <button
+              onClick={() => setMobileCartOpen(true)}
+              className="bg-green-primary text-white font-inter font-medium text-sm px-5 h-10 rounded-full hover:bg-green-dark transition-colors"
+            >
+              Voir le panier &rarr;
+            </button>
           </div>
-          <button
-            onClick={() => setMobileCartOpen(true)}
-            className="bg-green-primary text-white font-inter font-medium text-sm px-5 h-10 rounded-full hover:bg-green-dark transition-colors"
-          >
-            Voir le panier &rarr;
-          </button>
-        </div>
-      )}
+        )
+      }
 
       {/* Mobile Cart Sheet */}
       <AnimatePresence>
@@ -642,7 +840,7 @@ export default function RestaurantDetail() {
                   <ChevronDown className="w-6 h-6 text-text-secondary" />
                 </button>
               </div>
-              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} deliveryFee={restaurant.deliveryFee} onUpdate={updateQuantity} onCheckout={handleCheckout} />
+              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} deliveryFee={restaurant.deliveryFee} minOrder={cartMinOrder} onUpdate={updateQuantity} onCheckout={handleCheckout} />
             </motion.div>
           </>
         )}
@@ -704,9 +902,12 @@ export default function RestaurantDetail() {
             <DialogTitle>Commencer un nouveau panier ?</DialogTitle>
           </DialogHeader>
           <p className="text-sm font-inter text-text-secondary">
-            Votre panier contient des articles d'un autre restaurant. Une commande ne peut
-            concerner qu'un seul restaurant à la fois. Voulez-vous vider le panier et
-            ajouter <span className="font-semibold text-text-primary">{conflictItem?.name}</span> ?
+            Votre panier contient des plats de{' '}
+            <span className="font-semibold text-text-primary">{cartRestaurantName ?? 'un autre restaurant'}</span>.
+            Une commande ne peut concerner qu&apos;un seul restaurant à la fois.
+            Voulez-vous le vider et ajouter{' '}
+            <span className="font-semibold text-text-primary">{conflictItem?.item.name}</span>
+            {' '}de <span className="font-semibold text-text-primary">{restaurant.name}</span> ?
           </p>
           <DialogFooter>
             <button onClick={() => setConflictItem(null)} className="px-4 h-10 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">Garder mon panier</button>
@@ -718,80 +919,89 @@ export default function RestaurantDetail() {
       </Dialog>
 
       {/* Gallery Lightbox */}
-      {galleryOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
-          onClick={() => setGalleryOpen(false)}
-        >
-          <button
+      {
+        galleryOpen && (
+          <div
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
             onClick={() => setGalleryOpen(false)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
           >
-            <X className="w-5 h-5" />
-          </button>
+            <button
+              onClick={() => setGalleryOpen(false)}
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
+            >
+              <X className="w-5 h-5" />
+            </button>
 
-          {galleryImages.length > 1 && (
-            <>
-              <button
-                onClick={(e) => { e.stopPropagation(); setGalleryIndex((galleryIndex - 1 + galleryImages.length) % galleryImages.length); }}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setGalleryIndex((galleryIndex + 1) % galleryImages.length); }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </>
-          )}
-
-          <img
-            src={galleryImages[galleryIndex]}
-            alt={`${restaurant.name} - photo ${galleryIndex + 1}`}
-            className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
-            onClick={(e) => e.stopPropagation()}
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent(
-                `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect fill="#1a1a1a" width="100%" height="100%"/><text x="50%" y="50%" fill="#fff" font-size="20" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Photo ${galleryIndex + 1}</text></svg>`
-              )}`;
-            }}
-          />
-
-          {/* Counter + thumbnails */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2">
-            <span className="text-white/80 text-sm font-inter">
-              {galleryIndex + 1} / {galleryImages.length}
-            </span>
-            <div className="flex gap-1.5">
-              {galleryImages.map((_, i) => (
+            {activeGalleryImages.length > 1 && (
+              <>
                 <button
-                  key={i}
-                  onClick={(e) => { e.stopPropagation(); setGalleryIndex(i); }}
-                  className={`w-2 h-2 rounded-full transition-all ${i === galleryIndex ? 'bg-white scale-125' : 'bg-white/40 hover:bg-white/60'}`}
-                />
-              ))}
+                  onClick={(e) => { e.stopPropagation(); setGalleryIndex((galleryIndex - 1 + activeGalleryImages.length) % activeGalleryImages.length); }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setGalleryIndex((galleryIndex + 1) % activeGalleryImages.length); }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </>
+            )}
+
+            <img
+              src={activeGalleryImages[galleryIndex]}
+              alt={`${restaurant.name} - photo ${galleryIndex + 1}`}
+              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent(
+                  `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect fill="#1a1a1a" width="100%" height="100%"/><text x="50%" y="50%" fill="#fff" font-size="20" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Photo ${galleryIndex + 1}</text></svg>`
+                )}`;
+              }}
+            />
+
+            {/* Counter + thumbnails */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2">
+              <span className="text-white/80 text-sm font-inter">
+                {galleryIndex + 1} / {activeGalleryImages.length}
+              </span>
+              <div className="flex gap-1.5">
+                {activeGalleryImages.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={(e) => { e.stopPropagation(); setGalleryIndex(i); }}
+                    className={`w-2 h-2 rounded-full transition-all ${i === galleryIndex ? 'bg-white scale-125' : 'bg-white/40 hover:bg-white/60'}`}
+                  />
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-    </div>
+    </div >
   );
 }
 
 /* Menu Row Component */
 function MenuRow({
-  item, index, getQty, onAdd, onUpdate,
+  item, index, getQty, onAdd, onUpdate, disabled = false,
 }: {
   item: MenuItem;
   index: number;
   getQty: (id: string) => number;
   onAdd: (item: MenuItem) => void;
   onUpdate: (id: string, qty: number) => void;
+  /** Restaurant fermé : les ajouts sont désactivés (retraits toujours possibles) */
+  disabled?: boolean;
 }) {
   const qty = getQty(item.id);
+  // Un plat personnalisable peut exister en plusieurs lignes du panier (ids
+  // composites) : le "−" du stepper ne saurait pas laquelle décrémenter. On
+  // affiche alors le total + un "+" qui rouvre la personnalisation ; les
+  // quantités se règlent ligne par ligne dans le panier.
+  const customizable = Boolean(item.variants?.length || item.supplements?.length);
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -826,10 +1036,28 @@ function MenuRow({
         {qty === 0 ? (
           <button
             onClick={() => onAdd(item)}
-            className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-green-primary text-white flex items-center justify-center shadow-md hover:bg-green-dark hover:scale-110 transition-all"
+            disabled={disabled}
+            aria-label={disabled ? 'Restaurant actuellement fermé' : `Ajouter ${item.name} au panier`}
+            title={disabled ? 'Restaurant actuellement fermé' : undefined}
+            className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-green-primary text-white flex items-center justify-center shadow-md hover:bg-green-dark hover:scale-110 transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4" />
           </button>
+        ) : customizable ? (
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white rounded-full shadow-md border border-border-custom px-1 py-0.5">
+            <span className="text-text-primary font-inter font-semibold text-xs w-5 text-center" aria-label={`${qty} au panier`}>
+              {qty}
+            </span>
+            <button
+              onClick={() => onAdd(item)}
+              disabled={disabled}
+              aria-label={disabled ? 'Restaurant actuellement fermé' : `Ajouter une autre personnalisation de ${item.name}`}
+              title={disabled ? 'Restaurant actuellement fermé' : undefined}
+              className="w-6 h-6 rounded-full bg-green-primary text-white flex items-center justify-center hover:bg-green-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
+          </div>
         ) : (
           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white rounded-full shadow-md border border-border-custom px-1 py-0.5">
             <button
@@ -841,7 +1069,10 @@ function MenuRow({
             <span className="text-text-primary font-inter font-semibold text-xs w-4 text-center">{qty}</span>
             <button
               onClick={() => onAdd(item)}
-              className="w-6 h-6 rounded-full bg-green-primary text-white flex items-center justify-center hover:bg-green-dark transition-colors"
+              disabled={disabled}
+              aria-label={disabled ? 'Restaurant actuellement fermé' : `Ajouter ${item.name}`}
+              title={disabled ? 'Restaurant actuellement fermé' : undefined}
+              className="w-6 h-6 rounded-full bg-green-primary text-white flex items-center justify-center hover:bg-green-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-3 h-3" />
             </button>
@@ -854,15 +1085,20 @@ function MenuRow({
 
 /* Cart Content Component */
 function CartContent({
-  items, totalItems, totalPrice, deliveryFee, onUpdate, onCheckout,
+  items, totalItems, totalPrice, deliveryFee, minOrder = 0, onUpdate, onCheckout,
 }: {
   items: { item: MenuItem; quantity: number }[];
   totalItems: number;
   totalPrice: number;
   deliveryFee: number;
+  /** Minimum de commande du restaurant du panier (0 = aucune contrainte) */
+  minOrder?: number;
   onUpdate: (id: string, qty: number) => void;
   onCheckout: () => void;
 }) {
+  const belowMinimum = minOrder > 0 && totalPrice < minOrder;
+  const missingForMinimum = belowMinimum ? minOrder - totalPrice : 0;
+
   if (totalItems === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10">
@@ -930,9 +1166,17 @@ function CartContent({
           <span className="text-text-primary font-bold text-lg">{(totalPrice + deliveryFee).toLocaleString()} FCFA</span>
         </div>
       </div>
+      {belowMinimum && (
+        <p className="mt-3 bg-gold-light text-gold-accent rounded-lg px-3 py-2 text-xs font-inter" role="status">
+          <span className="font-semibold">Commande minimum : {minOrder.toLocaleString()} FCFA.</span>{' '}
+          Ajoutez {missingForMinimum.toLocaleString()} FCFA d&apos;articles.
+        </p>
+      )}
       <button
         onClick={onCheckout}
-        className="w-full mt-4 bg-green-primary text-white font-inter font-semibold h-[52px] rounded-lg hover:bg-green-dark transition-colors"
+        disabled={belowMinimum}
+        title={belowMinimum ? `Commande minimum : ${minOrder.toLocaleString()} FCFA` : undefined}
+        className="w-full mt-4 bg-green-primary text-white font-inter font-semibold h-[52px] rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
         Commander &mdash; {totalPrice.toLocaleString()} FCFA
       </button>

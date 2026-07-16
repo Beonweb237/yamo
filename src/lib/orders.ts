@@ -5,6 +5,25 @@ import { parseCityFromAddress, parseNeighborhoodFromAddress } from '../data/loca
 
 const LOCAL_USERS_KEY = 'yamo_local_users'; // shared with AuthContext/applications.ts
 
+// LOT-16 (CONF-21) : un client bloqué par l'admin (AdminCustomers) ne peut
+// plus passer commande. Erreur dédiée pour un message clair au checkout.
+export class CustomerBlockedError extends Error {
+  constructor() {
+    super('Compte client bloqué');
+    this.name = 'CustomerBlockedError';
+  }
+}
+
+function isCustomerBlocked(customerId: string): boolean {
+  try {
+    const registry = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) ?? '{}') as Record<string, { id?: string; isSuspended?: boolean }>;
+    const entry = Object.values(registry).find((u) => u?.id === customerId);
+    return Boolean(entry?.isSuspended);
+  } catch {
+    return false;
+  }
+}
+
 function readLocalDriverZone(driverId: string): { city?: string | null; serviceNeighborhoods?: string[] | null } {
   try {
     const registry = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) ?? '{}');
@@ -12,6 +31,20 @@ function readLocalDriverZone(driverId: string): { city?: string | null; serviceN
     return { city: entry?.city ?? null, serviceNeighborhoods: entry?.serviceNeighborhoods ?? null };
   } catch {
     return {};
+  }
+}
+
+// Clé partagée avec drivers.ts (livreurs internes désignés par un restaurant
+// pour sa propre livraison) — lue directement ici plutôt qu'importée pour
+// éviter un import circulaire (drivers.ts importe déjà orders.ts).
+const LOCAL_OWN_DRIVERS_KEY = 'yamo_own_drivers';
+
+function isOwnDriverForRestaurant(restaurantId: string, driverId: string): boolean {
+  try {
+    const entries = JSON.parse(localStorage.getItem(LOCAL_OWN_DRIVERS_KEY) ?? '[]') as { restaurantId: string; driverId: string }[];
+    return entries.some((e) => e.restaurantId === restaurantId && e.driverId === driverId);
+  } catch {
+    return false;
   }
 }
 
@@ -30,6 +63,22 @@ function matchesDriverZone(
     return driverNeighborhoods.includes(restaurantNeighborhood);
   }
   return true;
+}
+
+/**
+ * Téléphone du livreur assigné à une commande (registre utilisateurs mock).
+ * Retourne null si le livreur n'est pas résolvable — l'appelant doit alors
+ * proposer le numéro du support à la place.
+ */
+export function getDriverPhone(driverId: string | null | undefined): string | null {
+  if (!driverId) return null;
+  try {
+    const registry = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) ?? '{}') as Record<string, { id?: string; phone?: string }>;
+    const entry = Object.values(registry).find((u) => u?.id === driverId);
+    return entry?.phone ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export type PaymentMethod = 'cash' | 'mtn_momo' | 'orange_money';
@@ -69,23 +118,49 @@ export interface OrderInput {
   notes?: string;
 }
 
+/** Auteur d'une annulation de commande. */
+export type CancelledBy = 'customer' | 'restaurant' | 'admin';
+
 export interface Order extends Omit<OrderInput, 'items'> {
   id: string;
   status: OrderStatus;
   createdAt: string;
   updatedAt?: string | null;
+  /** Motif d'annulation (obligatoire à l'annulation — CONF-04/CONF-12). */
+  cancellationReason?: string | null;
+  /** Qui a annulé la commande. */
+  cancelledBy?: CancelledBy | null;
+  /**
+   * Code de livraison à 4 chiffres (CONF-17 — preuve de livraison) : affiché
+   * au client pendant la livraison, saisi par le livreur pour clôturer.
+   */
+  deliveryCode?: string | null;
+  /** Clôturée sans code (repli « client sans code ») — visible par l'admin. */
+  deliveredWithoutCode?: boolean;
+  /** Litige d'annulation traité par l'admin (CONF-20). */
+  disputeResolved?: boolean;
+  /** Note de traitement du litige (admin). */
+  disputeResolutionNote?: string | null;
   confirmedAt?: string | null;
   preparationEtaMinutes?: number | null;
   estimatedReadyAt?: string | null;
   readyAt?: string | null;
   driverId?: string | null;
+  /**
+   * Mode de livraison choisi par le restaurant au moment de marquer la
+   * commande "Prête" — `'restaurant'` restreint la visibilité de la commande
+   * aux livreurs internes du restaurant (drivers.ts → getOwnDriverIds) au
+   * lieu de la diffuser à tous les livreurs de la zone. Absent/`'platform'` =
+   * comportement historique inchangé.
+   */
+  deliveryMode?: 'platform' | 'restaurant' | null;
   contactPhone?: string;
   recipient?: {
     name: string;
     phone: string;
     contactInstructions?: string;
   } | null;
-  items: { name: string; price: number; quantity: number }[];
+  items: { name: string; price: number; quantity: number; baseItemId?: string }[];
 }
 
 const LOCAL_ORDERS_KEY = 'yamo_local_orders';
@@ -199,6 +274,12 @@ export async function createOrder(input: OrderInput): Promise<Order> {
     );
   }
 
+  // LOT-16 (CONF-21) : blocage client vérifié au point de passage unique.
+  // Cible VPS : même règle côté serveur (POST /api/orders → 403 si bloqué).
+  if (isCustomerBlocked(input.customerId)) {
+    throw new CustomerBlockedError();
+  }
+
   const recipient = normalizeRecipient(input.recipient);
 
   if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
@@ -285,7 +366,9 @@ export async function createOrder(input: OrderInput): Promise<Order> {
 
     const orderItemsPayload = input.items.map((ci) => ({
       order_id: orderRow.id,
-      menu_item_id: ci.item.id,
+      // baseItemId = id réel du plat au menu (item.id peut être composite
+      // pour un plat personnalisé — voir CartContext).
+      menu_item_id: ci.baseItemId ?? ci.item.id,
       name: ci.item.name,
       price: ci.item.price,
       quantity: ci.quantity,
@@ -313,7 +396,7 @@ export async function createOrder(input: OrderInput): Promise<Order> {
       preparationEtaMinutes: null,
       estimatedReadyAt: null,
       readyAt: null,
-      items: input.items.map((ci) => ({ name: ci.item.name, price: ci.item.price, quantity: ci.quantity })),
+      items: input.items.map((ci) => ({ name: ci.item.name, price: ci.item.price, quantity: ci.quantity, baseItemId: ci.baseItemId })),
     };
   }
 
@@ -322,6 +405,9 @@ export async function createOrder(input: OrderInput): Promise<Order> {
   const now = new Date().toISOString();
   const order: Order = {
     id: crypto.randomUUID(),
+    // Preuve de livraison (CONF-17) : code communiqué au client, exigé du
+    // livreur à la clôture. Côté VPS : généré par le serveur à la création.
+    deliveryCode: String(Math.floor(1000 + Math.random() * 9000)),
     customerId: input.customerId,
     restaurantId: input.restaurantId,
     restaurantName: input.restaurantName,
@@ -340,7 +426,7 @@ export async function createOrder(input: OrderInput): Promise<Order> {
     preparationEtaMinutes: null,
     estimatedReadyAt: null,
     readyAt: null,
-    items: input.items.map((ci) => ({ name: ci.item.name, price: ci.item.price, quantity: ci.quantity })),
+    items: input.items.map((ci) => ({ name: ci.item.name, price: ci.item.price, quantity: ci.quantity, baseItemId: ci.baseItemId })),
   };
   const existing = readLocalOrders();
   writeLocalOrders([order, ...existing]);
@@ -448,7 +534,11 @@ export async function fetchOrdersByRestaurant(restaurantId: string): Promise<Ord
   return readLocalOrders().filter((o) => o.restaurantId === restaurantId);
 }
 
-export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
+export async function updateOrderStatus(
+  orderId: string,
+  status: OrderStatus,
+  deliveryMode?: 'platform' | 'restaurant'
+): Promise<void> {
   if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const now = new Date().toISOString();
     const payload: Record<string, unknown> = { status, updated_at: now };
@@ -469,7 +559,45 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus): P
   const now = new Date().toISOString();
   const updated = readLocalOrders().map((o) =>
     o.id === orderId
-      ? { ...o, status, updatedAt: now, readyAt: status === 'ready' ? now : o.readyAt }
+      ? {
+        ...o,
+        status,
+        updatedAt: now,
+        readyAt: status === 'ready' ? now : o.readyAt,
+        deliveryMode: status === 'ready' && deliveryMode ? deliveryMode : o.deliveryMode,
+      }
+      : o
+  );
+  writeLocalOrders(updated);
+}
+
+/**
+ * Annule une commande avec motif obligatoire et auteur (CONF-04/CONF-12).
+ * Contrat VPS cible : POST /api/orders/:id/cancel  body { reason, by }
+ * (le serveur vérifie que l'auteur a le droit d'annuler au statut courant).
+ * En mode mock : écriture directe dans yamo_local_orders.
+ */
+export async function cancelOrder(orderId: string, reason: string, by: CancelledBy): Promise<void> {
+  const cleanReason = reason.trim();
+  if (!cleanReason) throw new Error("Le motif d'annulation est obligatoire.");
+
+  const now = new Date().toISOString();
+  const updated = readLocalOrders().map((o) =>
+    o.id === orderId
+      ? { ...o, status: 'cancelled' as OrderStatus, cancellationReason: cleanReason, cancelledBy: by, updatedAt: now }
+      : o
+  );
+  writeLocalOrders(updated);
+}
+
+/**
+ * Marque le litige d'une commande annulée comme traité (admin — CONF-20).
+ * Contrat VPS cible : POST /api/admin/orders/:id/resolve-dispute { note? }
+ */
+export async function resolveOrderDispute(orderId: string, note?: string): Promise<void> {
+  const updated = readLocalOrders().map((o) =>
+    o.id === orderId
+      ? { ...o, disputeResolved: true, disputeResolutionNote: note?.trim() || null }
       : o
   );
   writeLocalOrders(updated);
@@ -578,6 +706,12 @@ export async function fetchAvailableDeliveries(driverId: string): Promise<Order[
   return readLocalOrders()
     .filter((o) => o.status === 'ready' && !o.driverId)
     .filter((o) => {
+      // Livraison directe : uniquement visible par les livreurs internes
+      // désignés par ce restaurant, sans contrainte de zone (c'est le
+      // restaurant qui choisit ses livreurs, pas le matching automatique).
+      if (o.deliveryMode === 'restaurant') {
+        return isOwnDriverForRestaurant(o.restaurantId, driverId);
+      }
       const restaurant = mockRestaurants.find((r) => r.id === o.restaurantId);
       return matchesDriverZone(restaurant?.city, restaurant?.neighborhood, driverCity, driverNeighborhoods);
     })
@@ -650,7 +784,23 @@ export async function markPickedUp(orderId: string): Promise<void> {
   await updateOrderStatus(orderId, 'picked_up');
 }
 
-export async function markDelivered(orderId: string): Promise<void> {
+/**
+ * Clôture une livraison. `withoutCode: true` = repli « le client n'a pas son
+ * code » (tracé via `deliveredWithoutCode`, visible par l'admin — CONF-17).
+ * Contrat VPS cible : POST /api/orders/:id/deliver  body { code?, withoutCode? }
+ * (le serveur vérifie le code ; ici en mock la vérification est faite côté UI).
+ */
+export async function markDelivered(orderId: string, options?: { withoutCode?: boolean }): Promise<void> {
+  if (options?.withoutCode) {
+    const now = new Date().toISOString();
+    const updated = readLocalOrders().map((o) =>
+      o.id === orderId
+        ? { ...o, status: 'delivered' as OrderStatus, deliveredWithoutCode: true, updatedAt: now }
+        : o
+    );
+    writeLocalOrders(updated);
+    return;
+  }
   if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const now = new Date().toISOString();
     const { error: orderError } = await supabase

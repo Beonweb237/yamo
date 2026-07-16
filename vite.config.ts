@@ -2,57 +2,16 @@ import path from "path"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 import { inspectAttr } from 'plugin-inspect-react-code'
-import { VitePWA } from 'vite-plugin-pwa'
 
-// https://vite.dev/config/
+// PWA désactivé — le Service Worker causait des erreurs MIME à chaque déploiement
+// (anciens fichiers JS hashés servis en HTML par le fallback SPA)
+// import { VitePWA } from 'vite-plugin-pwa'
+
 export default defineConfig({
-  base: './',
+  base: '/',
   plugins: [
     inspectAttr(),
     react(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['logo-icon.png', 'logo-horizontal.png'],
-      manifest: {
-        name: 'Miamexpress — Livraison Premium',
-        short_name: 'Miamexpress',
-        description: 'Livraison de repas premium au Cameroun — Douala, Yaoundé et plus',
-        theme_color: '#2D6A4F',
-        background_color: '#ffffff',
-        display: 'standalone',
-        orientation: 'portrait',
-        start_url: '/',
-        scope: '/',
-        icons: [
-          {
-            src: 'pwa-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any',
-          },
-          {
-            src: 'pwa-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any',
-          },
-        ],
-      },
-      workbox: {
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB — large food images
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,webp}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/vkzsbkrjeekwhkzfuxvo\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api',
-              expiration: { maxEntries: 50, maxAgeSeconds: 300 },
-            },
-          },
-        ],
-      },
-    }),
   ],
   server: {
     port: 3000,

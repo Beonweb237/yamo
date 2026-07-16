@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { MapPin, Wallet, Smartphone, Loader2, CheckCircle2, UserRound, Phone, Navigation } from 'lucide-react';
+import { MapPin, Wallet, Smartphone, Loader2, CheckCircle2, UserRound, Phone, Navigation, Clock } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
-import { createOrder, type PaymentMethod } from '../lib/orders';
-import { validateOrder, initiateMoMoPayment } from '../lib/payments';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { createOrder, CustomerBlockedError, type PaymentMethod } from '../lib/orders';
+import { validateOrder, initiateMoMoPayment, isVpsApiEnabled, NetworkPaymentError } from '../lib/payments';
+import { Skeleton } from '../components/ui/skeleton';
 import { useRestaurant } from '../hooks/useCatalog';
 import { activeCities, getNeighborhoods, getNeighborhoodCoords } from '../data/locations';
 import { haversineDistance, estimateTime } from '../lib/utils';
@@ -70,10 +70,10 @@ const paymentOptions: {
   ];
 
 export default function Checkout() {
-  const { items, restaurantId, totalPrice, clearCart } = useCart();
+  const { items, restaurantId, totalPrice, totalItems, clearCart } = useCart();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { restaurant: cartRestaurant } = useRestaurant(restaurantId ?? undefined);
+  const { restaurant: cartRestaurant, loading: cartRestaurantLoading } = useRestaurant(restaurantId ?? undefined);
 
   const [city, setCity] = useState('Douala');
   const [neighborhood, setNeighborhood] = useState('');
@@ -154,6 +154,10 @@ export default function Checkout() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
+  // Délai estimé du restaurant, capturé au moment de la commande (le panier —
+  // et donc cartRestaurant — est vidé juste après ; sans capture, l'écran de
+  // confirmation ne pourrait plus l'afficher).
+  const [placedEta, setPlacedEta] = useState<string | null>(null);
   const [paymentNotice, setPaymentNotice] = useState('');
 
   const savedAddresses = useMemo(() => readAddresses(), []);
@@ -198,19 +202,30 @@ export default function Checkout() {
     }
   }, [items.length, placedOrderId, navigate]);
 
-  // Frais de livraison réels du restaurant du panier (0 tant que non chargé)
-  const deliveryFee = cartRestaurant && cartRestaurant.id === restaurantId
-    ? cartRestaurant.deliveryFee
-    : 0;
+  // Le restaurant du panier doit être résolu avant d'afficher des montants :
+  // tant qu'il charge, la ligne Livraison et le total montrent un état
+  // d'attente au lieu d'un faux « Gratuit » (CONF-11), et le CTA est bloqué.
+  const restaurantReady = Boolean(cartRestaurant && cartRestaurant.id === restaurantId);
+  // Panier orphelin : le restaurant du panier n'existe plus (retiré du
+  // catalogue entre-temps). Sans ce cas, l'écran resterait bloqué sur des
+  // skeletons sans explication (QA-14).
+  const cartRestaurantMissing = Boolean(restaurantId) && !cartRestaurantLoading && !restaurantReady;
+  const deliveryFee = restaurantReady && cartRestaurant ? cartRestaurant.deliveryFee : 0;
   const total = totalPrice + deliveryFee;
   const recipientMissing = orderForSomeoneElse && (!recipientName.trim() || !recipientPhone.trim());
+
+  // Minimum de commande du restaurant (CONF-10) : affiché et bloquant tant
+  // que le sous-total ne l'atteint pas. minOrder = 0 → aucune contrainte.
+  const minOrder = restaurantReady && cartRestaurant ? (cartRestaurant.minOrder ?? 0) : 0;
+  const belowMinimum = minOrder > 0 && totalPrice < minOrder;
+  const missingForMinimum = belowMinimum ? minOrder - totalPrice : 0;
 
   // Certains restaurants (découverts via /explorer ou un plat, voir dishes.ts)
   // n'existent que dans le catalogue de démo local et n'ont pas de ligne
   // réelle en base — commander échouerait au dernier moment côté serveur
   // ("Restaurant introuvable"). Repère le même format d'ID que catalog.ts
   // (isMockId) pour bloquer la commande plus tôt, avec un message clair.
-  const isPreviewOnlyRestaurant = isSupabaseConfigured
+  const isPreviewOnlyRestaurant = isVpsApiEnabled
     && !!restaurantId
     && (!restaurantId.includes('-') || restaurantId.length < 30);
 
@@ -227,6 +242,14 @@ export default function Checkout() {
         setError('Renseignez le nom et le numéro du bénéficiaire.');
         return;
       }
+      if (!restaurantReady) {
+        setError('Les informations du restaurant sont encore en cours de chargement. Patientez un instant.');
+        return;
+      }
+      if (belowMinimum) {
+        setError(`Commande minimum de ${minOrder.toLocaleString()} FCFA non atteinte.`);
+        return;
+      }
 
       const recipient = orderForSomeoneElse
         ? {
@@ -241,12 +264,17 @@ export default function Checkout() {
       let serverTotal = total;
 
       // Validation serveur (prix, disponibilité, minimum de commande, promo)
-      // quand Supabase est configuré — les montants serveur font foi.
-      if (isSupabaseConfigured) {
+      // en mode VPS — les montants serveur font foi. En cas d'échec technique
+      // la commande est BLOQUÉE : aucun repli silencieux sur les montants
+      // client (CONF-03 / R-02 — intégrité des prix). En mode mock (dev sans
+      // backend), les montants client restent la référence.
+      if (isVpsApiEnabled) {
         try {
           const validation = await validateOrder({
             restaurantId,
-            items: items.map(({ item, quantity }) => ({ menuItemId: item.id, quantity })),
+            // baseItemId : id du plat au menu (item.id peut être un id
+            // composite pour une personnalisation, inconnu du serveur).
+            items: items.map(({ baseItemId, quantity }) => ({ menuItemId: baseItemId, quantity })),
             promoCode: promoCode.trim() || undefined,
           });
           serverSubtotal = validation.subtotal;
@@ -254,14 +282,16 @@ export default function Checkout() {
           serverTotal = validation.total;
           setAppliedDiscount(validation.discount ?? 0);
         } catch (validationErr) {
-          const message = (validationErr as Error).message;
-          // Erreurs métier explicites (restaurant fermé, minimum non atteint…)
-          if (message && !message.startsWith('HTTP') && !message.includes('fetch')) {
-            setError(message);
-            setSubmitting(false);
-            return;
+          if (validationErr instanceof NetworkPaymentError) {
+            // Serveur injoignable / réponse invalide : on ne devine pas les
+            // montants, on invite à réessayer (le panier est conservé).
+            setError('Impossible de vérifier votre commande pour le moment (connexion instable). Vos articles sont conservés — réessayez dans un instant.');
+          } else {
+            // Erreur métier explicite (restaurant fermé, minimum non atteint,
+            // plat indisponible…) : message serveur affiché tel quel.
+            setError((validationErr as Error).message || 'Commande refusée par le serveur.');
           }
-          // Edge function injoignable : on continue avec les montants client.
+          return;
         }
       }
 
@@ -288,7 +318,7 @@ export default function Checkout() {
       });
 
       // Paiement MTN MoMo : déclenche la demande de confirmation sur le téléphone
-      if (paymentMethod === 'mtn_momo' && isSupabaseConfigured) {
+      if (paymentMethod === 'mtn_momo' && isVpsApiEnabled) {
         try {
           const payment = await initiateMoMoPayment({
             orderId: order.id,
@@ -303,10 +333,15 @@ export default function Checkout() {
         setPaymentNotice('Le paiement Orange Money sera confirmé avec vous par le support. En attendant, la commande est enregistrée.');
       }
 
+      setPlacedEta(cartRestaurant?.deliveryTime ?? null);
       setPlacedOrderId(order.id);
       clearCart();
-    } catch {
-      setError('Impossible de valider la commande. Réessayez.');
+    } catch (err) {
+      if (err instanceof CustomerBlockedError) {
+        setError("Votre compte a été bloqué et ne peut plus passer de commande. Contactez le support via la page Contact pour en savoir plus.");
+      } else {
+        setError('Impossible de valider la commande. Réessayez.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -332,9 +367,16 @@ export default function Checkout() {
           <h1 className="font-poppins font-bold text-text-primary text-2xl mb-2">
             Commande confirmée !
           </h1>
-          <p className="text-text-secondary font-inter text-sm mb-6">
+          <p className="text-text-secondary font-inter text-sm mb-2">
             Référence : <span className="font-semibold text-text-primary">{placedOrderId.slice(0, 8)}</span>
           </p>
+          {placedEta && (
+            <p className="inline-flex items-center gap-1.5 bg-green-light text-green-primary font-inter text-sm font-medium px-3 py-1.5 rounded-full mb-6">
+              <Clock className="w-4 h-4" />
+              Livraison estimée : {placedEta}
+            </p>
+          )}
+          {!placedEta && <span className="block mb-4" />}
           {paymentNotice && (
             <p className="text-text-secondary font-inter text-sm mb-6 bg-bg-secondary rounded-lg p-3">
               {paymentNotice}
@@ -369,7 +411,7 @@ export default function Checkout() {
             Finaliser la commande
           </h1>
           <p className="text-white/75 font-inter text-base">
-            {items.length} article{items.length !== 1 ? 's' : ''} · {total.toLocaleString()} FCFA
+            {totalItems} article{totalItems !== 1 ? 's' : ''} · {total.toLocaleString()} FCFA
           </p>
         </div>
       </section>
@@ -704,13 +746,23 @@ export default function Checkout() {
                 <span className="text-success font-medium">-{appliedDiscount.toLocaleString()} FCFA</span>
               </div>
             )}
-            <div className="flex justify-between text-sm font-inter">
+            <div className="flex justify-between items-center text-sm font-inter">
               <span className="text-text-secondary">Livraison</span>
-              <span className="text-success font-medium">{deliveryFee === 0 ? 'Gratuit' : `${deliveryFee} FCFA`}</span>
+              {restaurantReady ? (
+                <span className={deliveryFee === 0 ? 'text-success font-medium' : 'text-text-primary font-medium'}>
+                  {deliveryFee === 0 ? 'Gratuit' : `${deliveryFee.toLocaleString()} FCFA`}
+                </span>
+              ) : (
+                <Skeleton className="h-4 w-16" aria-label="Frais de livraison en cours de chargement" />
+              )}
             </div>
-            <div className="border-t border-border-light pt-2 flex justify-between font-inter">
+            <div className="border-t border-border-light pt-2 flex justify-between items-center font-inter">
               <span className="text-text-primary font-bold text-lg">Total</span>
-              <span className="text-text-primary font-bold text-lg">{total.toLocaleString()} FCFA</span>
+              {restaurantReady ? (
+                <span className="text-text-primary font-bold text-lg">{total.toLocaleString()} FCFA</span>
+              ) : (
+                <Skeleton className="h-6 w-24" aria-label="Total en cours de chargement" />
+              )}
             </div>
           </div>
         </section>
@@ -720,11 +772,28 @@ export default function Checkout() {
             Ce restaurant est un aperçu de démonstration et n&apos;est pas encore disponible à la commande.
           </p>
         )}
-        {error && <p className="text-error text-sm font-inter mb-4">{error}</p>}
+        {cartRestaurantMissing && (
+          <div className="bg-error/10 text-error rounded-lg px-3 py-2.5 text-sm font-inter mb-4" role="alert">
+            <span className="font-semibold">Le restaurant de votre panier n&apos;est plus disponible.</span>{' '}
+            <Link to="/restaurants" className="underline font-medium hover:opacity-80">
+              Choisir un autre restaurant
+            </Link>
+          </div>
+        )}
+        {belowMinimum && (
+          <div className="bg-gold-light text-gold-accent rounded-lg px-3 py-2.5 text-sm font-inter mb-4" role="status">
+            <span className="font-semibold">Commande minimum : {minOrder.toLocaleString()} FCFA.</span>{' '}
+            Ajoutez {missingForMinimum.toLocaleString()} FCFA d&apos;articles pour valider.{' '}
+            <Link to={`/restaurant/${restaurantId}`} className="underline font-medium hover:opacity-80">
+              Retourner au menu
+            </Link>
+          </div>
+        )}
+        {error && <p className="text-error text-sm font-inter mb-4" role="alert">{error}</p>}
 
         <button
           onClick={handlePlaceOrder}
-          disabled={submitting || !effectiveNeighborhood || !landmark || isPreviewOnlyRestaurant}
+          disabled={submitting || !effectiveNeighborhood || !landmark || isPreviewOnlyRestaurant || !restaurantReady || belowMinimum}
           className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark hover:shadow-lg active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
         >
           {submitting ? (

@@ -10,7 +10,7 @@ const roleRedirects: Record<UserRole, string> = {
   client: '/',
   restaurant: '/partenaires/dashboard',
   livreur: '/livreurs/dashboard',
-  admin: '/admin',
+  admin: '/admin/dashboard',
 };
 
 const roleLabels: Record<UserRole, string> = {

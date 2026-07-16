@@ -11,12 +11,16 @@ interface LazyDeliveryMapProps {
   height?: string;
   scrollWheelZoom?: boolean;
   onMapClick?: (lat: number, lng: number) => void;
+  /** Affiche un badge "Position estimée" sur la carte */
+  estimated?: boolean;
+  /** Masquer les boutons Waze/Google Maps (ex: usage catalogue) */
+  hideNavigation?: boolean;
 }
 
-export default function LazyDeliveryMap({ points, height = '400px', scrollWheelZoom, onMapClick }: LazyDeliveryMapProps) {
+export default function LazyDeliveryMap({ points, height = '400px', scrollWheelZoom, onMapClick, estimated, hideNavigation }: LazyDeliveryMapProps) {
   return (
     <Suspense fallback={<Skeleton className="rounded-xl w-full" style={{ height }} />}>
-      <DeliveryMap points={points} height={height} scrollWheelZoom={scrollWheelZoom} onMapClick={onMapClick} />
+      <DeliveryMap points={points} height={height} scrollWheelZoom={scrollWheelZoom} onMapClick={onMapClick} estimated={estimated} hideNavigation={hideNavigation} />
     </Suspense>
   );
 }

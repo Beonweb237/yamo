@@ -71,11 +71,15 @@ function ClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void
   return null;
 }
 
-export default function DeliveryMap({ points, height = '400px', scrollWheelZoom = true, onMapClick }: {
+export default function DeliveryMap({ points, height = '400px', scrollWheelZoom = true, onMapClick, estimated = false, hideNavigation = false }: {
   points: MapPoint[];
   height?: string;
   scrollWheelZoom?: boolean;
   onMapClick?: (lat: number, lng: number) => void;
+  /** Affiche un badge "Position estimée" — positions non suivies en temps réel */
+  estimated?: boolean;
+  /** Masquer les boutons Waze/Google Maps (ex: usage catalogue restaurants) */
+  hideNavigation?: boolean;
 }) {
   const driverPoint = points.find((p) => p.type === 'driver');
   const customerPoint = points.find((p) => p.type === 'customer');
@@ -94,7 +98,12 @@ export default function DeliveryMap({ points, height = '400px', scrollWheelZoom 
 
   return (
     <div>
-      <div style={{ height }} className="rounded-xl overflow-hidden border border-border-custom">
+      <div style={{ height }} className="relative rounded-xl overflow-hidden border border-border-custom">
+        {estimated && (
+          <span className="absolute top-2 right-2 z-[500] bg-white/95 text-text-secondary text-[11px] font-inter font-medium px-2.5 py-1 rounded-full border border-border-custom shadow-sm pointer-events-none">
+            Position estimée
+          </span>
+        )}
         <MapContainer
           center={center}
           zoom={14}
@@ -125,7 +134,7 @@ export default function DeliveryMap({ points, height = '400px', scrollWheelZoom 
       </div>
 
       {/* Navigation buttons */}
-      {dest && (
+      {!hideNavigation && dest && (
         <div className="flex gap-2 mt-2">
           <a
             href={wazeUrl}

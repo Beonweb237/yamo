@@ -1,11 +1,15 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
   Star, MapPin, Clock, Store, Flame, ChevronRight, ImageOff,
   Leaf, Beef, Wheat, Coffee, Apple, Heart,
+  ShoppingCart, Plus, Minus, Check, Send, UserRound,
 } from 'lucide-react';
 import { useRestaurants } from '../hooks/useCatalog';
 import { useFavoriteDishes } from '../hooks/useFavoriteDishes';
+import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext';
 import { menuItems as mockMenuItems } from '../data/mockData';
 import {
   buildEnrichedItems,
@@ -13,7 +17,16 @@ import {
   dishSlug,
   DIETARY_TAG_META,
   normalizeDishName,
+  type EnrichedItem,
 } from '../lib/dishes';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../components/ui/dialog';
 
 const DIETARY_ICONS: Record<string, typeof Leaf> = {
   'sans-sucre': Coffee, diabetique: Apple, 'pauvre-en-sel': Wheat, vegetarien: Leaf,
@@ -36,7 +49,13 @@ export default function DishDetail() {
 function DishDetailContent({ slug }: { slug?: string }) {
   const { restaurants } = useRestaurants();
   const { favoriteDishes, toggleFavoriteDish } = useFavoriteDishes();
+  const { user } = useAuth();
+  const { items: cartItems, addToCart, removeFromCart, replaceCartWith } = useCart();
+  const navigate = useNavigate();
   const [galleryIndex, setGalleryIndex] = useState(0);
+
+  // Quick Order
+  const [quickOrderItem, setQuickOrderItem] = useState<EnrichedItem | null>(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -83,6 +102,75 @@ function DishDetailContent({ slug }: { slug?: string }) {
       .slice(0, 4);
   }, [dish, dishGroups]);
 
+  // ── Quick Order : sélectionner le meilleur restaurant ──
+  const cartItemIds = useMemo(() => new Set(cartItems.map(ci => ci.item.id)), [cartItems]);
+
+  // Meilleur item : même ville d'abord, puis moins cher
+  const bestItem = useMemo(() => {
+    if (!dish) return null;
+    const userCity = user?.city?.trim();
+    // Priorité 1 : même ville que le user, trié par prix
+    const sameCity = dish.items.filter(i => userCity && i.restaurantCity === userCity);
+    if (sameCity.length > 0) return sameCity.sort((a, b) => a.price - b.price)[0];
+    // Priorité 2 : le moins cher tout court
+    return [...dish.items].sort((a, b) => a.price - b.price)[0];
+  }, [dish, user]);
+
+  const isInCart = bestItem ? cartItemIds.has(bestItem.id) : false;
+
+  const handleQuickAdd = () => {
+    if (!bestItem) return;
+    if (!user) {
+      navigate('/connexion', { state: { from: `/article/${slug}` } });
+      return;
+    }
+    const uCity = user.city?.trim();
+    const restoCity = bestItem.restaurantCity?.trim();
+    if (uCity && restoCity && uCity !== restoCity) {
+      setQuickOrderItem(bestItem);
+      return;
+    }
+    const result = addToCart(bestItem);
+    if (result === 'conflict') {
+      setQuickOrderItem(bestItem);
+    } else {
+      toast.success(`${bestItem.name} ajouté au panier`, {
+        description: bestItem.restaurantName,
+        action: { label: 'Panier', onClick: () => navigate('/checkout') },
+      });
+    }
+  };
+
+  const handleQuickRemove = () => {
+    if (!bestItem) return;
+    removeFromCart(bestItem.id);
+    toast.success('Retiré du panier');
+  };
+
+  const handleReplaceCart = () => {
+    if (!quickOrderItem) return;
+    replaceCartWith(quickOrderItem);
+    setQuickOrderItem(null);
+    toast.success(`${quickOrderItem.name} ajouté au panier`, {
+      description: quickOrderItem.restaurantName,
+      action: { label: 'Panier', onClick: () => navigate('/checkout') },
+    });
+  };
+
+  const handleOrderForOther = () => {
+    if (!quickOrderItem) return;
+    const params = new URLSearchParams();
+    params.set('plat', quickOrderItem.name);
+    params.set('ville', quickOrderItem.restaurantCity);
+    if (quickOrderItem.restaurantName) params.set('restaurant', quickOrderItem.restaurantName);
+    setQuickOrderItem(null);
+    navigate(`/demandes/nouvelle?${params.toString()}`);
+  };
+
+  const orderItemCity = quickOrderItem?.restaurantCity ?? '';
+  const userCity = user?.city?.trim() ?? '';
+  const isDifferentCity = Boolean(userCity && orderItemCity && userCity !== orderItemCity);
+
   if (!dish) {
     return (
       <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
@@ -90,7 +178,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
           <p className="text-text-secondary font-inter font-medium mb-3">
             Ce plat n'existe pas ou n'est plus disponible.
           </p>
-          <Link to="/explorer" className="text-green-primary font-inter text-sm font-medium hover:underline">
+          <Link to="/restaurants?mode=plats" className="text-green-primary font-inter text-sm font-medium hover:underline">
             Retour à l'exploration des plats
           </Link>
         </div>
@@ -103,12 +191,12 @@ function DishDetailContent({ slug }: { slug?: string }) {
   const heroImage = galleryImages[galleryIndex] ?? dish.bestImage;
 
   return (
-    <div className="pt-[72px] min-h-screen bg-bg-secondary">
+    <div className="pt-[72px] min-h-screen bg-bg-secondary pb-20">
       <div className="max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="text-text-muted text-xs font-inter mb-4">
           <Link to="/" className="hover:text-text-primary transition-colors">Accueil</Link>
           <span className="mx-2">/</span>
-          <Link to="/explorer" className="hover:text-text-primary transition-colors">Explorer</Link>
+          <Link to="/restaurants?mode=plats" className="hover:text-text-primary transition-colors">Explorer</Link>
           <span className="mx-2">/</span>
           <span className="text-text-primary">{dish.displayName}</span>
         </div>
@@ -189,14 +277,23 @@ function DishDetailContent({ slug }: { slug?: string }) {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-          <div className="bg-white rounded-xl border border-border-custom p-4 text-center">
-            <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide mb-1">À partir de</p>
-            <p className="font-poppins font-bold text-text-primary text-lg">{dish.minPrice.toLocaleString()} FCFA</p>
-          </div>
-          <div className="bg-white rounded-xl border border-border-custom p-4 text-center">
-            <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide mb-1">Jusqu'à</p>
-            <p className="font-poppins font-bold text-text-primary text-lg">{dish.maxPrice.toLocaleString()} FCFA</p>
-          </div>
+          {dish.minPrice === dish.maxPrice ? (
+            <div className="bg-white rounded-xl border border-border-custom p-4 text-center col-span-2 sm:col-span-2">
+              <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide mb-1">Prix</p>
+              <p className="font-poppins font-bold text-text-primary text-lg">{dish.minPrice.toLocaleString()} FCFA</p>
+            </div>
+          ) : (
+            <>
+              <div className="bg-white rounded-xl border border-border-custom p-4 text-center">
+                <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide mb-1">À partir de</p>
+                <p className="font-poppins font-bold text-text-primary text-lg">{dish.minPrice.toLocaleString()} FCFA</p>
+              </div>
+              <div className="bg-white rounded-xl border border-border-custom p-4 text-center">
+                <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide mb-1">Jusqu'à</p>
+                <p className="font-poppins font-bold text-text-primary text-lg">{dish.maxPrice.toLocaleString()} FCFA</p>
+              </div>
+            </>
+          )}
           <div className="bg-white rounded-xl border border-border-custom p-4 text-center col-span-2 sm:col-span-1">
             <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide mb-1">Note moyenne</p>
             <p className="font-poppins font-bold text-text-primary text-lg">{dish.avgRating.toFixed(1)} / 5</p>
@@ -216,40 +313,85 @@ function DishDetailContent({ slug }: { slug?: string }) {
               const location = [resto?.neighborhood ?? item.restaurantNeighborhood, resto?.city ?? item.restaurantCity].filter(Boolean).join(', ');
               const deliveryTime = resto?.deliveryTime ?? item.restaurantDeliveryTime;
               const itemNameDiffers = normalizeDishName(item.name) !== normalizeDishName(dish.displayName);
+              const restaurantSlug = resto?.slug || item.restaurantId;
+              const itemInCart = cartItemIds.has(item.id);
+
+              const handleRowQuickAdd = (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!user) { navigate('/connexion', { state: { from: `/article/${slug}` } }); return; }
+                const uCity = user.city?.trim();
+                const rCity = item.restaurantCity?.trim();
+                if (uCity && rCity && uCity !== rCity) { setQuickOrderItem(item); return; }
+                const result = addToCart(item);
+                if (result === 'conflict') { setQuickOrderItem(item); }
+                else { toast.success(`${item.name} ajouté`, { description: item.restaurantName }); }
+              };
+
+              const handleRowQuickRemove = (e: React.MouseEvent) => {
+                e.preventDefault(); e.stopPropagation();
+                removeFromCart(item.id);
+                toast.success('Retiré du panier');
+              };
+
               return (
-                <Link
+                <div
                   key={item.id}
-                  to={`/restaurant/${item.restaurantId}`}
                   className="flex items-center gap-3 p-4 sm:p-5 hover:bg-bg-secondary transition-colors group"
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-inter font-semibold text-text-primary text-sm">{item.restaurantName}</p>
-                      <span className="flex items-center gap-0.5 text-xs text-gold-accent shrink-0">
-                        <Star className="w-3 h-3 fill-gold-accent" />{item.restaurantRating}
-                      </span>
+                  <Link to={`/restaurant/${restaurantSlug}`} className="flex-1 min-w-0 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-inter font-semibold text-text-primary text-sm">{item.restaurantName}</p>
+                        <span className="flex items-center gap-0.5 text-xs text-gold-accent shrink-0">
+                          <Star className="w-3 h-3 fill-gold-accent" />{item.restaurantRating}
+                        </span>
+                      </div>
+                      {itemNameDiffers && (
+                        <p className="text-text-muted text-xs font-inter mt-0.5 truncate">{item.name}</p>
+                      )}
+                      <div className="flex items-center gap-3 mt-1 text-text-muted text-xs font-inter">
+                        {location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />{location}
+                          </span>
+                        )}
+                        {deliveryTime && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />{deliveryTime}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    {itemNameDiffers && (
-                      <p className="text-text-muted text-xs font-inter mt-0.5 truncate">{item.name}</p>
+                    <span className="font-inter font-bold text-green-primary text-sm shrink-0">
+                      {item.price.toLocaleString()} FCFA
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-green-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </Link>
+
+                  {/* Mini quick-add button par resto */}
+                  <div className="shrink-0">
+                    {itemInCart ? (
+                      <button
+                        type="button"
+                        onClick={handleRowQuickRemove}
+                        className="w-8 h-8 rounded-full border border-green-primary/30 bg-green-light/60 text-green-primary hover:bg-error/10 hover:text-error hover:border-error/30 transition-all flex items-center justify-center"
+                        title="Retirer du panier"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleRowQuickAdd}
+                        className="w-8 h-8 rounded-full border border-border-custom text-text-muted hover:text-green-primary hover:border-green-primary hover:bg-green-light/30 transition-all flex items-center justify-center"
+                        title={`Ajouter — ${item.restaurantName}`}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
                     )}
-                    <div className="flex items-center gap-3 mt-1 text-text-muted text-xs font-inter">
-                      {location && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />{location}
-                        </span>
-                      )}
-                      {deliveryTime && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />{deliveryTime}
-                        </span>
-                      )}
-                    </div>
                   </div>
-                  <span className="font-inter font-bold text-green-primary text-sm shrink-0">
-                    {item.price.toLocaleString()} FCFA
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-green-primary group-hover:translate-x-0.5 transition-all shrink-0" />
-                </Link>
+                </div>
               );
             })}
           </div>
@@ -264,7 +406,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
               {similarDishes.map((group) => (
                 <Link
                   key={group.key}
-                  to={`/plat/${dishSlug(group.displayName)}`}
+                  to={`/article/${dishSlug(group.displayName)}`}
                   className="group text-left bg-white rounded-xl border border-border-custom shadow-sm overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-bg-secondary">
@@ -283,7 +425,140 @@ function DishDetailContent({ slug }: { slug?: string }) {
             </div>
           </section>
         )}
+
+        {/* Spacer pour la sticky bar */}
+        <div className="h-24 md:h-20" />
       </div>
+
+      {/* ── Sticky Bottom Bar — Commande rapide ── */}
+      {bestItem && (
+        <div className="fixed bottom-16 md:bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-border-custom shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+          <div className="max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
+            {/* Infos resto */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-bg-secondary flex items-center justify-center shrink-0 overflow-hidden">
+                  {bestItem.image ? (
+                    <img src={bestItem.image} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <Store className="w-4 h-4 text-text-muted" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-inter font-semibold text-text-primary truncate">
+                    {bestItem.restaurantName}
+                  </p>
+                  <p className="text-[10px] font-inter text-text-muted flex items-center gap-1">
+                    <MapPin className="w-2.5 h-2.5" />
+                    {bestItem.restaurantNeighborhood || bestItem.restaurantCity}
+                    {dish.totalRestaurants > 1 && (
+                      <span className="text-text-muted">· +{dish.totalRestaurants - 1} autre{dish.totalRestaurants > 2 ? 's' : ''}</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Prix + bouton */}
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-sm font-inter font-bold text-green-primary">
+                {bestItem.price.toLocaleString()} FCFA
+              </span>
+
+              {isInCart ? (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleQuickRemove}
+                    className="group/remove h-10 px-3 rounded-xl border border-green-primary/30 bg-green-light/60 text-green-primary text-xs font-inter font-semibold hover:bg-error/10 hover:text-error hover:border-error/30 transition-all flex items-center gap-1.5"
+                    title="Retirer du panier"
+                  >
+                    <Check className="w-4 h-4 group-hover/remove:hidden" />
+                    <Minus className="w-4 h-4 hidden group-hover/remove:block" />
+                    <span className="group-hover/remove:hidden">Ajouté</span>
+                    <span className="hidden group-hover/remove:block">Retirer</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/checkout')}
+                    className="h-10 w-10 rounded-xl bg-green-primary text-white hover:bg-green-dark transition-all flex items-center justify-center active:scale-95"
+                    title="Voir le panier"
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleQuickAdd}
+                  className="h-10 px-5 rounded-xl bg-green-primary text-white text-xs font-inter font-semibold hover:bg-green-dark transition-all flex items-center gap-1.5 active:scale-95"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  Commander
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cross-city / conflit panier modal ── */}
+      <Dialog open={!!quickOrderItem} onOpenChange={(open) => { if (!open) setQuickOrderItem(null); }}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="font-poppins text-lg">
+              {isDifferentCity ? 'Restaurant dans une autre ville' : 'Changer de restaurant ?'}
+            </DialogTitle>
+            <DialogDescription className="text-sm font-inter">
+              {quickOrderItem && (
+                <span>
+                  <strong>{quickOrderItem.name}</strong> — {quickOrderItem.restaurantName}
+                  {quickOrderItem.restaurantCity && <> · 📍 {quickOrderItem.restaurantCity}</>}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {isDifferentCity ? (
+            <div className="space-y-3">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm font-inter text-amber-800">
+                  🚫 Vous êtes à <strong>{userCity}</strong>, ce restaurant est à <strong>{orderItemCity}</strong>.
+                </p>
+              </div>
+              <div className="p-3 bg-green-light border border-green-primary/20 rounded-lg">
+                <p className="text-sm font-inter text-green-primary font-medium mb-2">
+                  💡 Commandez ce plat pour quelqu'un à {orderItemCity} !
+                </p>
+                <p className="text-xs font-inter text-text-secondary">
+                  Créez une demande sur mesure, un restaurant local préparera et livrera le plat.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setQuickOrderItem(null)} className="flex-1 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-sm font-medium hover:bg-bg-secondary transition-colors">Annuler</button>
+                <button onClick={handleOrderForOther} className="flex-1 h-10 rounded-lg bg-green-primary text-white font-inter text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-green-dark transition-colors">
+                  <Send className="w-4 h-4" />Commander pour autrui
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm font-inter text-amber-800">
+                  Votre panier contient déjà des plats d'un autre restaurant.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setQuickOrderItem(null)} className="flex-1 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-sm font-medium hover:bg-bg-secondary transition-colors">Annuler</button>
+                <button onClick={handleReplaceCart} className="flex-1 h-10 rounded-lg bg-green-primary text-white font-inter text-sm font-semibold hover:bg-green-dark transition-colors">Remplacer le panier</button>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="text-xs text-text-muted font-inter">
+            {isDifferentCity ? 'Vous pourrez préciser le nom et le téléphone du destinataire.' : 'Le panier ne peut contenir qu\'un seul restaurant à la fois.'}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

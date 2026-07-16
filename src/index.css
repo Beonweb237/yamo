@@ -34,8 +34,8 @@
     --bg-secondary: #F9FAFB;
     --bg-dark: #1A1A1A;
     --text-primary: #1F2937;
-    --text-secondary: #6B7280;
-    --text-muted: #9CA3AF;
+    --text-secondary: #4B5563; /* CONF-31 : AA 7.5:1 sur blanc */
+    --text-muted: #6B7280; /* CONF-31 : AA 4.8:1 sur blanc (ex-#9CA3AF à 2.5:1) */
     --border-custom: #E5E7EB;
     --border-light: #F3F4F6;
     --error: #EF4444;

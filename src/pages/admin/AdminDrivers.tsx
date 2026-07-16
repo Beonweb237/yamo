@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { usePolling } from '../../hooks/usePolling';
+import { useState, useCallback, useMemo } from 'react';
 import { Bike, Search, Star, Wallet, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchAllApplications } from '../../lib/applications';
@@ -11,6 +12,16 @@ import {
   type PayoutRequest,
 } from '../../lib/drivers';
 import { Switch } from '../../components/ui/switch';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../components/ui/alert-dialog';
 import type { Application } from '../../lib/applications';
 
 export default function AdminDrivers() {
@@ -31,7 +42,7 @@ export default function AdminDrivers() {
     setStats(statsMap);
     setPayouts(allPayouts);
   }, []);
-  useEffect(() => { load(); const i = setInterval(load, 5000); return () => clearInterval(i); }, [load]);
+  usePolling(load, 30000);
 
   const filteredDrivers = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -43,31 +54,44 @@ export default function AdminDrivers() {
     );
   }, [drivers, query]);
 
-  const handleToggleSuspended = async (driverId: string, nextActive: boolean) => {
-    let reason: string | undefined;
-    if (!nextActive) {
-      const input = window.prompt('Motif de la suspension (visible par l\'équipe uniquement) :');
-      if (input === null) return; // admin cancelled
-      reason = input.trim() || undefined;
-    }
+  // Dialogs de motif (CONF-22 — remplace les window.prompt() interdits).
+  const [suspendTarget, setSuspendTarget] = useState<string | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [rejectPayoutTarget, setRejectPayoutTarget] = useState<string | null>(null);
+  const [rejectPayoutReason, setRejectPayoutReason] = useState('');
+
+  const applySuspension = async (driverId: string, suspend: boolean, reason?: string) => {
     setStats((prev) => ({
       ...prev,
-      [driverId]: { ...prev[driverId], isSuspended: !nextActive, suspensionReason: reason ?? null } as DriverStats,
+      [driverId]: { ...prev[driverId], isSuspended: suspend, suspensionReason: reason ?? null } as DriverStats,
     }));
-    await setDriverSuspended(driverId, !nextActive, reason);
-    toast.success(nextActive ? 'Livreur réactivé' : 'Livreur suspendu');
+    await setDriverSuspended(driverId, suspend, reason);
+    toast.success(suspend ? 'Livreur suspendu' : 'Livreur réactivé');
   };
 
-  const handlePayoutDecision = async (id: string, status: 'paid' | 'rejected') => {
-    let reason: string | undefined;
-    if (status === 'rejected') {
-      const input = window.prompt('Motif du refus (optionnel) :');
-      if (input === null) return; // admin cancelled
-      reason = input.trim() || undefined;
+  const handleToggleSuspended = (driverId: string, nextActive: boolean) => {
+    if (nextActive) {
+      // Réactivation : pas de motif nécessaire.
+      void applySuspension(driverId, false);
+      return;
     }
+    setSuspendReason('');
+    setSuspendTarget(driverId);
+  };
+
+  const applyPayoutDecision = async (id: string, status: 'paid' | 'rejected', reason?: string) => {
     setPayouts((prev) => prev.map((p) => (p.id === id ? { ...p, status, processedReason: reason ?? null } : p)));
     await updatePayoutStatus(id, status, reason);
     toast.success(status === 'paid' ? 'Virement marqué comme payé' : 'Virement refusé');
+  };
+
+  const handlePayoutDecision = (id: string, status: 'paid' | 'rejected') => {
+    if (status === 'paid') {
+      void applyPayoutDecision(id, 'paid');
+      return;
+    }
+    setRejectPayoutReason('');
+    setRejectPayoutTarget(id);
   };
 
   const pendingPayouts = payouts.filter((p) => p.status === 'pending');
@@ -191,6 +215,76 @@ export default function AdminDrivers() {
           </div>
         )}
       </div>
+
+      {/* Dialog de suspension (motif interne, optionnel) */}
+      <AlertDialog open={!!suspendTarget} onOpenChange={(open) => { if (!open) setSuspendTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Suspendre ce livreur ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le livreur ne pourra plus accéder à son espace ni recevoir de courses.
+              Le motif est visible par l&apos;équipe uniquement.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <textarea
+            value={suspendReason}
+            onChange={(e) => setSuspendReason(e.target.value)}
+            placeholder="Motif de la suspension (optionnel)..."
+            rows={3}
+            autoFocus
+            className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (suspendTarget) {
+                  void applySuspension(suspendTarget, true, suspendReason.trim() || undefined);
+                  setSuspendTarget(null);
+                }
+              }}
+              className="bg-error text-white hover:bg-error/90"
+            >
+              Suspendre le livreur
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de refus de virement (motif visible par le livreur) */}
+      <AlertDialog open={!!rejectPayoutTarget} onOpenChange={(open) => { if (!open) setRejectPayoutTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Refuser ce virement ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le montant redeviendra disponible dans le solde du livreur.
+              Le motif lui sera affiché.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <textarea
+            value={rejectPayoutReason}
+            onChange={(e) => setRejectPayoutReason(e.target.value)}
+            placeholder="Motif du refus (optionnel)..."
+            rows={3}
+            autoFocus
+            className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (rejectPayoutTarget) {
+                  void applyPayoutDecision(rejectPayoutTarget, 'rejected', rejectPayoutReason.trim() || undefined);
+                  setRejectPayoutTarget(null);
+                }
+              }}
+              className="bg-error text-white hover:bg-error/90"
+            >
+              Refuser le virement
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -58,7 +58,7 @@ const roleRedirects: Record<UserRole, string> = {
   client: '/',
   restaurant: '/partenaires/dashboard',
   livreur: '/livreurs/dashboard',
-  admin: '/admin',
+  admin: '/admin/dashboard',
 };
 
 // ── Profile display config ──

@@ -9,18 +9,26 @@ import {
   Clock,
   Heart,
   SlidersHorizontal,
+  Maximize2,
+  Minimize2,
+  Store,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { cuisineCategories } from '../data/mockData';
 import type { Restaurant } from '../data/mockData';
-import { activeCities, getNeighborhoods } from '../data/locations';
+import { activeCities, getNeighborhoods, getNeighborhoodCoords } from '../data/locations';
 import { useRestaurants } from '../hooks/useCatalog';
 import { useFavorites } from '../hooks/useFavorites';
+import { isEffectivelyOpen } from '../lib/hours';
 import AppImage from '../components/AppImage';
+import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
+import DishResults from '../components/DishResults';
 
 type QuickFilterId = 'open' | 'freeDelivery' | 'fast' | 'premium';
 
 const quickFilterDefs: { id: QuickFilterId; label: string; test: (r: Restaurant) => boolean }[] = [
-  { id: 'open', label: 'Ouvert maintenant', test: (r) => r.isOpen },
+  // LOT-14 (CONF-36) : « ouvert » = toggle du restaurateur ET horaires réels.
+  { id: 'open', label: 'Ouvert maintenant', test: (r) => isEffectivelyOpen(r) },
   { id: 'freeDelivery', label: 'Livraison gratuite', test: (r) => r.deliveryFee === 0 },
   { id: 'fast', label: 'Moins de 30 min', test: (r) => parseInt(r.deliveryTime) < 30 },
   { id: 'premium', label: 'Premium', test: (r) => r.isPremium },
@@ -53,6 +61,13 @@ export default function Restaurants() {
   const { restaurants } = useRestaurants();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // ── Recherche unifiée (LOT-13 / CONF-33) : deux modes sur une seule page ──
+  // `?mode=plats` affiche la vue plats (ex-/explorer) ; défaut = restaurants.
+  // q / ville / quartier sont partagés entre les deux modes.
+  const mode: 'restaurants' | 'plats' = searchParams.get('mode') === 'plats' ? 'plats' : 'restaurants';
+  // Ville explicite au chargement (deep-link) → la géoloc auto du mode plats ne l'écrase pas
+  const [hadLocationParam] = useState(() => searchParams.has('ville'));
+
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') ?? '');
   const [activeCategory, setActiveCategory] = useState(searchParams.get('category') ?? 'Tous');
   const [selectedCity, setSelectedCity] = useState(searchParams.get('ville') ?? 'Douala');
@@ -67,6 +82,21 @@ export default function Restaurants() {
   const [activeQuickFilters, setActiveQuickFilters] = useState<Set<QuickFilterId>>(new Set());
   const [minRating, setMinRating] = useState(0);
   const [showRatingMenu, setShowRatingMenu] = useState(false);
+
+  // Full-screen map
+  const [mapFullscreen, setMapFullscreen] = useState(false);
+
+  // Fermer la carte full-screen avec Échap + bloquer le scroll
+  useEffect(() => {
+    if (!mapFullscreen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMapFullscreen(false); };
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [mapFullscreen]);
 
   const toggleQuickFilter = (id: QuickFilterId) => {
     setActiveQuickFilters((prev) => {
@@ -103,6 +133,18 @@ export default function Restaurants() {
       else next.set(key, value);
     });
     setSearchParams(next, { replace: true });
+  };
+
+  // Bascule Restaurants/Plats : on embarque l'état de recherche courant dans
+  // l'URL, sinon une saisie non soumise serait perdue à la relecture des params.
+  const setMode = (m: 'restaurants' | 'plats') => {
+    syncParams({
+      mode: m === 'plats' ? 'plats' : '',
+      q: searchQuery,
+      category: activeCategory,
+      ville: selectedCity,
+      quartier: selectedNeighborhood,
+    });
   };
 
   const filtered = useMemo(() => {
@@ -162,6 +204,28 @@ export default function Restaurants() {
     return result;
   }, [restaurants, searchQuery, activeCategory, selectedCity, selectedNeighborhood, activeQuickFilters, minRating, sortBy]);
 
+  // ── Map points pour la carte interactive ──
+  const mapPoints = useMemo<MapPoint[]>(() => {
+    const pts: MapPoint[] = [];
+    for (const resto of filtered) {
+      // Utiliser les coordonnées explicites du resto, ou celles du quartier/ville
+      let lat = resto.lat;
+      let lng = resto.lng;
+      if (lat == null || lng == null) {
+        const nbCoords = getNeighborhoodCoords(resto.neighborhood);
+        if (nbCoords) { lat = nbCoords.lat; lng = nbCoords.lng; }
+        else {
+          const cityCoords = getNeighborhoodCoords(resto.city);
+          if (cityCoords) { lat = cityCoords.lat; lng = cityCoords.lng; }
+        }
+      }
+      if (lat == null || lng == null) continue;
+      pts.push({ lat, lng, label: resto.name, type: 'restaurant' });
+      if (pts.length >= 30) break; // Limiter à 30 marqueurs
+    }
+    return pts;
+  }, [filtered]);
+
   const handleSearch = () => {
     syncParams({ q: searchQuery, category: activeCategory, ville: selectedCity, quartier: selectedNeighborhood });
   };
@@ -178,7 +242,7 @@ export default function Restaurants() {
           >
             <Link to="/" className="hover:text-white transition-colors">Accueil</Link>
             <span className="mx-2">/</span>
-            <span className="text-white">Restaurants</span>
+            <span className="text-white">{mode === 'plats' ? 'Explorer les plats' : 'Restaurants'}</span>
           </motion.div>
 
           <motion.h1
@@ -187,7 +251,7 @@ export default function Restaurants() {
             transition={{ duration: 0.4, delay: 0.1 }}
             className="font-poppins font-semibold text-white text-3xl sm:text-4xl lg:text-[38px]/[1.18] tracking-normal mb-3"
           >
-            Trouvez Votre Restaurant Idéal
+            {mode === 'plats' ? 'Trouvez le Plat Parfait' : 'Trouvez Votre Restaurant Idéal'}
           </motion.h1>
 
           <motion.p
@@ -196,7 +260,9 @@ export default function Restaurants() {
             transition={{ duration: 0.4, delay: 0.2 }}
             className="text-white/75 font-inter text-base max-w-[600px]"
           >
-            Plus de 500 restaurants partenaires dans les grandes villes du Cameroun
+            {mode === 'plats'
+              ? 'Recherchez par plat, ingrédient ou boisson — et commandez au meilleur prix'
+              : 'Plus de 500 restaurants partenaires dans les grandes villes du Cameroun'}
           </motion.p>
         </div>
       </section>
@@ -208,6 +274,41 @@ export default function Restaurants() {
           transition={{ duration: 0.5, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="bg-white rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-4"
         >
+          {/* ── Toggle Restaurants / Plats (CONF-33) ── */}
+          <div className="flex items-center gap-2 mb-3 pb-3 border-b border-border-light" role="tablist" aria-label="Type de recherche">
+            <div className="flex bg-bg-secondary rounded-lg p-0.5">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'restaurants'}
+                onClick={() => setMode('restaurants')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-sm font-inter font-semibold transition-all ${mode === 'restaurants'
+                  ? 'bg-white text-green-primary shadow-sm'
+                  : 'text-text-muted hover:text-text-secondary'
+                  }`}
+              >
+                <Store className="w-4 h-4" />
+                Restaurants
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'plats'}
+                onClick={() => setMode('plats')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-sm font-inter font-semibold transition-all ${mode === 'plats'
+                  ? 'bg-white text-green-primary shadow-sm'
+                  : 'text-text-muted hover:text-text-secondary'
+                  }`}
+              >
+                <UtensilsCrossed className="w-4 h-4" />
+                Plats
+              </button>
+            </div>
+            <span className="text-xs font-inter text-text-muted hidden sm:inline">
+              {mode === 'plats' ? 'Un plat précis, comparé entre restaurants' : 'Parcourir les restaurants de votre zone'}
+            </span>
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex items-center gap-2 flex-1 bg-bg-secondary rounded-lg px-3 h-12">
               <Search className="w-4 h-4 text-text-muted shrink-0" />
@@ -216,7 +317,7 @@ export default function Restaurants() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder="Rechercher un restaurant, une cuisine..."
+                placeholder={mode === 'plats' ? 'Rechercher un plat, un ingrédient, une boisson...' : 'Rechercher un restaurant, une cuisine...'}
                 className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
               />
             </div>
@@ -266,8 +367,8 @@ export default function Restaurants() {
                               setCitySearch('');
                             }}
                             className={`block w-full text-left px-4 py-2 text-sm font-inter transition-colors ${selectedCity === city.name
-                                ? 'text-green-primary bg-green-light'
-                                : 'text-text-secondary hover:bg-bg-secondary'
+                              ? 'text-green-primary bg-green-light'
+                              : 'text-text-secondary hover:bg-bg-secondary'
                               }`}
                           >
                             {city.name}
@@ -317,8 +418,8 @@ export default function Restaurants() {
                           setNeighborhoodSearch('');
                         }}
                         className={`block w-full text-left px-4 py-2 text-sm font-inter transition-colors ${selectedNeighborhood === ''
-                            ? 'text-green-primary bg-green-light'
-                            : 'text-text-secondary hover:bg-bg-secondary'
+                          ? 'text-green-primary bg-green-light'
+                          : 'text-text-secondary hover:bg-bg-secondary'
                           }`}
                       >
                         Tous
@@ -336,8 +437,8 @@ export default function Restaurants() {
                               setNeighborhoodSearch('');
                             }}
                             className={`block w-full text-left px-4 py-2 text-sm font-inter transition-colors ${selectedNeighborhood === n
-                                ? 'text-green-primary bg-green-light'
-                                : 'text-text-secondary hover:bg-bg-secondary'
+                              ? 'text-green-primary bg-green-light'
+                              : 'text-text-secondary hover:bg-bg-secondary'
                               }`}
                           >
                             {n}
@@ -348,6 +449,7 @@ export default function Restaurants() {
                   </div>
                 )}
               </div>
+              {mode === 'restaurants' && (
               <div className="relative">
                 <button
                   type="button"
@@ -379,8 +481,8 @@ export default function Restaurants() {
                           setShowRatingMenu(false);
                         }}
                         className={`flex items-center justify-between w-full text-left px-4 py-2 text-sm font-inter transition-colors ${minRating === opt.value
-                            ? 'text-gold-accent bg-gold-light'
-                            : 'text-text-secondary hover:bg-bg-secondary'
+                          ? 'text-gold-accent bg-gold-light'
+                          : 'text-text-secondary hover:bg-bg-secondary'
                           }`}
                       >
                         <span className="flex items-center gap-1.5">
@@ -392,6 +494,7 @@ export default function Restaurants() {
                   </div>
                 )}
               </div>
+              )}
               <button
                 type="button"
                 onClick={handleSearch}
@@ -404,6 +507,24 @@ export default function Restaurants() {
         </motion.div>
       </div>
 
+      {/* ── Mode Plats : vue unifiée ex-/explorer ── */}
+      {mode === 'plats' && (
+        <DishResults
+          restaurants={restaurants}
+          query={searchQuery}
+          city={selectedCity}
+          neighborhood={selectedNeighborhood}
+          hasExplicitLocation={hadLocationParam}
+          onLocationChange={(city, nb) => {
+            setSelectedCity(city);
+            setSelectedNeighborhood(nb);
+            syncParams({ ville: city, quartier: nb });
+          }}
+        />
+      )}
+
+      {mode === 'restaurants' && (
+      <>
       <div className="sticky top-[72px] z-40 bg-white border-b border-border-custom mt-6">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-3">
           <div className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
@@ -415,8 +536,8 @@ export default function Restaurants() {
                   syncParams({ q: searchQuery, category: cat, ville: selectedCity, quartier: selectedNeighborhood });
                 }}
                 className={`snap-start shrink-0 px-4 py-2 rounded-full font-inter text-[13px] font-medium whitespace-nowrap transition-colors cursor-pointer ${cat === activeCategory
-                    ? 'bg-green-primary text-white'
-                    : 'bg-bg-secondary text-text-secondary hover:bg-green-light hover:text-green-primary'
+                  ? 'bg-green-primary text-white'
+                  : 'bg-bg-secondary text-text-secondary hover:bg-green-light hover:text-green-primary'
                   }`}
               >
                 {cat}
@@ -453,8 +574,8 @@ export default function Restaurants() {
                             setShowSort(false);
                           }}
                           className={`block w-full text-left px-4 py-2 text-sm font-inter transition-colors ${sortBy === opt.value
-                              ? 'text-green-primary bg-green-light'
-                              : 'text-text-secondary hover:bg-bg-secondary'
+                            ? 'text-green-primary bg-green-light'
+                            : 'text-text-secondary hover:bg-bg-secondary'
                             }`}
                         >
                           {opt.label}
@@ -474,8 +595,8 @@ export default function Restaurants() {
                       key={pill.id}
                       onClick={() => toggleQuickFilter(pill.id)}
                       className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-inter font-medium transition-colors ${isActive
-                          ? 'bg-green-primary text-white'
-                          : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
+                        ? 'bg-green-primary text-white'
+                        : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
                         }`}
                     >
                       {pill.label}
@@ -497,7 +618,7 @@ export default function Restaurants() {
                     }}
                   >
                     <Link
-                      to={`/restaurant/${resto.id}`}
+                      to={`/restaurant/${resto.slug || resto.id}`}
                       className="block bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden hover:shadow-[0_12px_32px_rgba(0,0,0,0.10)] hover:-translate-y-1 transition-all duration-250 group"
                     >
                       <div className="aspect-[16/10] overflow-hidden relative">
@@ -516,8 +637,8 @@ export default function Restaurants() {
                         >
                           <Heart
                             className={`w-4 h-4 ${favorites.has(resto.id)
-                                ? 'fill-error text-error'
-                                : 'text-text-secondary'
+                              ? 'fill-error text-error'
+                              : 'text-text-secondary'
                               }`}
                           />
                         </button>
@@ -583,52 +704,106 @@ export default function Restaurants() {
               )}
             </div>
 
+            {/* ── Carte interactive (responsive) ── */}
+            {/* Desktop : panneau latéral */}
             <div className="hidden lg:block w-[380px] shrink-0">
-              <div className="sticky top-[140px] h-[calc(100vh-160px)] bg-bg-secondary rounded-xl border border-border-custom overflow-hidden">
-                <div className="h-full flex flex-col items-center justify-center relative bg-[#f0f0f0]">
-                  <div className="absolute inset-0 opacity-30">
-                    <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                      <defs>
-                        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#d0d0d0" strokeWidth="0.5" />
-                        </pattern>
-                      </defs>
-                      <rect width="100%" height="100%" fill="url(#grid)" />
-                      <line x1="0" y1="30%" x2="100%" y2="30%" stroke="#e0e0e0" strokeWidth="8" />
-                      <line x1="0" y1="60%" x2="100%" y2="60%" stroke="#e0e0e0" strokeWidth="6" />
-                      <line x1="25%" y1="0" x2="25%" y2="100%" stroke="#e0e0e0" strokeWidth="6" />
-                      <line x1="70%" y1="0" x2="70%" y2="100%" stroke="#e0e0e0" strokeWidth="8" />
-                    </svg>
-                  </div>
-                  <motion.div
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="relative z-10"
-                  >
-                    <MapPin className="w-12 h-12 text-green-primary" />
-                  </motion.div>
-                  <p className="relative z-10 text-text-secondary text-sm font-inter mt-4 text-center px-6">
-                    {filtered.length} restaurant{filtered.length !== 1 ? 's' : ''} à {selectedCity}
-                    {selectedNeighborhood ? ` — ${selectedNeighborhood}` : ''}
-                  </p>
-                  {filtered.slice(0, 5).map((resto, i) => (
-                    <div
-                      key={resto.id}
-                      className="absolute z-10 w-5 h-5 rounded-full bg-green-primary text-white text-[10px] font-bold flex items-center justify-center shadow-md"
-                      style={{
-                        top: `${20 + ((i * 17) % 60)}%`,
-                        left: `${15 + ((i * 23) % 70)}%`,
-                      }}
-                    >
-                      {i + 1}
+              <div className="sticky top-[140px] h-[calc(100vh-160px)] bg-white rounded-xl border border-border-custom overflow-hidden">
+                {mapPoints.length > 0 ? (
+                  <div className="relative h-full flex flex-col">
+                    <div className="flex-1 min-h-0">
+                      <LazyDeliveryMap points={mapPoints} height="100%" scrollWheelZoom={false} hideNavigation />
                     </div>
-                  ))}
-                </div>
+                    {/* Expand button */}
+                    <button
+                      type="button"
+                      onClick={() => setMapFullscreen(true)}
+                      className="absolute top-3 right-3 z-[1000] w-8 h-8 rounded-lg bg-white/90 backdrop-blur-sm border border-border-custom shadow-sm flex items-center justify-center text-text-secondary hover:text-green-primary hover:border-green-primary transition-all"
+                      title="Agrandir la carte"
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                    </button>
+                    <div className="absolute bottom-3 left-3 right-12 bg-white/90 backdrop-blur-sm rounded-lg border border-border-custom px-3 py-2 text-xs font-inter text-text-secondary shadow-sm pointer-events-none">
+                      <MapPin className="w-3.5 h-3.5 text-green-primary inline mr-1" />
+                      {mapPoints.length} restaurant{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-text-muted p-4">
+                    <MapPin className="w-10 h-10 mb-3 opacity-30" />
+                    <p className="text-sm font-inter text-center">Aucun restaurant à afficher</p>
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Mobile/Tablette : carte compacte */}
+            {mapPoints.length > 0 && (
+              <div className="lg:hidden mt-4">
+                <div className="bg-white rounded-xl border border-border-custom overflow-hidden">
+                  <div className="relative h-[200px]">
+                    <LazyDeliveryMap points={mapPoints} height="200px" scrollWheelZoom={false} hideNavigation />
+                    <button
+                      type="button"
+                      onClick={() => setMapFullscreen(true)}
+                      className="absolute top-2 right-2 z-[1000] w-8 h-8 rounded-lg bg-white/90 backdrop-blur-sm border border-border-custom shadow-sm flex items-center justify-center text-text-secondary hover:text-green-primary hover:border-green-primary transition-all"
+                      title="Agrandir la carte"
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                    </button>
+                    <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm rounded-lg border border-border-custom px-2.5 py-1.5 text-[11px] font-inter text-text-secondary shadow-sm pointer-events-none">
+                      <MapPin className="w-3 h-3 text-green-primary inline mr-1" />
+                      {mapPoints.length} restaurant{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Full-screen map overlay ── */}
+            {mapFullscreen && (
+              <div
+                className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm animate-in fade-in"
+                onClick={() => setMapFullscreen(false)}
+              >
+                <div
+                  className="absolute inset-4 sm:inset-6 lg:inset-10 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Header bar */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-border-light shrink-0">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-green-primary" />
+                      <span className="font-inter font-semibold text-text-primary text-sm">
+                        {mapPoints.length} restaurant{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMapFullscreen(false)}
+                      className="w-9 h-9 rounded-lg bg-bg-secondary hover:bg-border-light flex items-center justify-center text-text-secondary hover:text-text-primary transition-all"
+                      title="Réduire la carte"
+                    >
+                      <Minimize2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {/* Map */}
+                  <div className="flex-1 min-h-0">
+                    <LazyDeliveryMap points={mapPoints} height="100%" scrollWheelZoom={true} hideNavigation />
+                  </div>
+                  {/* Footer hint */}
+                  <div className="px-4 py-2 border-t border-border-light bg-bg-secondary shrink-0">
+                    <p className="text-[11px] font-inter text-text-muted text-center">
+                      🖱️ Molette pour zoomer · Glissez pour naviguer · Échap ou clic extérieur pour fermer
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
+      </>
+      )}
     </div>
   );
 }

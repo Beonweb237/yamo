@@ -4,7 +4,9 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, Save, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import { getAuthToken } from '../../lib/authToken';
+import PageHeader from '../../components/PageHeader';
+
+const STORAGE_KEY = 'miam_delivery_fees';
 
 interface FeeConfig {
   pricePerKm: number;
@@ -13,35 +15,35 @@ interface FeeConfig {
   updatedAt?: string;
 }
 
+const DEFAULT_CONFIG: FeeConfig = { pricePerKm: 200, minFee: 500, maxFee: 3000 };
+
+function readConfig(): FeeConfig {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : DEFAULT_CONFIG;
+  } catch { return DEFAULT_CONFIG; }
+}
+
+function writeConfig(c: FeeConfig) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...c, updatedAt: new Date().toISOString() }));
+}
+
 export default function AdminDeliveryFees() {
-  const [config, setConfig] = useState<FeeConfig>({ pricePerKm: 200, minFee: 500, maxFee: 3000 });
+  const [config, setConfig] = useState<FeeConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    getAuthToken().then(token => {
-      fetch('/api/admin/delivery-fee', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-        .then(r => r.json())
-        .then(data => { setConfig(data); setLoading(false); })
-        .catch(() => setLoading(false));
-    });
+    setConfig(readConfig());
+    setLoading(false);
   }, []);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
-      const token = await getAuthToken();
-      const res = await fetch('/api/admin/delivery-fee', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(config),
-      });
-      if (!res.ok) { toast.error('Erreur lors de la sauvegarde'); return; }
-      const updated = await res.json();
-      setConfig(updated);
+      writeConfig(config);
+      setConfig(readConfig());
       toast.success('Configuration enregistrée !');
     } catch { toast.error('Erreur'); }
     finally { setSaving(false); }
@@ -58,15 +60,11 @@ export default function AdminDeliveryFees() {
 
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-8">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-10 h-10 rounded-xl bg-green-light flex items-center justify-center">
-          <DollarSign className="w-5 h-5 text-green-primary" />
-        </div>
-        <div>
-          <h1 className="font-poppins font-bold text-text-primary text-2xl">Frais de Livraison</h1>
-          <p className="text-text-secondary text-sm font-inter">Définissez le tarif par kilomètre — arrondi automatique au multiple de 100 FCFA</p>
-        </div>
-      </div>
+      <PageHeader
+        icon={DollarSign}
+        title="Frais de livraison"
+        subtitle="Définissez le tarif par kilomètre — arrondi automatique au multiple de 100 FCFA"
+      />
 
       <form onSubmit={handleSave} className="bg-white border border-border-custom rounded-xl p-6 mb-8 space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">

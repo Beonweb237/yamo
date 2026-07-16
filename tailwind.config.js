@@ -47,8 +47,10 @@ module.exports = {
         'bg-secondary': '#F9FAFB',
         'bg-dark': '#1A1A1A',
         'text-primary': '#1F2937',
-        'text-secondary': '#6B7280',
-        'text-muted': '#9CA3AF',
+        // CONF-31 : contrastes AA sur fond blanc — secondary 7.5:1, muted 4.8:1
+        // (l'ancien muted #9CA3AF était à 2.5:1, illisible au soleil sur mobile)
+        'text-secondary': '#4B5563',
+        'text-muted': '#6B7280',
         'border-custom': '#E5E7EB',
         'border-light': '#F3F4F6',
         'error': '#EF4444',

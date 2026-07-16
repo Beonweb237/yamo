@@ -240,7 +240,7 @@ export default function Home() {
                 transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               >
                 <Link
-                  to={`/restaurant/${resto.id}`}
+                  to={`/restaurant/${resto.slug || resto.id}`}
                   className="block bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden hover:shadow-[0_12px_32px_rgba(0,0,0,0.10)] hover:-translate-y-1 transition-all duration-250"
                 >
                   <div className="aspect-[16/10] overflow-hidden relative">

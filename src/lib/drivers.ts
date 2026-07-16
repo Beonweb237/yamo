@@ -368,3 +368,51 @@ export async function getRestaurantsThatPreferMe(driverId: string): Promise<stri
   }
   return readLocalPreferred().filter(e => e.driverId === driverId).map(e => e.restaurantId);
 }
+
+// ─────────────────────────────────────────────────────────────
+// Livreurs internes (le restaurant assure lui-même la livraison)
+// ─────────────────────────────────────────────────────────────
+// Un "livreur interne" reste un compte livreur classique (mêmes écrans, même
+// code de livraison, même flux) — seule sa visibilité change : quand le
+// restaurant marque une commande "Prête" en mode livraison directe
+// (orders.ts → updateOrderStatus(..., 'restaurant')), seuls les livreurs
+// internes de ce restaurant la voient dans leur pool de livraisons
+// disponibles (orders.ts → fetchAvailableDeliveries), au lieu de tous les
+// livreurs de la zone. Le client ne voit aucune différence de son côté.
+// Pas de branche Supabase ici : nouvelle fonctionnalité, pas de backend VPS
+// correspondant pour l'instant (voir CLAUDE.md § VPS, API et secrets).
+
+const LOCAL_OWN_DRIVERS_KEY = 'yamo_own_drivers';
+const MAX_OWN_DRIVERS = 5;
+
+interface OwnDriverEntry {
+  restaurantId: string;
+  driverId: string;
+  createdAt: string;
+}
+
+function readLocalOwnDrivers(): OwnDriverEntry[] {
+  try { return JSON.parse(localStorage.getItem(LOCAL_OWN_DRIVERS_KEY) ?? '[]'); } catch { return []; }
+}
+
+function writeLocalOwnDrivers(entries: OwnDriverEntry[]) {
+  localStorage.setItem(LOCAL_OWN_DRIVERS_KEY, JSON.stringify(entries));
+}
+
+export async function addOwnDriver(restaurantId: string, driverId: string): Promise<void> {
+  const entries = readLocalOwnDrivers();
+  const existing = entries.filter(e => e.restaurantId === restaurantId).length;
+  if (existing >= MAX_OWN_DRIVERS) throw new Error('Maximum ' + MAX_OWN_DRIVERS + ' livreurs internes.');
+  if (entries.some(e => e.restaurantId === restaurantId && e.driverId === driverId)) return;
+  entries.push({ restaurantId, driverId, createdAt: new Date().toISOString() });
+  writeLocalOwnDrivers(entries);
+}
+
+export async function removeOwnDriver(restaurantId: string, driverId: string): Promise<void> {
+  const entries = readLocalOwnDrivers().filter(e => !(e.restaurantId === restaurantId && e.driverId === driverId));
+  writeLocalOwnDrivers(entries);
+}
+
+export async function getOwnDriverIds(restaurantId: string): Promise<string[]> {
+  return readLocalOwnDrivers().filter(e => e.restaurantId === restaurantId).map(e => e.driverId);
+}

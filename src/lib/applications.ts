@@ -6,6 +6,8 @@ export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
 export interface ApplicationInput {
   type: ApplicationType;
   restaurantName?: string;
+  /** Slug URL-friendly pour le restaurant (généré depuis le nom, éditable avant soumission). Définitif après soumission. */
+  restaurantSlug?: string;
   city?: string;
   address?: string;
   contactPhone?: string;
@@ -20,6 +22,8 @@ export interface ApplicationInput {
   profilePhoto?: string;       // Photo de profil
   vehiclePhoto?: string;       // Photo du véhicule (livreur only)
   restaurantPhoto?: string;    // Photo du restaurant (restaurant only)
+  lat?: number;                // Coordonnées GPS (obligatoire restaurant)
+  lng?: number;                // Coordonnées GPS (obligatoire restaurant)
 }
 
 export interface Application extends ApplicationInput {
@@ -64,6 +68,8 @@ function mapApplicationRow(row: Record<string, unknown>): Application {
     vehiclePhoto: (row.vehicle_photo as string) ?? undefined,
     restaurantPhoto: (row.restaurant_photo as string) ?? undefined,
     serviceNeighborhoods: (row.service_neighborhoods as string[]) ?? undefined,
+    lat: (row.lat as number) ?? undefined,
+    lng: (row.lng as number) ?? undefined,
     createdAt: row.created_at as string,
   };
 }
@@ -88,6 +94,8 @@ export async function submitApplication(applicantId: string, input: ApplicationI
         vehicle_photo: input.vehiclePhoto ?? null,
         restaurant_photo: input.restaurantPhoto ?? null,
         service_neighborhoods: input.serviceNeighborhoods?.length ? input.serviceNeighborhoods : null,
+        lat: input.lat ?? null,
+        lng: input.lng ?? null,
       })
       .select()
       .single();

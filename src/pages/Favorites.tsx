@@ -70,7 +70,7 @@ export default function Favorites() {
               {favoriteRestaurants.map((resto) => (
                 <Link
                   key={resto.id}
-                  to={`/restaurant/${resto.id}`}
+                  to={`/restaurant/${resto.slug || resto.id}`}
                   className="block bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden hover:shadow-[0_12px_32px_rgba(0,0,0,0.10)] hover:-translate-y-1 transition-all duration-250 group"
                 >
                   <div className="aspect-[16/10] overflow-hidden relative">
@@ -114,14 +114,14 @@ export default function Favorites() {
             <EmptyState
               icon={ChefHat}
               text="Aucun plat favori pour le moment."
-              cta={{ label: 'Explorer les plats', to: '/explorer' }}
+              cta={{ label: 'Explorer les plats', to: '/restaurants?mode=plats' }}
             />
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
               {favoriteDishGroups.map((group) => (
                 <Link
                   key={group.key}
-                  to={`/plat/${dishSlug(group.displayName)}`}
+                  to={`/article/${dishSlug(group.displayName)}`}
                   className="group text-left bg-white rounded-2xl border border-border-custom shadow-sm overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-250"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-bg-secondary">
