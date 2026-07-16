@@ -7,6 +7,7 @@ import MobileBottomNav from './MobileBottomNav';
 import ActiveOperationsBar from './ActiveOperationsBar';
 import NetworkBanner from './NetworkBanner';
 import OnboardingOverlay, { shouldShowOnboarding } from './OnboardingOverlay';
+import ScrollToTop from './ScrollToTop';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -25,6 +26,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       <Footer />
       <ActiveOperationsBar />
       <MobileBottomNav />
+      <ScrollToTop />
       {showOnboarding && <OnboardingOverlay onClose={() => setOnboardingPending(false)} />}
     </div>
   );

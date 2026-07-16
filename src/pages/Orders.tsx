@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Package, Clock, Star, Store, UserRound, XCircle, RotateCcw } from 'lucide-react';
+import { Package, Clock, Star, Store, UserRound, XCircle, RotateCcw, Loader2 } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { fetchMenuItems } from '../lib/catalog';
 import { useAuth } from '../contexts/AuthContext';
@@ -26,8 +26,10 @@ const CANCEL_REASONS = [
   "J'ai changé d'avis",
   'Autre',
 ] as const;
-import { rateDelivery } from '../lib/drivers';
-import { rateRestaurant, hasRestaurantReview } from '../lib/catalog';
+
+const DELIVERY_REVIEW_TAGS = ['Ponctuel', 'Courtois', 'Suivi clair', 'Commande intacte'];
+const RESTAURANT_REVIEW_TAGS = ['Tres bon', 'Bien emballe', 'Portions genereuses', 'Conforme', 'Rapide'];
+import { hasOrderReview, submitOrderReview } from '../lib/reviews';
 import OrderStatusStepper from '../components/OrderStatusStepper';
 import { Skeleton } from '../components/ui/skeleton';
 import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
@@ -84,20 +86,47 @@ export default function Orders() {
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
+  const [reviewTags, setReviewTags] = useState<string[]>([]);
+  const [reviewSubmittingId, setReviewSubmittingId] = useState<string | null>(null);
   const [reviewSubmitted, setReviewSubmitted] = useState<Record<string, boolean>>({});
 
   // Restaurant review state
   const [restoReviewingId, setRestoReviewingId] = useState<string | null>(null);
   const [restoRating, setRestoRating] = useState(5);
   const [restoComment, setRestoComment] = useState('');
+  const [restoTags, setRestoTags] = useState<string[]>([]);
+  const [restoReviewSubmittingId, setRestoReviewSubmittingId] = useState<string | null>(null);
   const [restoReviewSubmitted, setRestoReviewSubmitted] = useState<Record<string, boolean>>({});
 
+  const toggleReviewTag = (tag: string) => {
+    setReviewTags((prev) => prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag]);
+  };
+
+  const toggleRestoTag = (tag: string) => {
+    setRestoTags((prev) => prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag]);
+  };
+
   const handleSubmitReview = async (orderId: string) => {
-    await rateDelivery(orderId, reviewRating, reviewComment || undefined);
-    setReviewSubmitted((prev) => ({ ...prev, [orderId]: true }));
-    setReviewingId(null);
-    setReviewComment('');
-    setReviewRating(5);
+    if (!user) return;
+    setReviewSubmittingId(orderId);
+    try {
+      await submitOrderReview(orderId, {
+        targetType: 'driver',
+        rating: reviewRating,
+        comment: reviewComment || undefined,
+        tags: reviewTags,
+      }, user.id);
+      setReviewSubmitted((prev) => ({ ...prev, [orderId]: true }));
+      setReviewingId(null);
+      setReviewComment('');
+      setReviewTags([]);
+      setReviewRating(5);
+      toast.success('Avis livraison enregistre.');
+    } catch (err) {
+      toast.error((err as Error).message || "Impossible d'enregistrer l'avis.");
+    } finally {
+      setReviewSubmittingId(null);
+    }
   };
 
   // « Marie N. » à partir du nom de profil — preuve sociale sans exposer
@@ -111,11 +140,27 @@ export default function Orders() {
 
   const handleSubmitRestoReview = async (orderId: string, restaurantId: string) => {
     if (!user) return;
-    await rateRestaurant(orderId, restaurantId, user.id, restoRating, restoComment || undefined, reviewAuthorName);
-    setRestoReviewSubmitted((prev) => ({ ...prev, [orderId]: true }));
-    setRestoReviewingId(null);
-    setRestoComment('');
-    setRestoRating(5);
+    setRestoReviewSubmittingId(orderId);
+    try {
+      await submitOrderReview(orderId, {
+        targetType: 'restaurant',
+        targetId: restaurantId,
+        rating: restoRating,
+        comment: restoComment || undefined,
+        tags: restoTags,
+        authorName: reviewAuthorName,
+      }, user.id);
+      setRestoReviewSubmitted((prev) => ({ ...prev, [orderId]: true }));
+      setRestoReviewingId(null);
+      setRestoComment('');
+      setRestoTags([]);
+      setRestoRating(5);
+      toast.success('Avis restaurant enregistre.');
+    } catch (err) {
+      toast.error((err as Error).message || "Impossible d'enregistrer l'avis.");
+    } finally {
+      setRestoReviewSubmittingId(null);
+    }
   };
 
   useEffect(() => {
@@ -139,12 +184,17 @@ export default function Orders() {
       if (deliveredKey === checkedDeliveredKeyRef.current) return;
       checkedDeliveredKeyRef.current = deliveredKey;
       const restoReviewed: Record<string, boolean> = {};
+      const deliveryReviewed: Record<string, boolean> = {};
       for (const order of delivered) {
-        if (await hasRestaurantReview(order.id)) {
+        if (await hasOrderReview(order.id, 'restaurant')) {
           restoReviewed[order.id] = true;
+        }
+        if (await hasOrderReview(order.id, 'driver')) {
+          deliveryReviewed[order.id] = true;
         }
       }
       setRestoReviewSubmitted(restoReviewed);
+      setReviewSubmitted(deliveryReviewed);
     });
   }, [user]);
 

@@ -30,6 +30,7 @@ import AdminZones from './pages/admin/AdminZones'
 import AdminDeliveryFees from './pages/admin/AdminDeliveryFees'
 import AdminMedia from './pages/admin/AdminMedia'
 import AdminCustomers from './pages/admin/AdminCustomers'
+import AdminTrash from './pages/admin/AdminTrash'
 import FoodRequestCreate from './pages/FoodRequestCreate'
 import FoodRequestList from './pages/FoodRequestList'
 import NotFound from './pages/NotFound'
@@ -122,6 +123,7 @@ export default function App() {
           <Route path="delivery-fees" element={<AdminDeliveryFees />} />
           <Route path="media" element={<AdminMedia />} />
           <Route path="customers" element={<AdminCustomers />} />
+          <Route path="trash" element={<AdminTrash />} />
         </Route>
 
         <Route path="*" element={<Layout><NotFound /></Layout>} />

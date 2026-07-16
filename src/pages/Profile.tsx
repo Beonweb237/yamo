@@ -8,6 +8,17 @@ import { fetchOrders, type Order } from '../lib/orders';
 import { toast } from 'sonner';
 import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
 import AddressAutocomplete from '../components/AddressAutocomplete';
+import { trashItem } from '../lib/trash';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 
 interface SavedAddress {
   id: string;
@@ -182,10 +193,16 @@ export default function Profile() {
     resetForm();
   };
 
+  const [deleteTargetAddr, setDeleteTargetAddr] = useState<SavedAddress | null>(null);
+
   const handleDelete = (id: string) => {
+    const addr = addresses.find((a) => a.id === id);
+    if (!addr) return;
+    trashItem(id, 'address', addr);
     const updated = addresses.filter((a) => a.id !== id);
     setAddresses(updated);
     writeAddresses(updated);
+    toast.success('Adresse mise en corbeille', { description: 'Récupérable pendant 7 jours.' });
   };
 
   const handleEdit = (addr: SavedAddress) => {
@@ -570,7 +587,7 @@ export default function Profile() {
                         Modifier
                       </button>
                       <button
-                        onClick={() => handleDelete(addr.id)}
+                        onClick={() => setDeleteTargetAddr(addr)}
                         className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted hover:text-error hover:bg-error/10 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -609,6 +626,30 @@ export default function Profile() {
           </button>
         </section>
       </div>
+
+      {/* ── Confirmation suppression adresse ── */}
+      <AlertDialog open={!!deleteTargetAddr} onOpenChange={(open) => { if (!open) setDeleteTargetAddr(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette adresse ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              L'adresse <strong>{deleteTargetAddr?.label || deleteTargetAddr?.fullText}</strong> sera déplacée dans la corbeille pour 7 jours.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteTargetAddr) handleDelete(deleteTargetAddr.id);
+                setDeleteTargetAddr(null);
+              }}
+              className="bg-error text-white hover:bg-error/90"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

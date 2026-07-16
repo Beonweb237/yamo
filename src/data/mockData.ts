@@ -10,6 +10,14 @@ export interface Restaurant {
   city: string;
   neighborhood: string;
   rating: number;
+  /** Score bayesien utilise pour classer les restaurants quand des avis reels existent. */
+  ratingWeighted?: number;
+  /** Repartition dynamique des avis publies par note. */
+  ratingBreakdown?: Record<1 | 2 | 3 | 4 | 5, number>;
+  /** Nombre d'avis verifies issus de commandes livrees. */
+  verifiedReviewCount?: number;
+  /** Nombre d'avis dynamiques ajoutes par le systeme de notation. */
+  dynamicReviewCount?: number;
   reviewCount: number;
   deliveryTime: string;
   deliveryFee: number;

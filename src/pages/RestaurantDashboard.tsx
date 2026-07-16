@@ -1782,6 +1782,28 @@ function MenuTab({
           </div>
         </div>
       )}
+
+      {/* ── Confirmation suppression plat ── */}
+      <AlertDialog open={!!deleteTargetItem} onOpenChange={(open) => { if (!open) setDeleteTargetItem(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce plat ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{deleteTargetItem?.name}</strong> sera déplacé dans la corbeille pour 7 jours.
+              Vous pourrez le restaurer depuis le tableau de bord pendant cette période.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteItem}
+              className="bg-error text-white hover:bg-error/90"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

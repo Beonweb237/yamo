@@ -3,12 +3,13 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import {
   Bike, Home, LayoutDashboard, LogOut, ShoppingBag, Store, Menu, X,
   Package, Utensils, User, Wallet, AlertTriangle, UserCheck, UserCircle, ChevronDown, ChefHat,
-  MapPin, DollarSign, Image, Users,
+  MapPin, DollarSign, Image, Users, Trash2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchAllOrders } from '../lib/orders';
 import { fetchAllIncidents } from '../lib/incidents';
 import NetworkBanner from './NetworkBanner';
+import ScrollToTop from './ScrollToTop';
 
 interface SidebarLink {
   name: string;
@@ -28,6 +29,7 @@ const adminSidebar: SidebarLink[] = [
   { name: 'Frais livraison', path: '/admin/delivery-fees', icon: DollarSign },
   { name: 'Médiathèque', path: '/admin/media', icon: Image },
   { name: 'Clients', path: '/admin/customers', icon: Users },
+  { name: 'Corbeille', path: '/admin/trash', icon: Trash2 },
 ];
 
 const restaurantSidebar: SidebarLink[] = [
@@ -255,6 +257,7 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
           {children ?? <Outlet />}
         </main>
       </div>
+      <ScrollToTop />
     </div>
   );
 }

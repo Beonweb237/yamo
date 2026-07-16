@@ -15,6 +15,16 @@ export default defineConfig({
   ],
   server: {
     port: 3000,
+    // En dev, /api est proxifié vers le backend (par défaut la prod VPS) pour
+    // tester le mode API (VITE_USE_VPS_API=true) sans problème de CORS —
+    // même chemin relatif qu'en production derrière Nginx.
+    proxy: {
+      '/api': {
+        target: process.env.VITE_DEV_API_PROXY || 'https://miamexpress.cm',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
   },
   resolve: {
     alias: {

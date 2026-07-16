@@ -67,43 +67,19 @@ function isSelfApprovingRole(role: UserRole) {
   return role === 'client' || role === 'admin';
 }
 
-// Loads the profile row for a Supabase-authenticated user, creating it with the
-// requested role on first login. The role never changes on subsequent logins.
-async function resolveSupabaseProfile(
-  userId: string,
-  phone: string,
-  requestedRole: UserRole
-): Promise<{ role: UserRole; isApproved: boolean; isSuspended: boolean; suspensionReason: string | null; phone: string }> {
-  if (!supabase) return { role: 'client', isApproved: true, isSuspended: false, suspensionReason: null, phone };
-
-  const { data: existing } = await supabase
-    .from('profiles')
-    .select('role, is_approved, is_suspended, suspension_reason, phone')
-    .eq('id', userId)
-    .maybeSingle();
-  if (existing) {
-    const role = existing.role as UserRole;
-    return {
-      role,
-      isApproved: isSelfApprovingRole(role) || existing.is_approved,
-      isSuspended: Boolean(existing.is_suspended),
-      suspensionReason: existing.suspension_reason ?? null,
-      phone: existing.phone ?? phone,
-    };
-  }
-
-  const { data: inserted } = await supabase
-    .from('profiles')
-    .insert({ id: userId, phone, role: requestedRole })
-    .select('role, is_approved, is_suspended, suspension_reason, phone')
-    .single();
-  const role = (inserted?.role as UserRole) ?? requestedRole;
+// /api/auth/me (exposé via getSession() de l'adaptateur) renvoie déjà le
+// profil complet — rôle, approbation, suspension, zone de service — en un
+// appel : on construit l'AuthUser directement, sans second aller-retour.
+function toAuthUserFromSession(u: Record<string, unknown>): AuthUser {
   return {
-    role,
-    isApproved: isSelfApprovingRole(role) || Boolean(inserted?.is_approved),
-    isSuspended: Boolean(inserted?.is_suspended),
-    suspensionReason: inserted?.suspension_reason ?? null,
-    phone: inserted?.phone ?? phone,
+    id: u.id as string,
+    phone: u.phone as string,
+    role: u.role as UserRole,
+    isApproved: Boolean(u.isApproved),
+    isSuspended: Boolean(u.isSuspended),
+    suspensionReason: (u.suspensionReason as string | null) ?? null,
+    city: (u.city as string | null) ?? null,
+    serviceNeighborhoods: (u.serviceNeighborhoods as string[] | null) ?? null,
   };
 }
 
@@ -142,8 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
     if (session?.user) {
-      const { role, isApproved, isSuspended, suspensionReason, phone } = await resolveSupabaseProfile(session.user.id, session.user.phone ?? '', 'client');
-      setUser({ id: session.user.id, phone, role, isApproved, isSuspended, suspensionReason });
+      setUser(toAuthUserFromSession(session.user as Record<string, unknown>));
     } else {
       setUser(null);
     }
@@ -153,19 +128,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isSupabaseConfigured) seedLocalRegistry();
 
     const initAuth = async () => {
-      // 1. Try Supabase session
+      // 1. Session API VPS (token JWT stocké côté adaptateur)
       if (isSupabaseConfigured && supabase) {
         try {
           const { data } = await supabase.auth.getSession();
           if (data.session?.user) {
-            const { role, isApproved, isSuspended, suspensionReason, phone } =
-              await resolveSupabaseProfile(data.session.user.id, data.session.user.phone ?? '', 'client');
-            setUser({ id: data.session.user.id, phone, role, isApproved, isSuspended, suspensionReason });
+            setUser(toAuthUserFromSession(data.session.user as Record<string, unknown>));
             setLoading(false);
-            return; // Supabase session found — done
+            return; // API session found — done
           }
         } catch {
-          // Supabase unreachable — fall through
+          // API unreachable — fall through
         }
       }
 
@@ -188,9 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: sub } = client.auth.onAuthStateChange(async () => {
         const { data } = await client.auth.getSession();
         if (data.session?.user) {
-          const { role, isApproved, isSuspended, suspensionReason, phone } =
-            await resolveSupabaseProfile(data.session.user.id, data.session.user.phone ?? '', 'client');
-          setUser({ id: data.session.user.id, phone, role, isApproved, isSuspended, suspensionReason });
+          setUser(toAuthUserFromSession(data.session.user as Record<string, unknown>));
         }
       });
       return () => sub.subscription.unsubscribe();
@@ -200,38 +171,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sendOtp = useCallback(async (phone: string) => {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { error } = await supabase.auth.signInWithOtp({ phone });
-        if (error) throw error;
-        return; // SMS sent successfully
+        await supabase.auth.sendOtp(phone);
+        return; // OTP émis par le backend (visible dans ses logs tant qu'aucun SMS n'est branché)
       } catch {
-        // No SMS provider configured (Twilio) — fall through to mock mode
+        // Backend injoignable — fall through to mock mode
       }
     }
-    // Mock mode or SMS unavailable: any code works in verifyOtp.
+    // Mock mode or backend unavailable: any code works in verifyOtp.
   }, []);
 
   const verifyOtp = useCallback(async (phone: string, code: string, requestedRole: UserRole = 'client') => {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase.auth.verifyOtp({ phone, token: code, type: 'sms' });
-        if (!error && data.user) {
-          const { role, isApproved, isSuspended, suspensionReason, phone: resolvedPhone } = await resolveSupabaseProfile(
-            data.user.id,
-            data.user.phone ?? phone,
-            requestedRole
-          );
-          // This phone already has an account under a different role — don't
-          // silently switch the session, invite the user to log in as themselves.
-          if (role !== requestedRole) {
-            throw new RoleMismatchError(role);
-          }
-          const resolvedUser: AuthUser = { id: data.user.id, phone: resolvedPhone, role, isApproved, isSuspended, suspensionReason };
+        const json = await supabase.auth.verifyOtp(phone, code, requestedRole);
+        if (json?.user) {
+          // Re-lecture via /api/auth/me pour le profil complet (suspension,
+          // ville, zones) — la réponse verify-otp ne porte que l'essentiel.
+          const { data } = await supabase.auth.getSession();
+          const resolvedUser: AuthUser = data?.session?.user
+            ? toAuthUserFromSession(data.session.user as Record<string, unknown>)
+            : toAuthUserFromSession(json.user as Record<string, unknown>);
           setUser(resolvedUser);
           return resolvedUser;
         }
       } catch (err) {
         if (err instanceof RoleMismatchError) throw err;
-        // SMS provider unavailable — fall through to mock mode
+        // Backend injoignable ou code invalide — fall through to mock mode
       }
     }
 
@@ -266,13 +231,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithPassword = useCallback(async (email: string, password: string) => {
     if (!isSupabaseConfigured || !supabase) {
-      throw new Error('Password sign-in requires Supabase to be configured.');
+      throw new Error("Password sign-in requires l'API VPS (VITE_USE_VPS_API).");
     }
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    if (!data.user) throw new Error('Échec de la connexion.');
-    const { role, isApproved, isSuspended, suspensionReason, phone } = await resolveSupabaseProfile(data.user.id, '', 'client');
-    const authUser: AuthUser = { id: data.user.id, phone, role, isApproved, isSuspended, suspensionReason };
+    if (!data?.session?.user) throw new Error('Échec de la connexion.');
+    // /api/auth/me pour le profil complet (suspension, ville, zones).
+    const { data: sessionData } = await supabase.auth.getSession();
+    const authUser: AuthUser = sessionData?.session?.user
+      ? toAuthUserFromSession(sessionData.session.user as Record<string, unknown>)
+      : toAuthUserFromSession(data.session.user as Record<string, unknown>);
     setUser(authUser);
     return authUser;
   }, []);
@@ -281,24 +249,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // auth user + profile row; in mock mode it stores everything in localStorage
   // so the user can log back in with the same email/password on Login.tsx.
   const signUp = useCallback(async ({ email, password, phone, name, role }: SignUpParams): Promise<AuthUser> => {
-    if (isSupabaseConfigured && supabase && email && password) {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { phone, full_name: name } },
-      });
+    if (isSupabaseConfigured && supabase && password) {
+      // /api/auth/signup crée le compte avec le rôle et renvoie le JWT —
+      // pas de table profiles séparée, tout vit dans users côté API.
+      const { data, error } = await supabase.auth.signUp({ email, phone, password, name, role });
       if (error) throw error;
-      if (!data.user) throw new Error("Échec de l'inscription.");
-      // Upsert the profile row — the database trigger may have already created
-      // one, so we use upsert to avoid duplicate-key errors.
-      await supabase
-        .from('profiles')
-        .upsert({ id: data.user.id, phone, role, full_name: name, is_approved: isSelfApprovingRole(role) });
+      if (!data?.user) throw new Error("Échec de l'inscription.");
+      const u = data.user as Record<string, unknown>;
       const authUser: AuthUser = {
-        id: data.user.id,
-        phone,
-        role,
-        isApproved: isSelfApprovingRole(role),
+        id: u.id as string,
+        phone: (u.phone as string) || phone,
+        role: (u.role as UserRole) || role,
+        isApproved: Boolean(u.isApproved ?? isSelfApprovingRole(role)),
         isSuspended: false,
       };
       setUser(authUser);
@@ -366,13 +328,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [loadSupabaseSession]);
 
-  // Persists the display name to profiles.full_name (Supabase) so it
-  // survives beyond the current browser (Profile.tsx previously only wrote
-  // it to localStorage, silently losing it on another device/session).
+  // Persists the display name to users.full_name (API VPS) so it survives
+  // beyond the current browser (Profile.tsx previously only wrote it to
+  // localStorage, silently losing it on another device/session).
   // In mock mode, localStorage (see Profile.tsx) remains the source of truth.
   const updateProfileName = useCallback(async (name: string) => {
     if (!user || !isSupabaseConfigured || !supabase) return;
-    const { error } = await supabase.from('profiles').update({ full_name: name }).eq('id', user.id);
+    const { error } = await supabase.from('users').update({ full_name: name }).eq('id', user.id);
     if (error) throw error;
   }, [user]);
 

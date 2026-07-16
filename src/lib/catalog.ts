@@ -7,6 +7,13 @@ import {
   type Restaurant,
   type MenuItem,
 } from '../data/mockData';
+import {
+  enrichRestaurantsWithReviewSummaries,
+  fetchRestaurantReviews as fetchUnifiedRestaurantReviews,
+  hasOrderReview,
+  submitOrderReview,
+  type Review,
+} from './reviews';
 
 // Maps a Supabase `restaurants` row (snake_case) to the app's Restaurant type.
 import { parseCityFromAddress, parseNeighborhoodFromAddress } from '../data/locations';
@@ -77,32 +84,32 @@ function applyOverrides(list: Restaurant[]): Restaurant[] {
 }
 
 export async function fetchRestaurants(): Promise<Restaurant[]> {
-  if (!isSupabaseConfigured || !supabase) return applyOverrides(mockRestaurants);
+  if (!isSupabaseConfigured || !supabase) return enrichRestaurantsWithReviewSummaries(applyOverrides(mockRestaurants));
 
   const { data, error } = await supabase.from('restaurants').select('*');
-  if (error || !data || data.length === 0) return applyOverrides(mockRestaurants);
-  return data.map(mapRestaurant);
+  if (error || !data || data.length === 0) return enrichRestaurantsWithReviewSummaries(applyOverrides(mockRestaurants));
+  return enrichRestaurantsWithReviewSummaries(data.map(mapRestaurant));
 }
 
 export async function fetchRestaurant(id: string): Promise<Restaurant | undefined> {
   if (!isSupabaseConfigured || !supabase) {
     const found = mockRestaurants.find((r) => r.id === id);
-    return found ? applyOverrides([found])[0] : undefined;
+    return found ? (await enrichRestaurantsWithReviewSummaries(applyOverrides([found])))[0] : undefined;
   }
 
   const { data, error } = await supabase.from('restaurants').select('*').eq('id', id).maybeSingle();
   if (error || !data) {
     const found = mockRestaurants.find((r) => r.id === id);
-    return found ? applyOverrides([found])[0] : undefined;
+    return found ? (await enrichRestaurantsWithReviewSummaries(applyOverrides([found])))[0] : undefined;
   }
-  return mapRestaurant(data);
+  return (await enrichRestaurantsWithReviewSummaries([mapRestaurant(data)]))[0];
 }
 
 export async function fetchRestaurantByOwner(ownerId: string): Promise<Restaurant | undefined> {
   if (!isSupabaseConfigured || !supabase) {
     // LOT-14 : sans applyOverrides, les modifications du profil (horaires,
     // temps de livraison…) disparaissaient du dashboard au rechargement.
-    return applyOverrides(mockRestaurants.slice(0, 1))[0];
+    return (await enrichRestaurantsWithReviewSummaries(applyOverrides(mockRestaurants.slice(0, 1))))[0];
   }
 
   const { data, error } = await supabase
@@ -111,17 +118,17 @@ export async function fetchRestaurantByOwner(ownerId: string): Promise<Restauran
     .eq('owner_id', ownerId)
     .maybeSingle();
   if (error || !data) return undefined;
-  return mapRestaurant(data);
+  return (await enrichRestaurantsWithReviewSummaries([mapRestaurant(data)]))[0];
 }
 
 export async function fetchRestaurantsByOwner(ownerId: string): Promise<Restaurant[]> {
   if (!isSupabaseConfigured || !supabase) {
-    return applyOverrides(mockRestaurants.slice(0, 1));
+    return enrichRestaurantsWithReviewSummaries(applyOverrides(mockRestaurants.slice(0, 1)));
   }
 
   const { data, error } = await supabase.from('restaurants').select('*').eq('owner_id', ownerId);
   if (error || !data) return [];
-  return data.map(mapRestaurant);
+  return enrichRestaurantsWithReviewSummaries(data.map(mapRestaurant));
 }
 
 export async function updateRestaurantOpenStatus(id: string, isOpen: boolean): Promise<void> {
@@ -322,29 +329,11 @@ export async function deleteMenuItem(id: string): Promise<void> {
 
 // ─────────────────────────────────────────────────────────────
 // Restaurant reviews (client rates restaurant after delivery)
-// ─────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// Compatibility wrappers: the unified review engine lives in reviews.ts and is
+// VPS-first (/api/reviews) with a localStorage fallback only when VPS mode is off.
 
-export interface RestaurantReview {
-  id: string;
-  orderId: string;
-  restaurantId: string;
-  customerId: string;
-  rating: number; // 1-5
-  comment?: string;
-  createdAt: string;
-  /** Nom d'affichage de l'auteur (« Marie N. ») — preuve sociale (CONF-26). */
-  authorName?: string | null;
-}
-
-const LOCAL_RESTAURANT_REVIEWS_KEY = 'yamo_restaurant_reviews';
-
-function readLocalRestaurantReviews(): RestaurantReview[] {
-  try { return JSON.parse(localStorage.getItem(LOCAL_RESTAURANT_REVIEWS_KEY) ?? '[]'); } catch { return []; }
-}
-
-function writeLocalRestaurantReviews(reviews: RestaurantReview[]) {
-  localStorage.setItem(LOCAL_RESTAURANT_REVIEWS_KEY, JSON.stringify(reviews));
-}
+export type RestaurantReview = Review;
 
 export async function rateRestaurant(
   orderId: string,
@@ -354,74 +343,19 @@ export async function rateRestaurant(
   comment?: string,
   authorName?: string
 ): Promise<RestaurantReview> {
-  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
-    const { data, error } = await supabase
-      .from('restaurant_reviews')
-      .insert({
-        order_id: orderId,
-        restaurant_id: restaurantId,
-        customer_id: customerId,
-        rating,
-        comment: comment ?? null,
-      })
-      .select()
-      .single();
-    if (error || !data) throw error ?? new Error('Failed to submit restaurant review');
-    return {
-      id: data.id as string,
-      orderId: data.order_id as string,
-      restaurantId: data.restaurant_id as string,
-      customerId: data.customer_id as string,
-      rating: data.rating as number,
-      comment: (data.comment as string) ?? undefined,
-      createdAt: data.created_at as string,
-    };
-  }
-
-  const review: RestaurantReview = {
-    id: crypto.randomUUID(),
-    orderId,
-    restaurantId,
-    customerId,
+  return submitOrderReview(orderId, {
+    targetType: 'restaurant',
+    targetId: restaurantId,
     rating,
     comment,
-    authorName: authorName?.trim() || null,
-    createdAt: new Date().toISOString(),
-  };
-  const reviews = readLocalRestaurantReviews();
-  writeLocalRestaurantReviews([review, ...reviews]);
-  return review;
+    authorName,
+  }, customerId);
 }
 
 export async function fetchRestaurantReviews(restaurantId: string): Promise<RestaurantReview[]> {
-  if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('restaurant_reviews')
-      .select('*')
-      .eq('restaurant_id', restaurantId)
-      .order('created_at', { ascending: false });
-    if (error || !data) return [];
-    return data.map((r: Record<string, unknown>) => ({
-      id: r.id as string,
-      orderId: r.order_id as string,
-      restaurantId: r.restaurant_id as string,
-      customerId: r.customer_id as string,
-      rating: r.rating as number,
-      comment: (r.comment as string) ?? undefined,
-      createdAt: r.created_at as string,
-    }));
-  }
-  return readLocalRestaurantReviews().filter(r => r.restaurantId === restaurantId);
+  return fetchUnifiedRestaurantReviews(restaurantId);
 }
 
 export async function hasRestaurantReview(orderId: string): Promise<boolean> {
-  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
-    const { count, error } = await supabase
-      .from('restaurant_reviews')
-      .select('*', { count: 'exact', head: true })
-      .eq('order_id', orderId);
-    if (error) return false;
-    return (count ?? 0) > 0;
-  }
-  return readLocalRestaurantReviews().some(r => r.orderId === orderId);
+  return hasOrderReview(orderId, 'restaurant');
 }
