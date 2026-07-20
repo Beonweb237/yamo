@@ -382,7 +382,7 @@ export default function AdminMedia() {
                 {t("Aucun média dans ce dossier.")}
               </p>
               <p className="text-text-muted text-xs font-inter">
-                {t("Glissez-déposez vos images ici ou cliquez sur &quot;Ajouter des médias&quot;.")}
+                {t("Glissez-déposez vos images ici ou cliquez sur ”Ajouter des médias”.")}
               </p>
             </div>
           ) : (

@@ -274,7 +274,7 @@ export default function AdminDrivers() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Suspendre ce livreur ?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("Le livreur ne pourra plus accéder à son espace ni recevoir de courses.\r\n              Le motif est visible par l&apos;équipe uniquement.")}
+              {t("Le livreur ne pourra plus accéder à son espace ni recevoir de courses.\r\n              Le motif est visible par l’équipe uniquement.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <textarea

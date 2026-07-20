@@ -15,7 +15,7 @@ export default function NotFound() {
           {t("Page introuvable")}
         </h1>
         <p className="text-text-secondary font-inter text-sm mb-8">
-          {t("Cette page n&apos;existe pas ou a été déplacée. Retournez à l&apos;accueil ou explorez nos restaurants.")}
+          {t("Cette page n’existe pas ou a été déplacée. Retournez à l’accueil ou explorez nos restaurants.")}
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link

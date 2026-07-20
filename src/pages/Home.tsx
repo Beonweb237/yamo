@@ -143,10 +143,10 @@ export default function Home() {
               className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-6 text-white/80 text-[13px] font-inter"
             >
               <span>{t("Les meilleurs restaurants de Douala et Yaoundé")}</span>
-              <span>{t("&bull;")}</span>
+              <span>{t("•")}</span>
               <span>{t("Livraison en 30 min")}</span>
-              <span>{t("&bull;")}</span>
-              <span>{t("Paiement s&eacute;curis&eacute;")}</span>
+              <span>{t("•")}</span>
+              <span>{t("Paiement sécurisé")}</span>
             </motion.div>
           </div>
         </div>
@@ -167,7 +167,7 @@ export default function Home() {
               {t("Explorez par Type de Cuisine")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              {t("Des saveurs locales aux d&eacute;couvertes internationales")}
+              {t("Des saveurs locales aux découvertes internationales")}
             </p>
           </motion.div>
 
@@ -307,10 +307,10 @@ export default function Home() {
             className="text-center mb-12"
           >
             <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
-              {t("Commandez en 3 &Eacute;tapes Simples")}
+              {t("Commandez en 3 Étapes Simples")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              {t("Une exp&eacute;rience fluide, de la d&eacute;couverte &agrave; la d&eacute;gustation")}
+              {t("Une expérience fluide, de la découverte à la dégustation")}
             </p>
           </motion.div>
 
@@ -323,7 +323,7 @@ export default function Home() {
                 num: '1',
                 icon: Search,
                 title: 'Explorez les Menus',
-                desc: 'Parcourez des centaines de restaurants et de plats pr&egrave;s de chez vous. Filtrez par cuisine, prix, et temps de livraison.',
+                desc: 'Parcourez des centaines de restaurants et de plats près de chez vous. Filtrez par cuisine, prix, et temps de livraison.',
               },
               {
                 num: '2',
@@ -335,7 +335,7 @@ export default function Home() {
                 num: '3',
                 icon: MapPin,
                 title: 'Suivez en Temps Réel',
-                desc: 'Suivez votre livraison du restaurant &agrave; votre porte. D&eacute;gustez vos saveurs pr&eacute;f&eacute;r&eacute;es au chaud et &agrave; temps.',
+                desc: 'Suivez votre livraison du restaurant à votre porte. Dégustez vos saveurs préférées au chaud et à temps.',
               },
             ].map((step, i) => (
               <motion.div
@@ -388,10 +388,10 @@ export default function Home() {
                 {t("Application Mobile")}
               </span>
               <h2 className="font-poppins font-semibold text-white text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mt-3 mb-4">
-                {t("Commandez O&ugrave; Que Vous Soyez")}
+                {t("Commandez Où Que Vous Soyez")}
               </h2>
               <p className="text-white/70 font-inter text-base leading-relaxed max-w-[480px] mx-auto lg:mx-0 mb-6">
-                {t("T&eacute;l&eacute;chargez l&apos;application MiamExpress pour une exp&eacute;rience encore plus rapide. Recevez des notifications en temps r&eacute;el, sauvegardez vos adresses favorites, et profitez d&apos;offres exclusives.")}
+                {t("Téléchargez l’application MiamExpress pour une expérience encore plus rapide. Recevez des notifications en temps réel, sauvegardez vos adresses favorites, et profitez d’offres exclusives.")}
               </p>
 
               {/* Badges stores : emplacements conservés — pilotés par launchConfig,
@@ -474,7 +474,7 @@ export default function Home() {
               {t("Ils Nous Font Confiance")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              {t("Ce que nos premiers clients disent de nous &agrave; Douala et Yaound&eacute;")}
+              {t("Ce que nos premiers clients disent de nous à Douala et Yaoundé")}
             </p>
           </motion.div>
 
@@ -520,7 +520,7 @@ export default function Home() {
                   ))}
                 </div>
                 <p className="text-text-primary font-inter text-sm italic leading-relaxed relative z-10">
-                  {t("&ldquo;")}{review.comment}{t("&rdquo;")}
+                  {t("“")}{review.comment}{t("”")}
                 </p>
               </motion.div>
             ))}

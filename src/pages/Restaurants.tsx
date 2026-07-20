@@ -764,7 +764,7 @@ export default function Restaurants() {
                         {t("Aucun restaurant ne correspond")}
                       </p>
                       <p className="text-text-secondary font-inter text-sm mb-5">
-                        {t("Essayez d&apos;élargir vos filtres ou de changer de quartier.")}
+                        {t("Essayez d’élargir vos filtres ou de changer de quartier.")}
                       </p>
                       <button
                         onClick={() => {

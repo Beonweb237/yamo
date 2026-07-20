@@ -65,7 +65,7 @@ export default function Footer() {
               <img src="/logo-compact.png" alt="MiamExpress" className="h-10 w-auto object-contain" />
             </Link>
             <p className="text-text-secondary text-sm font-inter leading-relaxed max-w-[280px]">
-              {t("La plateforme de livraison de repas qui célèbre la richesse culinaire du Cameroun. De Douala à Yaoundé, savourez l&apos;excellence à domicile.")}
+              {t("La plateforme de livraison de repas qui célèbre la richesse culinaire du Cameroun. De Douala à Yaoundé, savourez l’excellence à domicile.")}
             </p>
             <div className="flex items-center gap-2 mt-4">
               {[Facebook, Instagram, Twitter].map((Icon, i) => (
@@ -149,7 +149,7 @@ export default function Footer() {
               </li>
             </ul>
             <p className="text-text-muted text-xs font-inter mt-3">
-              {t("Lun&ndash;Sam, 8h&ndash;22h")}
+              {t("Lun–Sam, 8h–22h")}
             </p>
           </div>
         </div>
@@ -157,7 +157,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="mt-12 pt-6 border-t border-border-custom flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-text-muted text-xs font-inter">
-            {t("&copy; 2026 MiamExpress. Tous droits réservés.")}
+            {t("© 2026 MiamExpress. Tous droits réservés.")}
           </p>
           <div className="flex items-center gap-4">
             <button
@@ -172,7 +172,7 @@ export default function Footer() {
               onClick={() => setLegalModal('terms')}
               className="text-text-muted text-xs font-inter hover:text-text-secondary transition-colors py-2"
             >
-              {t("Conditions d&apos;utilisation")}
+              {t("Conditions d’utilisation")}
             </button>
           </div>
         </div>

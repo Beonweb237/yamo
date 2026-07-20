@@ -514,7 +514,7 @@ export default function Checkout() {
             />
             <span>
               <span className="block font-inter font-semibold text-text-primary text-sm">
-                {t("Je commande pour quelqu&apos;un d&apos;autre")}
+                {t("Je commande pour quelqu’un d’autre")}
               </span>
               <span className="block text-text-muted text-xs font-inter mt-0.5">
                 {t("Le livreur contactera ce bénéficiaire à la livraison.")}
@@ -658,7 +658,7 @@ export default function Checkout() {
                   {neighborhoods.map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
-                  <option value="__other__">{t("Mon quartier n&apos;est pas listé")}</option>
+                  <option value="__other__">{t("Mon quartier n’est pas listé")}</option>
                 </select>
               )}
             </div>
@@ -700,7 +700,7 @@ export default function Checkout() {
                 </p>
               )}
               <p className="text-text-muted text-[11px] font-inter mt-1.5">
-                {t("Déplacez le repère rouge à l&apos;endroit exact de la livraison. Le point de repère ci-dessous reste indispensable (adressage informel).")}
+                {t("Déplacez le repère rouge à l’endroit exact de la livraison. Le point de repère ci-dessous reste indispensable (adressage informel).")}
               </p>
             </div>
             <div className="sm:col-span-2">
@@ -858,12 +858,12 @@ export default function Checkout() {
 
         {isPreviewOnlyRestaurant && (
           <p className="text-amber-700 bg-gold-light rounded-lg px-3 py-2 text-sm font-inter mb-4">
-            {t("Ce restaurant est un aperçu de démonstration et n&apos;est pas encore disponible à la commande.")}
+            {t("Ce restaurant est un aperçu de démonstration et n’est pas encore disponible à la commande.")}
           </p>
         )}
         {cartRestaurantMissing && (
           <div className="bg-error/10 text-error rounded-lg px-3 py-2.5 text-sm font-inter mb-4" role="alert">
-            <span className="font-semibold">{t("Le restaurant de votre panier n&apos;est plus disponible.")}</span>{' '}
+            <span className="font-semibold">{t("Le restaurant de votre panier n’est plus disponible.")}</span>{' '}
             <Link to="/restaurants" className="underline font-medium hover:opacity-80">
               {t("Choisir un autre restaurant")}
             </Link>
@@ -872,7 +872,7 @@ export default function Checkout() {
         {belowMinimum && (
           <div className="bg-gold-light text-amber-700 rounded-lg px-3 py-2.5 text-sm font-inter mb-4" role="status">
             <span className="font-semibold">{t("Commande minimum :")} {minOrder.toLocaleString()} {t("FCFA.")}</span>{' '}
-            {t("Ajoutez")} {missingForMinimum.toLocaleString()} {t("FCFA d&apos;articles pour valider.")}{' '}
+            {t("Ajoutez")} {missingForMinimum.toLocaleString()} {t("FCFA d’articles pour valider.")}{' '}
             <Link to={`/restaurant/${restaurantId}`} className="underline font-medium hover:opacity-80">
               {t("Retourner au menu")}
             </Link>

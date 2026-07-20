@@ -43,6 +43,7 @@ import type { MenuItem } from '../data/mockData';
 import LazyDeliveryMap from '../components/LazyDeliveryMap';
 import type { MapPoint } from '../components/DeliveryMap';
 import { useTranslation } from "react-i18next";
+import AuthChoiceModal from '../components/AuthChoiceModal';
 
 function timeAgoFr(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -64,7 +65,7 @@ const categoryOrder = [
 ];
 
 export default function RestaurantDetail() {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { restaurant: fetchedById, loading: restaurantLoading } = useRestaurant(slug);
@@ -82,16 +83,16 @@ export default function RestaurantDetail() {
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const { items, addToCart, replaceCartWith, updateQuantity, totalItems, totalPrice } = useCart();
   const { user } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
   // Conflit de restaurant : on garde l'article ET son id de base (un plat
   // personnalisé porte un id composite, différent de l'id du plat au menu).
   const [conflictItem, setConflictItem] = useState<{ item: MenuItem; baseItemId: string } | null>(null);
 
   // Le panier reste accessible sans compte, mais passer commande exige une
-  // session — direct vers la connexion plutôt que de laisser /checkout
-  // afficher puis rediriger (évite le flash de la page commande).
+  // session — on affiche la modale connexion/inscription.
   const handleCheckout = () => {
     if (!user) {
-      navigate('/connexion', { state: { from: '/checkout' } });
+      setShowAuthModal(true);
       return;
     }
     navigate('/checkout');
@@ -432,7 +433,7 @@ export default function RestaurantDetail() {
             {t("Restaurant introuvable")}
           </h1>
           <p className="text-text-secondary font-inter text-sm mb-6">
-            {t("Ce restaurant n&apos;existe pas ou n&apos;est plus disponible sur MiamExpress.")}
+            {t("Ce restaurant n’existe pas ou n’est plus disponible sur MiamExpress.")}
           </p>
           <Link
             to="/restaurants"
@@ -484,7 +485,7 @@ export default function RestaurantDetail() {
                 <span className="inline-flex items-center gap-1 rounded-full bg-green-light px-2.5 py-1 text-xs font-inter font-semibold text-green-primary">
                   <Circle className={`w-2 h-2 ${restaurantOpen ? 'fill-success text-success' : 'fill-error text-error'}`} />
                   {restaurantOpen
-                    ? parsedHours ? <>{t("Ouvert jusqu&apos;&agrave;")} {parsedHours.close}</> : 'Ouvert maintenant'
+                    ? parsedHours ? <>{t("Ouvert jusqu’à")} {parsedHours.close}</> : 'Ouvert maintenant'
                     : restaurant.isOpen && parsedHours ? `Fermé · ouvre à ${parsedHours.open}` : 'Fermé actuellement'}
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-gold-light px-2.5 py-1 text-xs font-inter font-semibold text-amber-700">
@@ -629,7 +630,7 @@ export default function RestaurantDetail() {
 
         {/* ── Contenu de l'onglet ── */}
         {(() => {
-                  const { t } = useTranslation();
+          const { t } = useTranslation();
           const isMenuTab = currentTab !== 'À propos' && currentTab !== 'Carte' && currentTab !== 'Avis';
 
           if (isMenuTab) {
@@ -694,7 +695,7 @@ export default function RestaurantDetail() {
                           ))
                         ) : (
                           <div className="p-8 text-center text-text-secondary font-inter">
-                            {t("Aucun plat dans cette cat&eacute;gorie pour le moment.")}
+                            {t("Aucun plat dans cette catégorie pour le moment.")}
                           </div>
                         )}
                       </div>
@@ -807,7 +808,7 @@ export default function RestaurantDetail() {
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
                       {galleryImages.slice(0, 4).map((img, idx) => {
-                          const { t } = useTranslation();
+                        const { t } = useTranslation();
                         const linkedItem = imageToMenuItem.get(img);
                         const isOverflowTile = idx === 3 && galleryImages.length > 4;
                         const galleryLabel = isOverflowTile
@@ -841,7 +842,7 @@ export default function RestaurantDetail() {
                               alt={`${restaurant.name} - plat ${idx + 1}`}
                               className="w-full h-full object-cover aspect-[4/3] group-hover:scale-105 transition-transform duration-300"
                               onError={(e) => {
-                                  const { t } = useTranslation();
+                                const { t } = useTranslation();
                                 (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent(
                                   `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="#fdf5e0" width="100%" height="100%"/><text x="50%" y="50%" fill="#8a6d1f" font-size="14" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Photo ${idx + 1}</text></svg>`
                                 )}`;
@@ -919,7 +920,7 @@ export default function RestaurantDetail() {
                             alt={`${restaurant.name} - coulisses ${idx + 1}`}
                             className="w-full h-full object-cover aspect-[4/3] group-hover:scale-105 transition-transform duration-300"
                             onError={(e) => {
-                                const { t } = useTranslation();
+                              const { t } = useTranslation();
                               (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent(
                                 `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="#fdf5e0" width="100%" height="100%"/><text x="50%" y="50%" fill="#8a6d1f" font-size="14" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Photo ${idx + 1}</text></svg>`
                               )}`;
@@ -1032,7 +1033,7 @@ export default function RestaurantDetail() {
                         ))}
                       </div>
                       <p className="text-text-muted text-sm font-inter mb-6">
-                        {t("Bas&eacute; sur")} {displayReviewCount} {t("avis")}
+                        {t("Basé sur")} {displayReviewCount} {t("avis")}
                       </p>
                       <div className="space-y-2">
                         {ratingBreakdown.map((rb) => (
@@ -1055,7 +1056,7 @@ export default function RestaurantDetail() {
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                         <div>
                           <h3 className="font-poppins font-semibold text-text-primary text-lg">
-                            {t("Avis r&eacute;cents")}
+                            {t("Avis récents")}
                           </h3>
                           <p className="text-text-muted text-xs font-inter">
                             {t("Notes enregistrées après une commande livrée.")}
@@ -1332,7 +1333,7 @@ export default function RestaurantDetail() {
           </DialogHeader>
           <p className="text-sm font-inter text-text-secondary">
             {t("Votre panier contient des plats de")}{' '}
-            <span className="font-semibold text-text-primary">{cartRestaurantName ?? 'un autre restaurant'}</span>{t(".\n            Une commande ne peut concerner qu&apos;un seul restaurant à la fois.\n            Voulez-vous le vider et ajouter")}{' '}
+            <span className="font-semibold text-text-primary">{cartRestaurantName ?? 'un autre restaurant'}</span>{t(".\n            Une commande ne peut concerner qu’un seul restaurant à la fois.\n            Voulez-vous le vider et ajouter")}{' '}
             <span className="font-semibold text-text-primary">{conflictItem?.item.name}</span>
             {' '}{t("de")} <span className="font-semibold text-text-primary">{restaurant.name}</span> ?
           </p>
@@ -1344,6 +1345,9 @@ export default function RestaurantDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Auth Choice Modal */}
+      {showAuthModal && <AuthChoiceModal redirectTo="/checkout" onClose={() => setShowAuthModal(false)} />}
 
       {/* Gallery Lightbox */}
       {
@@ -1388,7 +1392,7 @@ export default function RestaurantDetail() {
               className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
               onError={(e) => {
-                  const { t } = useTranslation();
+                const { t } = useTranslation();
                 (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent(
                   `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect fill="#1a1a1a" width="100%" height="100%"/><text x="50%" y="50%" fill="#fff" font-size="20" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Photo ${galleryIndex + 1}</text></svg>`
                 )}`;
@@ -1432,7 +1436,7 @@ function MenuRow({
   /** Restaurant fermé : les ajouts sont désactivés (retraits toujours possibles) */
   disabled?: boolean;
 }) {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   const qty = getQty(item.id);
   // Un plat personnalisable peut exister en plusieurs lignes du panier (ids
   // composites) : le "−" du stepper ne saurait pas laquelle décrémenter. On
@@ -1551,7 +1555,7 @@ function CartContent({
   onUpdate: (id: string, qty: number) => void;
   onCheckout: () => void;
 }) {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   const belowMinimum = minOrder > 0 && totalPrice < minOrder;
   const missingForMinimum = belowMinimum ? minOrder - totalPrice : 0;
   const orderTotal = totalPrice + deliveryFee;
@@ -1564,7 +1568,7 @@ function CartContent({
           {t("Votre panier est vide")}
         </p>
         <p className="text-text-muted font-inter text-sm text-center">
-          {t("Ajoutez des plats d&eacute;licieux &agrave; votre commande")}
+          {t("Ajoutez des plats délicieux à votre commande")}
         </p>
       </div>
     );
@@ -1630,7 +1634,7 @@ function CartContent({
       {belowMinimum && (
         <p className="mt-3 bg-gold-light text-amber-700 rounded-lg px-3 py-2 text-xs font-inter" role="status">
           <span className="font-semibold">{t("Commande minimum :")} {minOrder.toLocaleString()} {t("FCFA.")}</span>{' '}
-          {t("Ajoutez")} {missingForMinimum.toLocaleString()} {t("FCFA d&apos;articles.")}
+          {t("Ajoutez")} {missingForMinimum.toLocaleString()} {t("FCFA d’articles.")}
         </p>
       )}
       <button
@@ -1640,7 +1644,7 @@ function CartContent({
         title={belowMinimum ? `Commande minimum : ${minOrder.toLocaleString()} FCFA` : undefined}
         className="w-full mt-4 bg-green-primary text-white font-inter font-semibold h-[52px] rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        {t("Commander &mdash;")} {orderTotal.toLocaleString()} {t("FCFA")}
+        {t("Commander —")} {orderTotal.toLocaleString()} {t("FCFA")}
       </button>
     </div>
   );

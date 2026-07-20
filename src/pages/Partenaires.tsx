@@ -132,7 +132,7 @@ export default function Partenaires() {
                 transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 className="font-poppins font-semibold text-white text-[34px]/[1.18] sm:text-[40px]/[1.16] lg:text-[44px]/[1.16] tracking-normal mt-4 mb-5 max-w-[560px]"
               >
-                {t("D&eacute;veloppez Votre Activit&eacute; avec MiamExpress")}
+                {t("Développez Votre Activité avec MiamExpress")}
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
@@ -140,7 +140,7 @@ export default function Partenaires() {
                 transition={{ delay: 0.8, duration: 0.5 }}
                 className="text-white/70 font-inter text-base leading-relaxed max-w-[500px] mb-8"
               >
-                {t("Rejoignez le r&eacute;seau de livraison le plus dynamique du Cameroun. Touchez de nouveaux clients chaque jour, augmentez votre chiffre d&apos;affaires, et laissez-nous g&eacute;rer la logistique.")}
+                {t("Rejoignez le réseau de livraison le plus dynamique du Cameroun. Touchez de nouveaux clients chaque jour, augmentez votre chiffre d’affaires, et laissez-nous gérer la logistique.")}
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -211,7 +211,7 @@ export default function Partenaires() {
               {t("Pourquoi Rejoindre MiamExpress ?")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              {t("Une solution compl&egrave;te pour faire cro&icirc;tre votre restaurant sans complexit&eacute;")}
+              {t("Une solution complète pour faire croître votre restaurant sans complexité")}
             </p>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -250,10 +250,10 @@ export default function Partenaires() {
             className="text-center mb-12"
           >
             <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
-              {t("Comment &Ccedil;a Marche ?")}
+              {t("Comment Ça Marche ?")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              {t("Quatre &eacute;tapes simples pour commencer &agrave; recevoir des commandes")}
+              {t("Quatre étapes simples pour commencer à recevoir des commandes")}
             </p>
           </motion.div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 relative">
@@ -322,7 +322,7 @@ export default function Partenaires() {
                   ))}
                 </div>
                 <p className="text-text-primary font-inter text-sm italic leading-relaxed relative z-10">
-                  {t("&ldquo;")}{review.comment}{t("&rdquo;")}
+                  {t("“")}{review.comment}{t("”")}
                 </p>
               </motion.div>
             ))}
@@ -344,7 +344,7 @@ export default function Partenaires() {
               {t("Une Commission Transparente")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              {t("Pas de frais cach&eacute;s, pas d&apos;abonnement. Vous ne payez que lorsque vous vendez.")}
+              {t("Pas de frais cachés, pas d’abonnement. Vous ne payez que lorsque vous vendez.")}
             </p>
           </motion.div>
           <motion.div
@@ -398,7 +398,7 @@ export default function Partenaires() {
             transition={{ duration: 0.5 }}
             className="font-poppins font-semibold text-white text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-4"
           >
-            {t("Pr&ecirc;t &agrave; Faire Cro&icirc;tre Votre Restaurant ?")}
+            {t("Prêt à Faire Croître Votre Restaurant ?")}
           </motion.h2>
           <motion.p
             initial={{ opacity: 0 }}
@@ -407,7 +407,7 @@ export default function Partenaires() {
             transition={{ delay: 0.15, duration: 0.5 }}
             className="text-white/80 font-inter text-base max-w-[560px] mx-auto mb-8"
           >
-            {t("Rejoignez les premiers restaurants partenaires de MiamExpress. Inscrivez-vous aujourd&apos;hui et recevez votre premi&egrave;re commande sous 48h.")}
+            {t("Rejoignez les premiers restaurants partenaires de MiamExpress. Inscrivez-vous aujourd’hui et recevez votre première commande sous 48h.")}
           </motion.p>
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -441,7 +441,7 @@ export default function Partenaires() {
             transition={{ duration: 0.5 }}
             className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal text-center mb-10"
           >
-            {t("Questions Fr&eacute;quentes")}
+            {t("Questions Fréquentes")}
           </motion.h2>
           <Accordion items={partnerFAQ} />
         </div>

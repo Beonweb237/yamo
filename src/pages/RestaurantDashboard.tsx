@@ -815,7 +815,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                     <div className="space-y-3">
                       <div>
                         <label htmlFor="resto-cancel-reason" className="block text-text-secondary font-inter text-sm mb-1.5">
-                          {t("Motif de l&apos;annulation")} <span className="text-error">*</span>
+                          {t("Motif de l’annulation")} <span className="text-error">*</span>
                         </label>
                         <select
                           id="resto-cancel-reason"
@@ -916,7 +916,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                 <AlertDialogHeader>
                   <AlertDialogTitle>{t("Fermer temporairement le restaurant ?")}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    {activeRestaurant?.name} {t("n&apos;apparaîtra plus comme ouvert et ne recevra\r\n                    plus de nouvelles commandes jusqu&apos;à sa réouverture. Les commandes en\r\n                    cours ne sont pas affectées.")}
+                    {activeRestaurant?.name} {t("n’apparaîtra plus comme ouvert et ne recevra\r\n                    plus de nouvelles commandes jusqu’à sa réouverture. Les commandes en\r\n                    cours ne sont pas affectées.")}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -1375,7 +1375,7 @@ function OwnCourierSection({
         {t("Mes livreurs internes (livraison directe)")}
       </h2>
       <p className="text-text-muted text-xs font-inter mb-5">
-        {t("Ces livreurs assurent la livraison pour votre compte. Quand vous marquez une commande\r\n        « Prête », vous pouvez choisir « Mes livreurs » : elle n&apos;est alors proposée qu&apos;à\r\n        eux, exactement comme une livraison classique côté client. Max")} {5} {t("livreurs.")}
+        {t("Ces livreurs assurent la livraison pour votre compte. Quand vous marquez une commande\r\n        « Prête », vous pouvez choisir « Mes livreurs » : elle n’est alors proposée qu’à\r\n        eux, exactement comme une livraison classique côté client. Max")} {5} {t("livreurs.")}
       </p>
 
       <div className="space-y-2">
@@ -2329,7 +2329,7 @@ function ProfileTab({
       {/* Le statut Ouvert/Fermé se pilote depuis le haut du tableau de bord
           (visible sur tous les onglets) — plus besoin de venir ici. */}
       <p className="bg-bg-secondary rounded-lg px-3 py-2 text-xs font-inter text-text-secondary mb-4">
-        {t("💡 L&apos;ouverture/fermeture du restaurant se gère avec l&apos;interrupteur en haut du tableau de bord.")}
+        {t("💡 L’ouverture/fermeture du restaurant se gère avec l’interrupteur en haut du tableau de bord.")}
       </p>
       <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -2380,7 +2380,7 @@ function ProfileTab({
             className="w-full bg-white border border-border-custom rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
           />
           <p className="text-[11px] text-text-muted font-inter mt-1">
-            {t("Affiché au client pour payer la garantie de commande (")}{POINTS_CONFIG.GUARANTEE_AMOUNT_FCFA.toLocaleString()} {t("FCFA, déduite du total).\r\n            Laissez vide pour désactiver l&apos;étape garantie.")}
+            {t("Affiché au client pour payer la garantie de commande (")}{POINTS_CONFIG.GUARANTEE_AMOUNT_FCFA.toLocaleString()} {t("FCFA, déduite du total).\r\n            Laissez vide pour désactiver l’étape garantie.")}
           </p>
         </div>
         <div>
@@ -2396,7 +2396,7 @@ function ProfileTab({
             className="w-full bg-white border border-border-custom rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
           />
           <p className="text-[11px] text-text-muted font-inter mt-1">
-            {t("Affiché au client à l&apos;étape garantie pour joindre votre assistance.")}
+            {t("Affiché au client à l’étape garantie pour joindre votre assistance.")}
           </p>
         </div>
 
@@ -2820,7 +2820,7 @@ function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
         )}
       </h2>
       <p className="text-text-secondary text-xs font-inter mb-4">
-        {t("Avis vérifiés issus des commandes livrées. La modération est gérée par l&apos;équipe Yamo.")}
+        {t("Avis vérifiés issus des commandes livrées. La modération est gérée par l’équipe Yamo.")}
       </p>
 
       {reviewsLoading ? (
@@ -2992,7 +2992,7 @@ function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Signaler cet avis à la modération ?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("L&apos;avis reste visible pendant l&apos;examen. L&apos;équipe Yamo décidera de le\r\n              maintenir ou de le masquer. Expliquez précisément le problème\r\n              (propos injurieux, avis mensonger, hors sujet…).")}
+              {t("L’avis reste visible pendant l’examen. L’équipe Yamo décidera de le\r\n              maintenir ou de le masquer. Expliquez précisément le problème\r\n              (propos injurieux, avis mensonger, hors sujet…).")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <textarea

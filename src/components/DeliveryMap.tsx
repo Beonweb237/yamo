@@ -133,7 +133,7 @@ export default function DeliveryMap({ points, height = '400px', scrollWheelZoom 
           scrollWheelZoom={scrollWheelZoom}
         >
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           {points.map((point, i) => {

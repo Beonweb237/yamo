@@ -299,7 +299,7 @@ export default function AdminReviews() {
                         </p>
                         {review.ownerReport.status === 'open' && (
                           <p className="text-text-muted text-xs font-inter mt-1">
-                            {t("Masquer ou re-publier l&apos;avis clôt le signalement, ou classez-le sans action :")}
+                            {t("Masquer ou re-publier l’avis clôt le signalement, ou classez-le sans action :")}
                           </p>
                         )}
                         {review.ownerReport.status === 'open' && (

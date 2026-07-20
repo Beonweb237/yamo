@@ -461,7 +461,7 @@ export default function AdminPoints() {
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-text-secondary text-sm font-inter">
-              {t("Crédite")} <span className="font-semibold text-text-primary">{t("tous les restaurants du catalogue\n              (")}{restaurants.length})</span> {t("en une fois. Une campagne ne peut servir chaque resto\n              qu&apos;une seule fois : relancer la même campagne ignore les restos déjà crédités\n              (aucun double-crédit possible).")}
+              {t("Crédite")} <span className="font-semibold text-text-primary">{t("tous les restaurants du catalogue\n              (")}{restaurants.length})</span> {t("en une fois. Une campagne ne peut servir chaque resto\n              qu’une seule fois : relancer la même campagne ignore les restos déjà crédités\n              (aucun double-crédit possible).")}
             </p>
             <div>
               <label htmlFor="promo-points" className="block text-sm font-inter font-medium text-text-primary mb-1">{t("Points offerts par restaurant")}</label>
@@ -485,7 +485,7 @@ export default function AdminPoints() {
                 className="w-full bg-white rounded-lg border border-border-custom px-3 h-11 text-sm font-inter outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
               />
               <p className="text-[11px] text-text-muted font-inter mt-1">
-                {t("C&apos;est lui qui garantit « une seule fois par resto ». Changez-le pour une nouvelle vague.")}
+                {t("C’est lui qui garantit « une seule fois par resto ». Changez-le pour une nouvelle vague.")}
               </p>
             </div>
             <div>

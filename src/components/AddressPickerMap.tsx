@@ -40,7 +40,7 @@ export default function AddressPickerMap({ lat, lng, onChange, height = '220px' 
     <div style={{ height }} className="rounded-xl overflow-hidden border border-border-custom">
       <MapContainer center={[lat, lng]} zoom={15} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <Marker

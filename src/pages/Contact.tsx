@@ -148,7 +148,7 @@ export default function Contact() {
             transition={{ duration: 0.4, delay: 0.1 }}
             className="font-poppins font-semibold text-white text-3xl sm:text-4xl lg:text-[38px]/[1.18] tracking-normal mb-3"
           >
-            {t("Nous Sommes L&agrave; pour Vous Aider")}
+            {t("Nous Sommes Là pour Vous Aider")}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -156,7 +156,7 @@ export default function Contact() {
             transition={{ duration: 0.4, delay: 0.2 }}
             className="text-white/75 font-inter text-base max-w-[600px] mx-auto mb-8"
           >
-            {t("Que vous soyez client, restaurateur ou livreur &mdash; notre &eacute;quipe de support est disponible 7 jours sur 7 pour r&eacute;pondre &agrave; vos questions.")}
+            {t("Que vous soyez client, restaurateur ou livreur — notre équipe de support est disponible 7 jours sur 7 pour répondre à vos questions.")}
           </motion.p>
           <motion.div
             initial={{ opacity: 0 }}
@@ -237,7 +237,7 @@ export default function Contact() {
                 {t("Envoyez-Nous un Message")}
               </h2>
               <p className="text-text-secondary font-inter text-sm mb-6">
-                {t("Remplissez le formulaire ci-dessous et nous vous r&eacute;pondrons sous 24h.")}
+                {t("Remplissez le formulaire ci-dessous et nous vous répondrons sous 24h.")}
               </p>
 
               {formSubmitted && (
@@ -247,7 +247,7 @@ export default function Contact() {
                   className="flex items-center gap-2 bg-green-light text-green-primary font-inter text-sm p-4 rounded-lg mb-4"
                 >
                   <CheckCircle className="w-5 h-5 shrink-0" />
-                  {t("Votre message est pr&ecirc;t dans WhatsApp — appuyez sur Envoyer pour nous le transmettre. Nous r&eacute;pondons sous 24h.")}
+                  {t("Votre message est prêt dans WhatsApp — appuyez sur Envoyer pour nous le transmettre. Nous répondons sous 24h.")}
                 </motion.div>
               )}
 
@@ -261,7 +261,7 @@ export default function Contact() {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Votre nom et pr&eacute;nom"
+                    placeholder="Votre nom et prénom"
                     className="w-full h-12 px-4 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/12 placeholder:text-text-muted"
                   />
                 </div>
@@ -280,7 +280,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <label className="font-inter font-medium text-text-primary text-sm mb-1.5 block">
-                    {t("T&eacute;l&eacute;phone")}
+                    {t("Téléphone")}
                   </label>
                   <input
                     type="tel"
@@ -300,9 +300,9 @@ export default function Contact() {
                     onChange={(e) => setSubject(e.target.value)}
                     className="w-full h-12 px-4 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/12"
                   >
-                    <option value="">{t("S&eacute;lectionnez un sujet")}</option>
+                    <option value="">{t("Sélectionnez un sujet")}</option>
                     <option value="order">{t("Question sur une commande")}</option>
-                    <option value="technical">{t("Probl&egrave;me technique")}</option>
+                    <option value="technical">{t("Problème technique")}</option>
                     <option value="partner">{t("Devenir partenaire restaurant")}</option>
                     <option value="driver">{t("Devenir livreur")}</option>
                     <option value="other">{t("Autre")}</option>
@@ -317,7 +317,7 @@ export default function Contact() {
                     rows={5}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder="D&eacute;crivez votre question ou probl&egrave;me en d&eacute;tail..."
+                    placeholder="Décrivez votre question ou problème en détail..."
                     className="w-full px-4 py-3 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/12 placeholder:text-text-muted resize-none"
                   />
                 </div>
@@ -329,7 +329,7 @@ export default function Contact() {
                   {t("Envoyer via WhatsApp")}
                 </button>
                 <p className="text-center text-text-muted text-xs font-inter">
-                  {t("Vous pr&eacute;f&eacute;rez l&apos;email ?")}{' '}
+                  {t("Vous préférez l’email ?")}{' '}
                   <a
                     href={mailtoHref()}
                     className="text-green-primary font-medium hover:text-green-dark underline"
@@ -373,14 +373,14 @@ export default function Contact() {
                   <div className="flex items-center gap-2 mb-2">
                     <Clock className="w-4 h-4 text-green-primary" />
                     <span className="font-inter font-medium text-text-primary text-sm">
-                      {t("Heures d&apos;ouverture du support")}
+                      {t("Heures d’ouverture du support")}
                     </span>
                   </div>
                   <p className="text-text-secondary font-inter text-sm pl-6">
-                    {t("Lundi &ndash; Samedi : 8h00 &ndash; 22h00")}
+                    {t("Lundi – Samedi : 8h00 – 22h00")}
                   </p>
                   <p className="text-text-secondary font-inter text-sm pl-6">
-                    {t("Dimanche : 10h00 &ndash; 18h00")}
+                    {t("Dimanche : 10h00 – 18h00")}
                   </p>
                 </div>
 
@@ -441,10 +441,10 @@ export default function Contact() {
             className="text-center mb-10"
           >
             <h2 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[44px] leading-[1.14] tracking-normal mb-3">
-              {t("Questions Fr&eacute;quentes")}
+              {t("Questions Fréquentes")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              {t("Trouvez rapidement une r&eacute;ponse &agrave; vos questions")}
+              {t("Trouvez rapidement une réponse à vos questions")}
             </p>
           </motion.div>
           <Accordion items={contactFAQ} />

@@ -138,7 +138,7 @@ export default function Livreurs() {
                 transition={{ delay: 0.35, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 className="font-poppins font-semibold text-white text-[34px]/[1.18] sm:text-[40px]/[1.16] lg:text-[44px]/[1.16] tracking-normal mt-4 mb-5 max-w-[560px]"
               >
-                {t("Gagnez de l&apos;Argent en Livrant de D&eacute;licieux Repas")}
+                {t("Gagnez de l’Argent en Livrant de Délicieux Repas")}
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
@@ -146,7 +146,7 @@ export default function Livreurs() {
                 transition={{ delay: 0.75, duration: 0.5 }}
                 className="text-white/75 font-inter text-lg leading-relaxed max-w-[480px] mb-8"
               >
-                {t("Un revenu flexible, un emploi qui vous permet d&apos;&ecirc;tre votre propre patron. Livrez quand vous voulez, gagnez ce dont vous avez besoin.")}
+                {t("Un revenu flexible, un emploi qui vous permet d’être votre propre patron. Livrez quand vous voulez, gagnez ce dont vous avez besoin.")}
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -168,7 +168,7 @@ export default function Livreurs() {
                   </Link>
                 )}
                 <p className="text-white/50 text-xs font-inter mt-2">
-                  {t("C&apos;est gratuit et rapide")}
+                  {t("C’est gratuit et rapide")}
                 </p>
               </motion.div>
               <motion.div
@@ -237,7 +237,7 @@ export default function Livreurs() {
               {t("Pourquoi Livrer avec MiamExpress ?")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              {t("Des avantages con&ccedil;us pour votre r&eacute;ussite et votre libert&eacute;")}
+              {t("Des avantages conçus pour votre réussite et votre liberté")}
             </p>
           </motion.div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -355,16 +355,16 @@ export default function Livreurs() {
                     <span className="text-green-primary">+ {peakBonus.toLocaleString()} {t("FCFA")}</span>
                   </div>
                   <div className="flex justify-between text-text-secondary">
-                    <span>{t("Pourboires estim&eacute;s :")}</span>
+                    <span>{t("Pourboires estimés :")}</span>
                     <span className="text-green-primary">+ {tips.toLocaleString()} {t("FCFA")}</span>
                   </div>
                   <div className="border-t border-border-light pt-2 flex justify-between text-text-primary font-semibold">
-                    <span>{t("Total estim&eacute;")}</span>
+                    <span>{t("Total estimé")}</span>
                     <span>{weekly.toLocaleString()} {t("FCFA")}</span>
                   </div>
                 </div>
                 <p className="text-text-muted text-xs font-inter mt-3">
-                  {t("*Estimation indicative. Les revenus r&eacute;els d&eacute;pendent de votre activit&eacute; et de votre zone.")}
+                  {t("*Estimation indicative. Les revenus réels dépendent de votre activité et de votre zone.")}
                 </p>
               </div>
             </div>
@@ -419,7 +419,7 @@ export default function Livreurs() {
               transition={{ duration: 0.5 }}
             >
               <h3 className="font-poppins font-semibold text-amber-700 text-lg mb-4">
-                {t("Notre &Eacute;quipement")}
+                {t("Notre Équipement")}
               </h3>
               <div className="space-y-3">
                 {equipment.map((eq, i) => (
@@ -481,7 +481,7 @@ export default function Livreurs() {
                   ))}
                 </div>
                 <p className="text-text-primary font-inter text-sm italic leading-relaxed relative z-10">
-                  {t("&ldquo;")}{review.comment}{t("&rdquo;")}
+                  {t("“")}{review.comment}{t("”")}
                 </p>
               </motion.div>
             ))}
@@ -516,7 +516,7 @@ export default function Livreurs() {
             transition={{ duration: 0.5 }}
             className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal text-center mb-10"
           >
-            {t("Questions Fr&eacute;quentes")}
+            {t("Questions Fréquentes")}
           </motion.h2>
           <Accordion items={driverFAQ} />
         </div>
@@ -532,7 +532,7 @@ export default function Livreurs() {
             transition={{ duration: 0.4 }}
             className="font-poppins font-semibold text-white text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-4"
           >
-            {t("Pr&ecirc;t &agrave; Rouler avec MiamExpress ?")}
+            {t("Prêt à Rouler avec MiamExpress ?")}
           </motion.h2>
           <motion.p
             initial={{ opacity: 0 }}
@@ -541,7 +541,7 @@ export default function Livreurs() {
             transition={{ delay: 0.15, duration: 0.4 }}
             className="text-white/80 font-inter text-base mb-8"
           >
-            {t("L&apos;inscription prend moins de 10 minutes. Commencez &agrave; gagner d&egrave;s cette semaine.")}
+            {t("L’inscription prend moins de 10 minutes. Commencez à gagner dès cette semaine.")}
           </motion.p>
           <motion.div
             initial={{ opacity: 0 }}
@@ -553,7 +553,7 @@ export default function Livreurs() {
               to="/inscription/livreur"
               className="inline-flex items-center bg-white text-green-primary font-inter font-semibold text-sm h-12 px-8 rounded-lg hover:bg-green-light transition-colors"
             >
-              {t("S&apos;inscrire Maintenant")}
+              {t("S’inscrire Maintenant")}
             </Link>
             <p className="flex items-center justify-center gap-2 text-white/60 font-inter text-sm mt-4">
               <Phone className="w-4 h-4" />

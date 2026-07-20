@@ -470,7 +470,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
             {activeMine.length === 0 && completedMine.length === 0 ? (
               <div className="bg-white rounded-xl border border-border-custom p-10 text-center">
                 <p className="text-text-secondary font-inter font-medium">
-                  {t("Vous n&apos;avez pas encore de livraison.")}
+                  {t("Vous n’avez pas encore de livraison.")}
                 </p>
               </div>
             ) : (
@@ -794,7 +794,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                   onClick={confirmDeliveryWithoutCode}
                   className="mt-2 w-full border border-amber-700 text-amber-700 font-inter font-medium text-sm h-10 rounded-lg hover:bg-gold-light transition-colors"
                 >
-                  {t("Le client n&apos;a pas son code — clôturer quand même (signalé)")}
+                  {t("Le client n’a pas son code — clôturer quand même (signalé)")}
                 </button>
               )}
             </div>
@@ -819,7 +819,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Signaler un problème")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("Commande #")}{incidentTarget?.id.slice(0, 8)} {t("— l&apos;équipe MiamExpress sera prévenue immédiatement.")}
+              {t("Commande #")}{incidentTarget?.id.slice(0, 8)} {t("— l’équipe MiamExpress sera prévenue immédiatement.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3">

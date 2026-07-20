@@ -910,7 +910,7 @@ export default function Orders() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Remplacer votre panier ?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("Votre panier contient des articles d&apos;un autre restaurant.\r\n              Recommander chez")} {reorderTarget?.restaurantName || 'ce restaurant'} {t("le videra.")}
+              {t("Votre panier contient des articles d’un autre restaurant.\r\n              Recommander chez")} {reorderTarget?.restaurantName || 'ce restaurant'} {t("le videra.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -931,7 +931,7 @@ export default function Orders() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Signaler un problème — commande")} {disputeTarget ? shortOrderId(disputeTarget.id) : ''}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("Décrivez précisément le problème (plat manquant, commande non conforme…).\r\n              L&apos;équipe MiamExpress tranche sous 24 h : si la livraison est jugée\r\n              conforme, la garantie est perdue ; sinon elle vous est remboursée intégralement.")}
+              {t("Décrivez précisément le problème (plat manquant, commande non conforme…).\r\n              L’équipe MiamExpress tranche sous 24 h : si la livraison est jugée\r\n              conforme, la garantie est perdue ; sinon elle vous est remboursée intégralement.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <textarea
@@ -960,7 +960,7 @@ export default function Orders() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Annuler la commande #")}{cancelTarget?.id.slice(0, 8)} ?</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("Le restaurant sera informé de l&apos;annulation et du motif. Cette action est irréversible.")}
+              {t("Le restaurant sera informé de l’annulation et du motif. Cette action est irréversible.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3">
@@ -972,7 +972,7 @@ export default function Orders() {
             )}
             <div>
               <label htmlFor="cancel-reason" className="block text-text-secondary font-inter text-sm mb-1.5">
-                {t("Motif de l&apos;annulation")} <span className="text-error">*</span>
+                {t("Motif de l’annulation")} <span className="text-error">*</span>
               </label>
               <select
                 id="cancel-reason"
