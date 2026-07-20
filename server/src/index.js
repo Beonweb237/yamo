@@ -798,7 +798,7 @@ app.get('/api/admin/audit-logs', authRequired, adminPermissionRequired('audit.vi
     res.status(500).json({ error: err.message });
   }
 });
-app.post('/api/admin/applications/:id/approve', authRequired, adminRequired, async (req, res) => {
+app.post('/api/admin/applications/:id/approve', authRequired, adminPermissionRequired('applications.approve'), async (req, res) => {
   try {
     const { rows: [application] } = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
     if (!application) return res.status(404).json({ error: 'Candidature introuvable' });
@@ -876,7 +876,7 @@ app.post('/api/admin/applications/:id/approve', authRequired, adminRequired, asy
   }
 });
 
-app.post('/api/admin/applications/:id/reject', authRequired, adminRequired, async (req, res) => {
+app.post('/api/admin/applications/:id/reject', authRequired, adminPermissionRequired('applications.reject'), async (req, res) => {
   try {
     const reason = cleanText(req.body?.reason, '');
     const { rows: [existingApplication] } = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
@@ -1293,6 +1293,41 @@ app.delete('/api/:table/:id', authRequired, adminPermissionRequired('admin.delet
 
 // ─── Auth routes ──────────────────────────────────────────────
 // POST /api/auth/send-otp
+// ─── OTP par SMS (Twilio) — O-1 ───────────────────────────────
+// Rate-limit simple en mémoire : 1 envoi / 60 s par numéro (anti-abus).
+const otpLastSent = new Map();
+function otpRateOk(bare) {
+  const now = Date.now();
+  const last = otpLastSent.get(bare) || 0;
+  if (now - last < 60000) return false;
+  otpLastSent.set(bare, now);
+  return true;
+}
+const twilioConfigured = () => Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM);
+async function sendSmsViaTwilio(toE164, body) {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_FROM;
+  if (!sid || !token || !from) return { sent: false, reason: 'twilio_not_configured' };
+  try {
+    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(`${sid}:${token}`).toString('base64'),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ To: toE164, From: from, Body: body }).toString(),
+    });
+    if (!resp.ok) {
+      const detail = await resp.text().catch(() => '');
+      return { sent: false, reason: `twilio_http_${resp.status}`, detail: detail.slice(0, 200) };
+    }
+    return { sent: true };
+  } catch (err) {
+    return { sent: false, reason: 'twilio_exception', detail: err.message };
+  }
+}
+
 app.post('/api/auth/send-otp', async (req, res) => {
   try {
     const { phone } = req.body;
@@ -1300,6 +1335,8 @@ app.post('/api/auth/send-otp', async (req, res) => {
     // Support cleaned (674465093) and prefixed (+237674465093) formats
     const bare = raw.replace(/^(?:00)?237/, '');
     if (!bare) return res.status(400).json({ error: 'Téléphone requis' });
+    // O-1 : rate-limit anti-abus — 1 code / 60 s par numéro.
+    if (!otpRateOk(bare)) return res.status(429).json({ error: 'Trop de demandes. Réessayez dans une minute.' });
 
     // Chercher les deux formats
     const { rows: users } = await pool.query(
@@ -1309,9 +1346,12 @@ app.post('/api/auth/send-otp', async (req, res) => {
     const exists = users.length > 0;
     const exactPhone = exists ? users[0].phone : null;
 
+    let smsSent = false;
     if (exists && exactPhone) {
-      // Code fixe 5 chiffres : 12345
-      const otp = '12345';
+      // O-1 : OTP réel aléatoire quand Twilio est configuré ; sinon repli démo
+      // (12345) pour ne pas casser le login avant l'ajout des identifiants SMS.
+      const twilio = twilioConfigured();
+      const otp = twilio ? String(Math.floor(10000 + Math.random() * 90000)) : '12345';
       const expires = new Date(Date.now() + 10 * 60 * 1000);
       const fallbackName = buildFallbackClientName(exactPhone);
       await pool.query(
@@ -1326,10 +1366,17 @@ app.post('/api/auth/send-otp', async (req, res) => {
          WHERE phone = $3`,
         [otp, expires, exactPhone, fallbackName]
       );
-      console.log(`OTP pour ${exactPhone}: ${otp}`);
+      if (twilio) {
+        const e164 = String(exactPhone).startsWith('+') ? exactPhone : `+237${bare}`;
+        const r = await sendSmsViaTwilio(e164, `MiamExpress : votre code de connexion est ${otp}. Valable 10 minutes.`);
+        smsSent = r.sent;
+        if (!r.sent) console.warn('OTP SMS non envoyé:', r.reason, r.detail || '');
+      } else {
+        console.log(`OTP (repli démo, Twilio non configuré) pour ${exactPhone}: ${otp}`);
+      }
     }
 
-    res.json({ success: true, exists });
+    res.json({ success: true, exists, smsSent });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
