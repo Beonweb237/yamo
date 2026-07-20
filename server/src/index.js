@@ -1168,6 +1168,12 @@ app.post('/api/:table', authRequired, async (req, res) => {
       if (!requireAdminPermissionInRoute(req, res, 'admin.users.update')) return;
     }
     if (!(await requireAdminTablePermission(req, res, table, 'insert'))) return;
+    // O-5 : un client suspendu ne peut pas creer de commande (blocage reel
+    // cote serveur, pas seulement au front). Ref D-19.
+    if (table === 'orders' && req.user?.role !== 'admin') {
+      const { rows: [suspU] } = await pool.query('SELECT is_suspended FROM users WHERE id::text = $1', [String(req.user?.sub || '')]);
+      if (suspU?.is_suspended) return res.status(403).json({ error: 'Compte suspendu : commande impossible. Contactez le support.' });
+    }
     const tbl = quoteTable(table);
     const data = toSnake(req.body);
     if (data.phone) data.phone = cleanPhone(data.phone);
@@ -1225,6 +1231,16 @@ app.patch('/api/:table/:id', authRequired, async (req, res) => {
     if (data.contact_phone) data.contact_phone = cleanPhone(data.contact_phone);
     if (['users', 'profiles'].includes(table) && ['client', 'restaurant', 'livreur'].includes(data.role)) {
       if (!cleanEmail(data.email)) data.email = resolveUserEmail({ email: data.email, name: data.full_name, phone: data.phone || id, role: data.role });
+    }
+    // O-2 : borne les changements de statut de commande par role. Un client ne
+    // peut QUE annuler sa propre commande (pending/confirmed) ; il ne peut jamais
+    // passer une commande a un autre statut (ex. 'delivered'). Ref D-16.
+    if (table === 'orders' && data.status !== undefined && req.user?.role === 'client') {
+      const { rows: [ord] } = await pool.query("SELECT customer_id::text AS cust, status FROM orders WHERE id::text = $1", [String(id)]);
+      if (!ord) return res.status(404).json({ error: 'Commande introuvable' });
+      const own = ord.cust === String(req.user?.sub);
+      const okCancel = own && data.status === 'cancelled' && ['pending', 'confirmed'].includes(ord.status);
+      if (!okCancel) return res.status(403).json({ error: 'Action non autorisee sur cette commande.' });
     }
     let keys = Object.keys(data).filter(k => k !== 'id');
     if (SENSITIVE_TABLES.has(table) && !isAdmin) {
