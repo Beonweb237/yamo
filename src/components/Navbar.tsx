@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ShoppingCart, User, Menu, X, Minus, Plus, Heart,
+  ShoppingCart, User, Menu, X, Minus, Plus,
   ChevronDown, Home, Compass, Store, UtensilsCrossed,
-  Bike, Phone, Star,
+  Bike, Phone, Star, Search,
 } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import GlobalSearch from './GlobalSearch';
 
 // ── Mega Menu Structure ──
 interface MegaLink {
@@ -45,6 +46,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const location = useLocation();
@@ -64,6 +66,18 @@ export default function Navbar() {
     else document.body.style.overflow = '';
     return () => { document.body.style.overflow = ''; };
   }, [mobileOpen]);
+
+  // Raccourci clavier ⌘K / Ctrl+K pour ouvrir la recherche globale.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setSearchOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Close dropdown on route change
   useEffect(() => { setOpenDropdown(null); }, [location.pathname]);
@@ -103,6 +117,7 @@ export default function Navbar() {
 
   return (
     <>
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${isSolid
           ? 'bg-white/95 backdrop-blur-[12px] border-b border-border-custom shadow-[0_1px_0_rgba(0,0,0,0.05)]'
@@ -193,6 +208,32 @@ export default function Navbar() {
 
           {/* Right actions */}
           <div className="flex items-center gap-2">
+            {/* Recherche globale — barre premium (desktop) */}
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              className={`hidden lg:flex items-center gap-2 h-10 w-52 xl:w-64 px-3 rounded-lg text-sm font-inter border transition-colors ${isSolid
+                ? 'bg-bg-secondary text-text-muted border-border-custom hover:bg-white hover:border-border-light'
+                : 'bg-white/10 text-white/85 border-white/25 hover:bg-white/20'
+                }`}
+              aria-label="Rechercher un plat ou un restaurant"
+            >
+              <Search className="w-4 h-4 shrink-0" />
+              <span className="flex-1 text-left truncate">Rechercher…</span>
+              <kbd className={`text-[11px] font-sans px-1.5 py-0.5 rounded border ${isSolid ? 'border-border-custom text-text-muted' : 'border-white/30 text-white/70'}`}>⌘K</kbd>
+            </button>
+
+            {/* Recherche globale — icône (mobile / tablette) */}
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              className={`lg:hidden min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg transition-colors ${isSolid ? 'text-text-primary hover:bg-bg-secondary' : 'text-white hover:bg-white/10'
+                }`}
+              aria-label="Rechercher"
+            >
+              <Search className="w-5 h-5" />
+            </button>
+
             {!user && (
               <Link
                 to="/inscription"
