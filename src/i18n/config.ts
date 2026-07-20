@@ -18,6 +18,11 @@ i18n
     resources,
     lng: savedLanguage,
     fallbackLng: 'fr',
+    // Clés = texte naturel (français) : on désactive le découpage par '.' et ':'
+    // sinon les phrases françaises (qui contiennent des points) sont prises pour
+    // des clés imbriquées et ne résolvent jamais leur traduction anglaise.
+    keySeparator: false,
+    nsSeparator: false,
     interpolation: {
       escapeValue: false, // React already safeguards from XSS
     },
