@@ -154,8 +154,8 @@ Quotas · Journaux d'audit.
 | O-3 | **Scope ville RBAC réellement appliqué** dans les requêtes admin | admin (city_manager) | S1 | M | Filtrer par `scope_value` |
 | O-4 | **Enforcement granulaire des permissions sur TOUTES les routes admin** (pas seulement 14) | admin | S1 | M | `adminPermissionRequired` partout |
 | O-5 | **Blocage client appliqué côté serveur** (D-19) | support/admin | S2 | S | Vérifier `is_suspended` en écriture |
-| O-6 | **Polling ≥ 30 s ou WebSocket** (DriverDashboard, AdminDashboard) | livreur/admin | S2 | M | Généraliser le modèle 30 s |
-| O-7 | **Preuve de livraison** — encadrer « sans code » (justif. obligatoire + trace) | livreur/admin | S2 | S | Anti-fraude |
+| O-6 | ~~Polling ≥ 30 s~~ **DÉJÀ FAIT** (vérifié : DriverDashboard 15 s, AdminDashboard 30 s) | livreur/admin | — | — | Dette CLAUDE.md obsolète |
+| O-7 | ~~Encadrer « sans code »~~ **DÉJÀ FAIT** (vérifié : proposé seulement après 3 échecs de code + clôture tracée `deliveredWithoutCode` visible admin) | livreur/admin | — | — | Reste : enforcement serveur |
 | O-8 | **Distance/routage réels** (remplacer `stableOffset`) | dispatcher/livreur | S2 | L | API routage ou heuristique honnête |
 | O-9 | **Tracking GPS réel** (remplacer la simulation) | client/admin | S2 | L | Ne pas présenter un faux live |
 | O-10 | **Upload documents/candidatures via `/api/media`** (fin du base64) | resto/livreur | S3 | S | Scalabilité 3G |
