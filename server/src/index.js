@@ -911,8 +911,20 @@ app.post('/api/admin/applications/:id/reject', authRequired, adminPermissionRequ
     res.status(500).json({ error: err.message });
   }
 });
+// O-3 : villes auxquelles un admin est restreint (scope). Retourne null pour un
+// accès global (super_admin, ou rôle à scope 'global', ou aucun scope ville) →
+// pas de filtre. Sinon la liste des villes autorisées, à passer en $ (text[]).
+function adminCityScope(adminAccess) {
+  if (!adminAccess || adminAccess.isSuperAdmin) return null;
+  const scopes = Array.isArray(adminAccess.scopes) ? adminAccess.scopes : [];
+  if (scopes.some((s) => s.scopeType === 'global')) return null;
+  const cities = [...new Set(scopes.filter((s) => s.scopeType === 'city' && s.scopeValue).map((s) => s.scopeValue))];
+  return cities.length ? cities : null;
+}
+
 app.get('/api/admin/customers', authRequired, adminPermissionRequired('customers.view'), async (req, res) => {
   try {
+    const cityScope = adminCityScope(req.adminAccess);
     const { rows } = await pool.query(
       `SELECT
          u.*,
@@ -923,8 +935,10 @@ app.get('/api/admin/customers', authRequired, adminPermissionRequired('customers
        FROM users u
        LEFT JOIN orders o ON o.customer_id = u.id
        WHERE u.role = 'client'
+         AND ($1::text[] IS NULL OR u.city = ANY($1))
        GROUP BY u.id
-       ORDER BY u.created_at DESC`
+       ORDER BY u.created_at DESC`,
+      [cityScope]
     );
 
     const ids = rows.map((row) => row.id);
