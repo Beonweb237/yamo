@@ -46,6 +46,22 @@ function includeTestReviews(req) {
   return process.env.REVIEWS_INCLUDE_TEST_PUBLIC === 'true' && req.query.includeTest === 'true';
 }
 
+// Identité affichée d'un avis : TOUJOURS dérivée du profil client lié, jamais
+// une chaîne saisie/fabriquée (règle produit : aucune identité affichée sans
+// profil réel). "Jean Test" -> "Jean T." ; vide/NULL -> null (front affiche
+// "Client vérifié").
+function anonymizeName(fullName) {
+  const s = String(fullName ?? '').trim();
+  if (!s) return null;
+  const parts = s.split(/\s+/);
+  return parts.length > 1 ? `${parts[0]} ${parts[1][0].toUpperCase()}.` : parts[0];
+}
+
+async function derivedAuthorName(pool, userIdValue) {
+  const { rows } = await pool.query('SELECT full_name FROM users WHERE id = $1 LIMIT 1', [userIdValue]);
+  return anonymizeName(rows[0]?.full_name);
+}
+
 async function loadOrder(pool, orderId) {
   const { rows } = await pool.query('SELECT * FROM orders WHERE id::text = $1 LIMIT 1', [String(orderId)]);
   return rows[0] ?? null;
@@ -204,7 +220,9 @@ export function registerReviewRoutes(app, { pool, authRequired, adminRequired, a
       const rating = cleanRating(req.body.rating);
       const comment = cleanComment(req.body.comment);
       const tags = cleanTags(req.body.tags);
-      const authorName = cleanComment(req.body.authorName);
+      // On IGNORE req.body.authorName : l'identité vient du profil lié (customer_id),
+      // pas d'une saisie client — impossible d'injecter un nom fabriqué.
+      const authorName = await derivedAuthorName(pool, userId(req));
 
       const { rows } = await pool.query(
         `INSERT INTO reviews (

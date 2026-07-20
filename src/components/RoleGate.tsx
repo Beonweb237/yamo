@@ -5,6 +5,7 @@ import { useAuth, RoleMismatchError, type UserRole } from '../contexts/AuthConte
 import { fetchMyApplications } from '../lib/applications';
 import AuthHeader from './AuthHeader';
 import OtpInput from './OtpInput';
+import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
 
 export default function RoleGate({ allow, children }: { allow: UserRole[]; children?: ReactNode }) {
   const { user, loading, sendOtp, verifyOtp, signInWithPassword, signOut } = useAuth();
@@ -26,7 +27,7 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
 
   // Admin login form state
   const [adminStep, setAdminStep] = useState<'password' | 'phone' | 'code'>('password');
-  const [adminPhone, setAdminPhone] = useState('+237 ');
+  const [adminPhone, setAdminPhone] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminCode, setAdminCode] = useState('');
   const [adminError, setAdminError] = useState('');
@@ -44,7 +45,7 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
         setAdminError('');
         setAdminSubmitting(true);
         try {
-          const loggedInUser = await signInWithPassword(adminPhone.replace(/\s/g, ''), adminPassword);
+          const loggedInUser = await signInWithPassword(normalizeCameroonPhone(adminPhone), adminPassword);
           if (loggedInUser.role !== 'admin') {
             await signOut();
             setAdminError("Ce numéro n'est pas enregistré comme administrateur.");
@@ -61,7 +62,7 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
         setAdminError('');
         setAdminSubmitting(true);
         try {
-          await sendOtp(adminPhone.replace(/\s/g, ''));
+          await sendOtp(normalizeCameroonPhone(adminPhone));
           setAdminStep('code');
         } catch {
           setAdminError("Impossible d'envoyer le code. Vérifiez le numéro.");
@@ -75,7 +76,7 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
         setAdminError('');
         setAdminSubmitting(true);
         try {
-          await verifyOtp(adminPhone.replace(/\s/g, ''), adminCode, 'admin');
+          await verifyOtp(normalizeCameroonPhone(adminPhone), adminCode, 'admin');
         } catch (err) {
           setAdminError(
             err instanceof RoleMismatchError
@@ -108,13 +109,13 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
               <form onSubmit={handlePasswordLogin} className="space-y-4">
                 <div>
                   <label className="block text-text-secondary font-inter text-sm mb-1.5">Numéro de téléphone</label>
-                  <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+                  <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                     <Phone className="w-4 h-4 text-text-muted shrink-0" />
                     <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
                     <input
                       type="tel"
-                      value={adminPhone.replace('+237 ', '')}
-                      onChange={(e) => setAdminPhone('+237 ' + e.target.value.replace(/\s/g, ''))}
+                      value={displayCameroonPhone(adminPhone)}
+                      onChange={(e) => setAdminPhone(normalizeCameroonPhone(e.target.value))}
                       placeholder="6XX XX XX XX"
                       className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
                       required
@@ -123,7 +124,7 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
                 </div>
                 <div>
                   <label className="block text-text-secondary font-inter text-sm mb-1.5">PIN / mot de passe</label>
-                  <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+                  <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                     <LockKeyhole className="w-4 h-4 text-text-muted shrink-0" />
                     <input
                       type="password"
@@ -155,13 +156,13 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
               <form onSubmit={handleSendOtp} className="space-y-4">
                 <div>
                   <label className="block text-text-secondary font-inter text-sm mb-1.5">Numéro de téléphone</label>
-                  <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+                  <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                     <Phone className="w-4 h-4 text-text-muted shrink-0" />
                     <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
                     <input
                       type="tel"
-                      value={adminPhone.replace('+237 ', '')}
-                      onChange={(e) => setAdminPhone('+237 ' + e.target.value.replace(/\s/g, ''))}
+                      value={displayCameroonPhone(adminPhone)}
+                      onChange={(e) => setAdminPhone(normalizeCameroonPhone(e.target.value))}
                       placeholder="6XX XX XX XX"
                       className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
                       required
@@ -181,7 +182,7 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
               <form onSubmit={handleVerify} className="space-y-4">
                 <div>
                   <p className="text-text-secondary font-inter text-sm text-center mb-4">
-                    Code envoyé au <strong className="text-text-primary">{adminPhone}</strong>
+                    Code envoyé au <strong className="text-text-primary">+237 {displayCameroonPhone(adminPhone)}</strong>
                   </p>
                   <label className="block text-text-secondary font-inter text-sm mb-2">Code reçu par SMS</label>
                   <OtpInput value={adminCode} onChange={setAdminCode} disabled={adminSubmitting} />

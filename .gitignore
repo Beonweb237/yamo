@@ -30,3 +30,6 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Scratch agent parallèle
+.codex-tmp/

@@ -15,6 +15,7 @@
     "seed:test-profiles": "node scripts/seed-test-profiles.mjs",
     "verify:catalog": "node scripts/verify-catalog.mjs",
     "verify:points": "node scripts/verify-points.mjs",
+    "verify:integrity": "node scripts/verify-data-integrity.mjs",
     "deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1",
     "deploy:dry": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 -DryRun",
     "vps:shell": "powershell -ExecutionPolicy Bypass -File scripts/connect-vps.ps1 -Command shell",

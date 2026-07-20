@@ -11,6 +11,7 @@ import { activeCities, getNeighborhoods, getNeighborhoodCoords } from '../data/l
 import { haversineDistance, estimateTime } from '../lib/utils';
 import LazyAddressPickerMap from '../components/LazyAddressPickerMap';
 import { toast } from 'sonner';
+import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
 
 interface SavedAddress {
   id: string;
@@ -144,7 +145,7 @@ export default function Checkout() {
 
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
-  const [paymentPhone, setPaymentPhone] = useState(() => user?.phone ?? '');
+  const [paymentPhone, setPaymentPhone] = useState(() => normalizeCameroonPhone(user?.phone ?? ''));
   const [orderForSomeoneElse, setOrderForSomeoneElse] = useState(false);
   const [recipientName, setRecipientName] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
@@ -254,7 +255,7 @@ export default function Checkout() {
       const recipient = orderForSomeoneElse
         ? {
           name: recipientName.trim(),
-          phone: recipientPhone.trim(),
+          phone: normalizeCameroonPhone(recipientPhone),
           contactInstructions: callRecipientOnArrivalOnly ? "Appeler le bénéficiaire uniquement à l'arrivée." : undefined,
         }
         : null;
@@ -323,7 +324,7 @@ export default function Checkout() {
           const payment = await initiateMoMoPayment({
             orderId: order.id,
             amount: serverTotal,
-            phone: paymentPhone || user.phone,
+            phone: normalizeCameroonPhone(paymentPhone || user.phone),
           });
           setPaymentNotice(payment.message || 'Demande de paiement MTN MoMo envoyée. Validez-la sur votre téléphone.');
         } catch {
@@ -448,7 +449,7 @@ export default function Checkout() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <div>
                 <label className="block text-text-secondary font-inter text-sm mb-1.5">Nom du bénéficiaire</label>
-                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                   <UserRound className="w-4 h-4 text-text-muted shrink-0" />
                   <input
                     type="text"
@@ -462,13 +463,13 @@ export default function Checkout() {
               </div>
               <div>
                 <label className="block text-text-secondary font-inter text-sm mb-1.5">Téléphone du bénéficiaire</label>
-                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                   <Phone className="w-4 h-4 text-text-muted shrink-0" />
                   <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
                   <input
                     type="tel"
-                    value={recipientPhone.replace('+237 ', '')}
-                    onChange={(e) => setRecipientPhone('+237 ' + e.target.value.replace(/\s/g, ''))}
+                    value={displayCameroonPhone(recipientPhone)}
+                    onChange={(e) => setRecipientPhone(normalizeCameroonPhone(e.target.value))}
                     placeholder="6XX XX XX XX"
                     className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
                     required={orderForSomeoneElse}
@@ -691,8 +692,8 @@ export default function Checkout() {
                     {(opt.value === 'mtn_momo' || opt.value === 'orange_money') && (
                       <input
                         type="tel"
-                        value={paymentPhone}
-                        onChange={(e) => setPaymentPhone(e.target.value)}
+                        value={displayCameroonPhone(paymentPhone)}
+                        onChange={(e) => setPaymentPhone(normalizeCameroonPhone(e.target.value))}
                         placeholder="Numéro Mobile Money (ex: 6XXXXXXXX)"
                         className="mt-2 w-full bg-white rounded-xl border border-border-custom px-4 py-2.5 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
                       />
@@ -712,7 +713,7 @@ export default function Checkout() {
           {orderForSomeoneElse && (
             <div className="mb-4 rounded-lg bg-green-light/60 px-3 py-2 text-xs font-inter text-text-secondary">
               Pour <span className="font-semibold text-text-primary">{recipientName || 'bénéficiaire'}</span>
-              {recipientPhone && <span> · {recipientPhone}</span>}
+              {recipientPhone && <span> · {displayCameroonPhone(recipientPhone)}</span>}
             </div>
           )}
           <div className="space-y-2 mb-4">

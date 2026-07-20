@@ -318,7 +318,7 @@ export default function Restaurants() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex items-center gap-2 flex-1 bg-white border border-border-custom rounded-lg px-3 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+            <div className="flex items-center gap-2 flex-1 bg-white border border-border-custom rounded-lg px-3 h-12 focus-within:border-green-primary transition-all">
               <Search className="w-4 h-4 text-text-muted shrink-0" />
               <input
                 type="text"

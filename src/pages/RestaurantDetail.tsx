@@ -583,21 +583,6 @@ export default function RestaurantDetail() {
           <p className="text-text-secondary text-[15px] font-inter leading-relaxed mt-5 max-w-[780px]">
             {restaurant.description}
           </p>
-
-          {/* Les CTA « Voir le menu » / « Lire les avis » faisaient doublon
-              avec la barre d'onglets juste en dessous — retirés. Seul l'accès
-              carte reste, car « Carte » est moins évident depuis les onglets. */}
-          {restaurant.lat != null && restaurant.lng != null && (
-            <div className="mt-5">
-              <button
-                type="button"
-                onClick={() => jumpToTab('Carte')}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border-custom bg-white px-4 text-sm font-inter font-semibold text-text-primary hover:bg-bg-secondary transition-colors"
-              >
-                Voir la carte
-              </button>
-            </div>
-          )}
         </motion.div>
         {/* ── Barre d'onglets : sections de page (Menu / À propos / Carte / Avis) ── */}
         <div id="restaurant-tabs" className="sticky top-[72px] z-30 bg-bg-secondary border-b border-border-custom mb-6 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:-mx-12 xl:px-12">

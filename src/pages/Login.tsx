@@ -5,10 +5,11 @@ import { Phone, ShieldCheck, User, Store, Bike, Mail, Smartphone, ArrowRight, Ey
 import { toast } from 'sonner';
 import AuthHeader from '../components/AuthHeader';
 import OtpInput from '../components/OtpInput';
-import { useAuth, LOCAL_SESSION_KEY, LOCAL_REGISTRY_KEY, LOCAL_EMAIL_USERS_KEY, RoleMismatchError, type AuthUser, type UserRole } from '../contexts/AuthContext';
+import { useAuth, LOCAL_SESSION_KEY, LOCAL_REGISTRY_KEY, LOCAL_EMAIL_USERS_KEY, RoleMismatchError, ADMIN_DEFAULT_PASSWORD, type AuthUser, type UserRole } from '../contexts/AuthContext';
 import { getLocalSuspensionInfo } from '../lib/drivers';
 import { fetchMyApplications } from '../lib/applications';
 import { demoAccountsForRole } from '../data/demoAccounts';
+import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
 
 const roleRedirects: Record<UserRole, string> = {
   client: '/',
@@ -97,19 +98,21 @@ async function resolveRedirect(user: AuthUser, from?: string): Promise<string> {
 
 // Mock email registry — for dev mode (VITE_FORCE_MOCK_AUTH=true)
 const MOCK_EMAIL_PASSWORDS: Record<string, { phone: string; role: UserRole; approved: boolean }> = {
-  'admin@yamo.cm': { phone: '+237690000001', role: 'admin', approved: true },
-  'client@yamo.cm': { phone: '+237690000002', role: 'client', approved: true },
-  'restaurant@yamo.cm': { phone: '+237690000003', role: 'restaurant', approved: true },
-  'resto-pending@yamo.cm': { phone: '+237690000004', role: 'restaurant', approved: false },
-  'livreur@yamo.cm': { phone: '+237690000005', role: 'livreur', approved: true },
-  'livreur-pending@yamo.cm': { phone: '+237690000006', role: 'livreur', approved: false },
+  'demo.admin@gmail.com': { phone: '690000001', role: 'admin', approved: true },
+  'ngo.marie@gmail.com': { phone: '690000002', role: 'client', approved: true },
+  'essomba.paul@yahoo.fr': { phone: '690000003', role: 'restaurant', approved: true },
+  'manga.christelle@gmail.com': { phone: '690000004', role: 'restaurant', approved: false },
+  'kamga.paul@gmail.com': { phone: '690000005', role: 'livreur', approved: true },
+  'onana.brice@yahoo.fr': { phone: '690000006', role: 'livreur', approved: false },
 };
 
-const MOCK_PASSWORD = 'yamo2026';
-
+const MOCK_PASSWORD = ADMIN_DEFAULT_PASSWORD;
 export default function Login({ defaultRole = 'client' as UserRole }: { defaultRole?: UserRole }) {
   const { sendOtp, verifyOtp, signInWithPassword, isSupabaseConfigured } = useAuth();
-  const isDemoMode = !isSupabaseConfigured || import.meta.env.VITE_ENABLE_DEMO_DATA === 'true' || import.meta.env.VITE_FORCE_MOCK_AUTH === 'true';
+  // Aides de démo (bannière SMS + comptes de démonstration + identifiants) :
+  // affichées UNIQUEMENT en mode mock (aucun vrai backend). Sur le site réel
+  // (API VPS), on ne montre jamais ces précisions ni d'identifiants de test.
+  const isDemoMode = !isSupabaseConfigured;
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = (location.state as { from?: string } | null)?.from ?? '/';
@@ -122,7 +125,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
 
   // --- Phone OTP state ---
   const [step, setStep] = useState<'phone' | 'code'>('phone');
-  const [phone, setPhone] = useState('+237 ');
+  const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -147,7 +150,15 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
     setError('');
     setSubmitting(true);
     try {
-      await sendOtp(phone.replace(/\s/g, ''));
+      const result = await sendOtp(normalizeCameroonPhone(phone));
+      // En mode VPS, vérifier si le numéro existe dans la base
+      if (result && typeof result === 'object' && 'exists' in result) {
+        if (!result.exists) {
+          setError('Aucun compte trouvé avec ce numéro. Créez d\'abord un compte.');
+          setSubmitting(false);
+          return;
+        }
+      }
       setStep('code');
       setCode('');
       setResendIn(30);
@@ -162,7 +173,11 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
     if (resendIn > 0 || submitting) return;
     setError('');
     try {
-      await sendOtp(phone.replace(/\s/g, ''));
+      const result = await sendOtp(normalizeCameroonPhone(phone));
+      if (result && typeof result === 'object' && 'exists' in result && !result.exists) {
+        setError('Aucun compte trouvé avec ce numéro.');
+        return;
+      }
       toast.success('Nouveau code envoyé.');
       setResendIn(30);
     } catch {
@@ -175,7 +190,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
     setError('');
     setSubmitting(true);
     try {
-      const loggedInUser = await verifyOtp(phone.replace(/\s/g, ''), code, defaultRole);
+      const loggedInUser = await verifyOtp(normalizeCameroonPhone(phone), code, defaultRole);
       navigate(await resolveRedirect(loggedInUser, redirectTo), { replace: true });
     } catch (err) {
       if (err instanceof RoleMismatchError) {
@@ -209,7 +224,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
       const emailKey = email.trim().toLowerCase();
       // Si le champ contient un numéro de téléphone, on le nettoie aussi
       // pour chercher dans le registre des mots de passe (adminSetPassword).
-      const phoneKeyFromEmail = emailKey.startsWith('+') ? emailKey.replace(/\s/g, '') : null;
+      const phoneKeyFromEmail = /^\+?\d/.test(emailKey) ? normalizeCameroonPhone(emailKey) : null;
       const emailUsers = JSON.parse(localStorage.getItem(LOCAL_EMAIL_USERS_KEY) ?? '{}');
       // Cherche d'abord par email, puis par téléphone si pertinent
       const registered = emailUsers[emailKey] ?? (phoneKeyFromEmail ? emailUsers[phoneKeyFromEmail] : undefined);
@@ -226,14 +241,14 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
         const storedUser = registryData[phoneKey];
         mockUser = storedUser
           ? { phone: storedUser.phone, role: storedUser.role, approved: storedUser.isApproved }
-          : { phone: `+237${phoneKey}`, role: 'client', approved: true };
+          : { phone: phoneKey, role: 'client', approved: true };
       } else if (!mockUser || password !== MOCK_PASSWORD) {
         setEmailError('Email ou mot de passe incorrect.');
         setEmailSubmitting(false);
         return;
       }
 
-      const localUserId = `local-${mockUser.phone.replace(/\s/g, '')}`;
+      const localUserId = `local-${normalizeCameroonPhone(mockUser.phone)}`;
       const suspensionInfo = getLocalSuspensionInfo(localUserId);
       const localUser = {
         id: localUserId,
@@ -245,7 +260,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
       };
       localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(localUser));
       const registry: Record<string, any> = JSON.parse(localStorage.getItem(LOCAL_REGISTRY_KEY) ?? '{}');
-      registry[mockUser.phone.replace(/\s/g, '')] = localUser;
+      registry[normalizeCameroonPhone(mockUser.phone)] = localUser;
       localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(registry));
       const redirectPath = await resolveRedirect(localUser);
       navigate(redirectPath, { replace: true });
@@ -325,7 +340,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
                       type="button"
                       onClick={() => {
                         if (authMode === 'simple') {
-                          setPhone(demo.phone);
+                          setPhone(normalizeCameroonPhone(demo.phone));
                         } else {
                           setEmail(demo.email);
                           setPassword(MOCK_PASSWORD);
@@ -350,8 +365,8 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
                 })}
               </div>
               <p className="text-text-muted text-[10px] font-inter mt-2.5 text-center">
-                Mot de passe Email : <strong className="text-text-primary">yamo2026</strong>
-                {authMode === 'simple' && ' · En mode Téléphone, tout code à 6 chiffres est accepté'}
+                Mot de passe Email : <strong className="text-text-primary">{ADMIN_DEFAULT_PASSWORD}</strong>
+                {authMode === 'simple' && ' · En mode Téléphone, tout code à 5 chiffres est accepté'}
               </p>
             </div>
           )}
@@ -363,13 +378,13 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
             <form onSubmit={handleEmailLogin} className="space-y-4">
               <div>
                 <label className="block text-text-secondary font-inter text-sm mb-1.5">Adresse email</label>
-                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                   <Mail className="w-4 h-4 text-text-muted shrink-0" />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@yamotest.cm"
+                    placeholder="nom.prenom@gmail.com"
                     className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
                     required
                   />
@@ -377,7 +392,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
               </div>
               <div>
                 <label className="block text-text-secondary font-inter text-sm mb-1.5">Mot de passe</label>
-                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                   <ShieldCheck className="w-4 h-4 text-text-muted shrink-0" />
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -413,13 +428,13 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
             <form onSubmit={handlePhoneOtp} className="space-y-4">
               <div>
                 <label className="block text-text-secondary font-inter text-sm mb-1.5">Numéro de téléphone</label>
-                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                   <Phone className="w-4 h-4 text-text-muted shrink-0" />
                   <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
                   <input
                     type="tel"
-                    value={phone.replace('+237 ', '')}
-                    onChange={(e) => setPhone('+237 ' + e.target.value.replace(/\s/g, ''))}
+                    value={displayCameroonPhone(phone)}
+                    onChange={(e) => setPhone(normalizeCameroonPhone(e.target.value))}
                     placeholder="6XX XX XX XX"
                     className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
                     required
@@ -442,7 +457,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
             <form onSubmit={handleVerify} className="space-y-4">
               <div>
                 <p className="text-text-secondary font-inter text-sm text-center mb-4">
-                  Code envoyé au <strong className="text-text-primary">{phone}</strong>
+                  Code envoyé au <strong className="text-text-primary">+237 {displayCameroonPhone(phone)}</strong>
                 </p>
                 <label className="block text-text-secondary font-inter text-sm mb-2">Code reçu par SMS</label>
                 <OtpInput value={code} onChange={setCode} disabled={submitting} />
@@ -450,7 +465,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
               {error && <p className="text-error text-sm font-inter" role="alert">{error}</p>}
               <button
                 type="submit"
-                disabled={submitting || code.length < 6}
+                disabled={submitting || code.length < 5}
                 className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Vérification...</> : 'Confirmer'}

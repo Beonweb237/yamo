@@ -1,14 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Package, Clock, Star, Store, UserRound, XCircle, RotateCcw, Loader2, ShieldCheck, MessageCircle } from 'lucide-react';
+import { Package, Clock, Star, Store, UserRound, XCircle, RotateCcw, Loader2, ShieldCheck, MessageCircle, AlertTriangle } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { fetchMenuItems } from '../lib/catalog';
 import { useAuth } from '../contexts/AuthContext';
 import { hasOrderReview, submitOrderReview } from '../lib/reviews';
-import { fetchOrders, getOrderPreparationMessage, getDriverPhone, getDriverDisplayName, cancelOrder, declareGuaranteePaid, remainingDueAtDelivery, getRestaurantMerchantInfo, type Order, type OrderStatus } from '../lib/orders';
+import { fetchOrders, getOrderPreparationMessage, getDriverPhone, getDriverDisplayName, cancelOrder, customerCancelPolicy, declareGuaranteePaid, remainingDueAtDelivery, getRestaurantMerchantInfo, type Order, type OrderStatus } from '../lib/orders';
 import { reportIncident } from '../lib/incidents';
 import { fetchDriversStats, type DriverStats } from '../lib/drivers';
 import { whatsappLink, SUPPORT_PHONE } from '../data/support';
+import { phoneForWhatsapp } from '../lib/phone';
 import { usePolling } from '../hooks/usePolling';
 import { toast } from 'sonner';
 import OrderStatusStepper from '../components/OrderStatusStepper';
@@ -56,7 +57,7 @@ function buildTrackingPoints(order: Order): MapPoint[] | null {
 
 // Lien WhatsApp vers un numéro arbitraire (livreur) avec message prérempli.
 function whatsappTo(phone: string, message: string): string {
-  return `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+  return `https://wa.me/${phoneForWhatsapp(phone)}?text=${encodeURIComponent(message)}`;
 }
 
 // Numéro court lisible et stable dérivé de l'id (uuid ou id mock) — un id
@@ -95,7 +96,7 @@ function GuaranteeCard({
           </span>
           {assistanceWhatsapp && (
             <a
-              href={`https://wa.me/${assistanceWhatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Bonjour, je paie la garantie de ma commande MiamExpress ${shortOrderId(order.id)}.`)}`}
+              href={`https://wa.me/${phoneForWhatsapp(assistanceWhatsapp)}?text=${encodeURIComponent(`Bonjour, je paie la garantie de ma commande MiamExpress ${shortOrderId(order.id)}.`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-green-primary font-inter text-xs font-medium bg-white border border-border-custom rounded-lg px-3 min-h-11 hover:bg-green-light transition-colors"
@@ -639,18 +640,25 @@ export default function Orders() {
                   </button>
                 )}
 
-                {(order.status === 'pending' || order.status === 'confirmed') && (
-                  <div className="mt-3 pt-3 border-t border-border-light">
-                    <button
-                      type="button"
-                      onClick={() => openCancelDialog(order)}
-                      className="flex items-center gap-1.5 text-error font-inter text-sm font-medium hover:opacity-80 transition-opacity min-h-11"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      Annuler la commande
-                    </button>
-                  </div>
-                )}
+                {(() => {
+                  // Annulation client bornée par le risque : possible tant que le
+                  // parcours n'est pas « en route » (livreur) — libre avant
+                  // préparation, avec avertissement pendant (customerCancelPolicy).
+                  const tier = customerCancelPolicy(order.status).tier;
+                  if (tier !== 'free' && tier !== 'warn') return null;
+                  return (
+                    <div className="mt-3 pt-3 border-t border-border-light">
+                      <button
+                        type="button"
+                        onClick={() => openCancelDialog(order)}
+                        className="flex items-center gap-1.5 text-error font-inter text-sm font-medium hover:opacity-80 transition-opacity min-h-11"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Annuler la commande
+                      </button>
+                    </div>
+                  );
+                })()}
 
                 {(order.status === 'picked_up' || order.status === 'delivering') && (() => {
                   // Actions de contact réelles : appel + WhatsApp vers le
@@ -956,6 +964,12 @@ export default function Orders() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3">
+            {cancelTarget && customerCancelPolicy(cancelTarget.status).warning && (
+              <div className="flex gap-2 rounded-lg bg-gold-light border border-gold-accent/40 px-3 py-2.5 text-[13px] text-text-primary font-inter">
+                <AlertTriangle className="w-4 h-4 text-gold-accent shrink-0 mt-0.5" />
+                <span>{customerCancelPolicy(cancelTarget.status).warning}</span>
+              </div>
+            )}
             <div>
               <label htmlFor="cancel-reason" className="block text-text-secondary font-inter text-sm mb-1.5">
                 Motif de l&apos;annulation <span className="text-error">*</span>

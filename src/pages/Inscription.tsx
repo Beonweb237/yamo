@@ -15,6 +15,7 @@ import {
 import AuthHeader from '../components/AuthHeader';
 import { useAuth, type AuthUser, type UserRole } from '../contexts/AuthContext';
 import { fetchMyApplications } from '../lib/applications';
+import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
 import {
   Dialog,
   DialogContent,
@@ -120,7 +121,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
   // ── Form fields ──
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('+237 ');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -151,7 +152,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
       const newUser = await signUp({
         email: email.trim(),
         password,
-        phone: phone.replace(/\s/g, ''),
+        phone: normalizeCameroonPhone(phone),
         name: name.trim(),
         role: defaultRole,
       });
@@ -185,7 +186,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
           {/* Full name */}
           <div>
             <label className="block text-text-secondary font-inter text-sm mb-1.5">Nom complet</label>
-            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
               <User className="w-4 h-4 text-text-muted shrink-0" />
               <input
                 type="text"
@@ -201,13 +202,13 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
           {/* Email */}
           <div>
             <label className="block text-text-secondary font-inter text-sm mb-1.5">Adresse email</label>
-            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
               <Mail className="w-4 h-4 text-text-muted shrink-0" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="jean@exemple.cm"
+                placeholder="nom.prenom@gmail.com"
                 className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
                 required
               />
@@ -217,13 +218,13 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
           {/* Phone */}
           <div>
             <label className="block text-text-secondary font-inter text-sm mb-1.5">Numéro de téléphone</label>
-            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
               <Phone className="w-4 h-4 text-text-muted shrink-0" />
               <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
               <input
                 type="tel"
-                value={phone.replace('+237 ', '')}
-                onChange={(e) => setPhone('+237 ' + e.target.value.replace(/\s/g, ''))}
+                value={displayCameroonPhone(phone)}
+                onChange={(e) => setPhone(normalizeCameroonPhone(e.target.value))}
                 placeholder="6XX XX XX XX"
                 className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
                 required
@@ -234,7 +235,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
           {/* Password */}
           <div>
             <label className="block text-text-secondary font-inter text-sm mb-1.5">Mot de passe</label>
-            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
               <ShieldCheck className="w-4 h-4 text-text-muted shrink-0" />
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -259,7 +260,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
           {/* Confirm Password */}
           <div>
             <label className="block text-text-secondary font-inter text-sm mb-1.5">Confirmer le mot de passe</label>
-            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+            <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
               <ShieldCheck className="w-4 h-4 text-text-muted shrink-0" />
               <input
                 type={showConfirmPassword ? 'text' : 'password'}

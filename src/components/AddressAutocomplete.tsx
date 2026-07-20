@@ -110,7 +110,7 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
   return (
     <div ref={containerRef} className={`relative ${className || ''}`}>
       {/* Input */}
-      <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12 border border-border-custom focus-within:border-green-primary focus-within:ring-1 focus-within:ring-green-primary/20 transition-all">
+      <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12 border border-border-custom focus-within:border-green-primary transition-all">
         <Search className="w-4 h-4 text-text-muted shrink-0" />
         <input
           type="text"

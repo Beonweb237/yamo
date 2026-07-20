@@ -22,7 +22,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
+    --ring: 142 72% 29%; /* vert Yamo #157F3D — anneau de focus de marque (ex-quasi-noir) */
     --radius: 0.625rem;
 
     --green-primary: #157F3D;
@@ -60,13 +60,47 @@
     line-height: 1.18;
   }
 
+  /* ── Focus des champs de saisie (soft, cohérent, Yamo) ──────────────
+     Ancien comportement : contour dur `outline: 2px solid vert` décalé de 2px,
+     qui « détourait » chaque champ arrondi de façon disgracieuse et écrasait
+     même le focus-within doux des wrappers. On le remplace par un anneau doux. */
+
+  /* Transition en fondu de l'anneau (les wrappers ont déjà `transition-all`). */
+  input:not([type="range"]),
+  select,
+  textarea {
+    transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+  }
+
+  /* Focus clavier accessible mais sans contour dur. L'outline transparent
+     préserve la visibilité en mode contrastes forcés (Windows High Contrast). */
   button:focus-visible,
   a:focus-visible,
   input:focus-visible,
   select:focus-visible,
-  textarea:focus-visible {
-    outline: 2px solid var(--green-primary);
+  textarea:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid transparent;
     outline-offset: 2px;
+  }
+
+  /* Focus des champs bordés autonomes : un LÉGER contour vert (bordure seule,
+     pas de halo/anneau épais). Les champs transparents encapsulés (pattern
+     wrapper + focus-within présent dans Login, Inscription, Checkout, Profile,
+     ApplicationForm, AddressAutocomplete…) affichent le même contour via la
+     bordure de leur conteneur. Résultat homogène : 1px vert sur le champ actif. */
+  input:not([type="range"]):not([class*="bg-transparent"]):focus-visible,
+  select:not([class*="bg-transparent"]):focus-visible,
+  textarea:not([class*="bg-transparent"]):focus-visible {
+    border-color: var(--green-primary);
+  }
+
+  /* Boutons & liens : léger halo vert au focus clavier (doux, pas de contour). */
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible {
+    box-shadow: 0 0 0 3px rgba(21, 127, 61, 0.20);
   }
 }
 

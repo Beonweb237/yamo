@@ -177,6 +177,38 @@ export interface OrderInput {
 /** Auteur d'une annulation de commande. */
 export type CancelledBy = 'customer' | 'restaurant' | 'admin';
 
+/** Palier d'annulation client selon le risque au statut courant. */
+export type CustomerCancelTier = 'free' | 'warn' | 'contact' | 'none';
+
+/**
+ * Politique d'annulation côté client, bornée par le risque (priorité produit #4 :
+ * annuler à tout moment, surtout quand il n'y a pas de risque). Source unique de
+ * vérité, réutilisée par l'UI (bouton + avertissement).
+ * - `free`    : le resto n'a pas encore engagé la préparation → annulation immédiate.
+ * - `warn`    : préparation engagée → annulation possible mais on prévient (plat gâché).
+ * - `contact` : commande en route (livreur) → pas d'annulation directe, passer par le support.
+ * - `none`    : statut terminal (livrée / déjà annulée).
+ */
+export function customerCancelPolicy(status: OrderStatus): { tier: CustomerCancelTier; warning?: string } {
+  switch (status) {
+    case 'pending':
+    case 'confirmed':
+      return { tier: 'free' };
+    case 'preparing':
+    case 'ready':
+      return {
+        tier: 'warn',
+        warning:
+          "Le restaurant a déjà commencé à préparer votre commande — l'annuler maintenant gâche le plat préparé. Confirmez seulement si c'est vraiment nécessaire.",
+      };
+    case 'picked_up':
+    case 'delivering':
+      return { tier: 'contact' };
+    default:
+      return { tier: 'none' };
+  }
+}
+
 // ── Série PTS : garantie client ──────────────────────────────────────────
 // Sous-état de 'confirmed' (AUCUN nouveau statut global de commande) :
 // awaiting_payment → declared (client) → confirmed (resto) → puis, en litige,

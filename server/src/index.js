@@ -118,6 +118,7 @@ function buildAuthUser(row, adminAccess = null) {
     isSuspended: row.is_suspended,
     suspensionReason: row.suspension_reason,
     fullName: row.full_name,
+    email: row.email || null,
     city: row.city,
     serviceNeighborhoods: row.service_neighborhoods,
     isOnline: row.is_online,
@@ -190,6 +191,67 @@ function stripSecretFields(row) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────
+const PUBLIC_RESTAURANT_MENU_FILTER = `EXISTS (
+    SELECT 1
+    FROM menu_items mi
+    WHERE mi.restaurant_id = restaurants.id
+      AND mi.is_available IS DISTINCT FROM false
+  )`;
+
+function optionalAuthUser(req) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) return null;
+  try {
+    return jwt.verify(header.slice(7), JWT_SECRET);
+  } catch {
+    return null;
+  }
+}
+
+function canSeeRestaurantsWithoutMenu(req) {
+  const user = req.user || optionalAuthUser(req);
+  return ['admin', 'restaurant'].includes(user?.role);
+}
+
+function shouldFilterPublicRestaurants(req, table) {
+  return table === 'restaurants' && !canSeeRestaurantsWithoutMenu(req);
+}
+
+function appendWhereClause(where, clause) {
+  return where ? `${where} AND ${clause}` : ` WHERE ${clause}`;
+}
+
+const CLIENT_FIRST_NAMES = [
+  'Abena', 'Aicha', 'Alain', 'Brenda', 'Cedric', 'Charline', 'Clarisse', 'Diane',
+  'Estelle', 'Fabrice', 'Flore', 'Gaelle', 'Herve', 'Ines', 'Joel', 'Kevin',
+  'Larissa', 'Mireille', 'Nadine', 'Pauline', 'Raissa', 'Sandrine', 'Serge',
+  'Thierry', 'Yannick', 'Yolande',
+];
+
+const CLIENT_LAST_NAMES = [
+  'Abanda', 'Abega', 'Biloa', 'Djoumessi', 'Dongmo', 'Ebanda', 'Ekambi',
+  'Essomba', 'Ewane', 'Fokou', 'Fotso', 'Kamdem', 'Kenfack', 'Mbarga',
+  'Mballa', 'Mbia', 'Meka', 'Momo', 'Ndongo', 'Ngassa', 'Ngono', 'Njikam',
+  'Njoya', 'Nkeng', 'Nlend', 'Noubi', 'Talla', 'Tchami', 'Zambo',
+];
+
+function seededIndex(seed, length, salt = 0) {
+  let value = salt + 17;
+  for (const ch of String(seed || 'client')) value = ((value * 31) + ch.charCodeAt(0)) >>> 0;
+  return value % length;
+}
+
+function buildFallbackClientName(phone = '') {
+  const seed = String(phone || Date.now());
+  const first = CLIENT_FIRST_NAMES[seededIndex(seed, CLIENT_FIRST_NAMES.length, 23)];
+  const last = CLIENT_LAST_NAMES[seededIndex(seed, CLIENT_LAST_NAMES.length, 71)];
+  return `${first} ${last}`;
+}
+
+function isBlankName(name) {
+  return !String(name || '').trim();
+}
+
 function buildWhere(filters) {
   if (!filters || !filters.length) return ['', []];
   const clauses = [];
@@ -475,12 +537,41 @@ registerPointsRoutes(app, { pool, authRequired, adminRequired, adminPermissionRe
 
 // ─── Admin : comptes, clients et validation directe ─────────────
 const ADMIN_CREATABLE_ROLES = new Set(['restaurant', 'livreur']);
-const DEFAULT_ADMIN_CREATED_PASSWORD = '12345';
+const DEFAULT_ADMIN_CREATED_PASSWORD = 'Miamexpress2025';
 
 function cleanPhone(phone) {
-  return String(phone || '').replace(/\s+/g, '').trim();
+  let digits = String(phone || '').replace(/\D/g, '').trim();
+  if (digits.startsWith('00237')) digits = digits.slice(5);
+  if (digits.startsWith('237') && digits.length > 3) digits = digits.slice(3);
+  return digits;
 }
 
+function emailToken(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '.')
+    .replace(/^\.+|\.+$/g, '') || 'utilisateur';
+}
+
+function cleanEmail(email) {
+  const value = String(email || '').trim().toLowerCase();
+  if (!value || !/^[^\s@]+@(gmail\.com|yahoo\.fr)$/.test(value)) return '';
+  return value;
+}
+
+function buildUserEmail(name, phone = '', role = 'client') {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  const first = emailToken(parts[0] || role || 'client');
+  const last = emailToken(parts.length > 1 ? parts[parts.length - 1] : cleanPhone(phone).slice(-4) || 'miamexpress');
+  const domain = `${first}.${last}`.length % 2 === 0 ? 'gmail.com' : 'yahoo.fr';
+  return `${last}.${first}@${domain}`;
+}
+
+function resolveUserEmail({ email, name, phone, role }) {
+  return cleanEmail(email) || buildUserEmail(name, phone, role);
+}
 function cleanText(value, fallback = '') {
   const text = String(value ?? '').trim();
   return text || fallback;
@@ -490,7 +581,7 @@ function toPublicUser(row) {
   return stripSecretFields(fromSnake(row));
 }
 
-async function upsertAdminCreatedUser({ role, phone, name, password, city, serviceNeighborhoods, approved }) {
+async function upsertAdminCreatedUser({ role, phone, email, name, password, city, serviceNeighborhoods, approved }) {
   const normalizedPhone = cleanPhone(phone);
   if (!normalizedPhone) {
     const err = new Error('Telephone requis');
@@ -502,14 +593,17 @@ async function upsertAdminCreatedUser({ role, phone, name, password, city, servi
     err.status = 400;
     throw err;
   }
+  const fullName = cleanText(name, normalizedPhone);
+  const userEmail = resolveUserEmail({ email, name: fullName, phone: normalizedPhone, role });
   const hash = await bcrypt.hash(password || DEFAULT_ADMIN_CREATED_PASSWORD, SALT_ROUNDS);
   const { rows: [user] } = await pool.query(
     `INSERT INTO users (
-       phone, password_hash, full_name, role, is_approved, city, service_neighborhoods,
+       phone, email, password_hash, full_name, role, is_approved, city, service_neighborhoods,
        is_suspended, is_online, updated_at
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, false, false, now())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false, false, now())
      ON CONFLICT (phone) DO UPDATE SET
+       email = EXCLUDED.email,
        password_hash = EXCLUDED.password_hash,
        full_name = EXCLUDED.full_name,
        role = EXCLUDED.role,
@@ -522,8 +616,9 @@ async function upsertAdminCreatedUser({ role, phone, name, password, city, servi
      RETURNING *`,
     [
       normalizedPhone,
+      userEmail,
       hash,
-      cleanText(name, normalizedPhone),
+      fullName,
       role,
       approved !== false,
       city || null,
@@ -539,6 +634,7 @@ async function createOrUpdateRestaurantForUser(user, input) {
   const neighborhood = cleanText(input.neighborhood, 'Centre-ville');
   const address = cleanText(input.address, `${neighborhood}, ${city}`);
   const phone = cleanPhone(input.contactPhone || input.phone || user.phone);
+  const email = resolveUserEmail({ email: input.email || user.email, name, phone, role: 'restaurant' });
   const { rows: [existing] } = await pool.query(
     `SELECT * FROM restaurants WHERE owner_id = $1 OR ($2::text <> '' AND phone = $2) ORDER BY created_at DESC LIMIT 1`,
     [user.id, phone]
@@ -551,13 +647,14 @@ async function createOrUpdateRestaurantForUser(user, input) {
          name = $2,
          address = $3,
          phone = $4,
-         city = $5,
-         neighborhood = $6,
-         description = $7,
+         email = $5,
+         city = $6,
+         neighborhood = $7,
+         description = $8,
          is_open = true
-       WHERE id = $8
+       WHERE id = $9
        RETURNING *`,
-      [user.id, name, address, phone || null, city, neighborhood, input.notes || 'Restaurant partenaire valide par admin.', existing.id]
+      [user.id, name, address, phone || null, email, city, neighborhood, input.notes || 'Restaurant partenaire valide par admin.', existing.id]
     );
     return restaurant;
   }
@@ -565,10 +662,10 @@ async function createOrUpdateRestaurantForUser(user, input) {
   const { rows: [restaurant] } = await pool.query(
     `INSERT INTO restaurants (
        owner_id, name, image, category, rating, review_count, delivery_time,
-       delivery_fee, min_order, price_range, address, phone, hours, is_open,
+       delivery_fee, min_order, price_range, address, phone, email, hours, is_open,
        is_premium, tags, description, city, neighborhood, commission_rate
      )
-     VALUES ($1,$2,$3,$4,0,0,$5,$6,$7,$8,$9,$10,$11,true,false,$12,$13,$14,$15,$16)
+     VALUES ($1,$2,$3,$4,0,0,$5,$6,$7,$8,$9,$10,$11,$12,true,false,$13,$14,$15,$16,$17)
      RETURNING *`,
     [
       user.id,
@@ -581,6 +678,7 @@ async function createOrUpdateRestaurantForUser(user, input) {
       input.priceRange || '$$',
       address,
       phone || null,
+      email,
       input.hours || '08:00 - 22:00',
       [city, neighborhood, 'Admin'],
       input.notes || 'Restaurant partenaire valide directement par admin.',
@@ -622,7 +720,7 @@ async function createOrUpdateApplicationForUser(user, input, restaurantId = null
          notes = $6,
          restaurant_id = $7,
          reviewed_at = now()
-       WHERE id = $8
+       WHERE id = $9
        RETURNING *`,
       [...values.slice(2), existing.id]
     );
@@ -896,6 +994,7 @@ app.post('/api/admin/accounts', authRequired, adminRequired, async (req, res) =>
     const user = await upsertAdminCreatedUser({
       role: type,
       phone: input.contactPhone || input.phone,
+      email: input.email,
       name: input.applicantName || input.name || input.restaurantName,
       password: input.password,
       city: input.city,
@@ -999,7 +1098,7 @@ async function handleList(req, res) {
     const tbl = quoteTable(table);
     const filters = [];
     for (const [key, val] of Object.entries(req.query)) {
-      if (['select', 'order', 'page', 'limit', 'sort', 'sortDir'].includes(key)) continue;
+      if (['select', 'order', 'page', 'limit', 'sort', 'sortDir', 'includeWithoutMenu'].includes(key)) continue;
       if (val.startsWith('eq.')) filters.push([key, 'eq', val.slice(3)]);
       else if (val.startsWith('neq.')) filters.push([key, 'neq', val.slice(4)]);
       else if (val.startsWith('in.')) filters.push([key, 'in', val.slice(3).split(',')]);
@@ -1009,15 +1108,18 @@ async function handleList(req, res) {
       else filters.push([key, 'eq', val]);
     }
     const [where, whereVals] = buildWhere(filters);
+    const effectiveWhere = shouldFilterPublicRestaurants(req, table)
+      ? appendWhereClause(where, PUBLIC_RESTAURANT_MENU_FILTER)
+      : where;
     const sort = req.query.sort ? [req.query.sort, req.query.sortDir || 'asc'] : null;
     const order = buildOrder(sort);
     const select = req.query.select === '*' ? '*' : (req.query.select || '*');
     const [limitClause, limitVals, page, limit] = buildPagination(req.query.page, req.query.limit, whereVals.length + 1);
 
-    const countQuery = `SELECT count(*) FROM ${tbl}${where}`;
+    const countQuery = `SELECT count(*) FROM ${tbl}${effectiveWhere}`;
     const { rows: [{ count }] } = await pool.query(countQuery, whereVals);
 
-    const dataQuery = `SELECT ${select} FROM ${tbl}${where}${order}${limitClause}`;
+    const dataQuery = `SELECT ${select} FROM ${tbl}${effectiveWhere}${order}${limitClause}`;
     const { rows } = await pool.query(dataQuery, [...whereVals, ...limitVals]);
 
     const data = rows.map(fromSnake).map(r => (SENSITIVE_TABLES.has(table) ? stripSecretFields(r) : r));
@@ -1040,7 +1142,10 @@ async function handleSingle(req, res) {
   try {
     const { table, id } = req.params;
     const tbl = quoteTable(table);
-    const { rows: [row] } = await pool.query(`SELECT * FROM ${tbl} WHERE id = $1`, [id]);
+    const publicFilter = shouldFilterPublicRestaurants(req, table)
+      ? ` AND ${PUBLIC_RESTAURANT_MENU_FILTER}`
+      : '';
+    const { rows: [row] } = await pool.query(`SELECT * FROM ${tbl} WHERE id = $1${publicFilter}`, [id]);
     if (!row) return res.status(404).json({ error: 'Non trouvé' });
     res.json(SENSITIVE_TABLES.has(table) ? stripSecretFields(fromSnake(row)) : fromSnake(row));
   } catch (err) {
@@ -1065,6 +1170,12 @@ app.post('/api/:table', authRequired, async (req, res) => {
     if (!(await requireAdminTablePermission(req, res, table, 'insert'))) return;
     const tbl = quoteTable(table);
     const data = toSnake(req.body);
+    if (data.phone) data.phone = cleanPhone(data.phone);
+    if (data.contact_phone) data.contact_phone = cleanPhone(data.contact_phone);
+    if (['users', 'profiles'].includes(table) && ['client', 'restaurant', 'livreur'].includes(data.role)) {
+      if (isBlankName(data.full_name) && data.role === 'client') data.full_name = buildFallbackClientName(data.phone || data.id);
+      if (!cleanEmail(data.email)) data.email = resolveUserEmail({ email: data.email, name: data.full_name, phone: data.phone || data.id, role: data.role });
+    }
     if (!data.id) data.id = undefined;
     const keys = Object.keys(data).filter(k => data[k] !== undefined);
     const values = keys.map(k => data[k]);
@@ -1110,6 +1221,11 @@ app.patch('/api/:table/:id', authRequired, async (req, res) => {
     if (!(await requireAdminTablePermission(req, res, table, 'update'))) return;
     const tbl = quoteTable(table);
     const data = toSnake(req.body);
+    if (data.phone) data.phone = cleanPhone(data.phone);
+    if (data.contact_phone) data.contact_phone = cleanPhone(data.contact_phone);
+    if (['users', 'profiles'].includes(table) && ['client', 'restaurant', 'livreur'].includes(data.role)) {
+      if (!cleanEmail(data.email)) data.email = resolveUserEmail({ email: data.email, name: data.full_name, phone: data.phone || id, role: data.role });
+    }
     let keys = Object.keys(data).filter(k => k !== 'id');
     if (SENSITIVE_TABLES.has(table) && !isAdmin) {
       keys = keys.filter(k => !ADMIN_ONLY_USER_FIELDS.includes(k));
@@ -1164,17 +1280,40 @@ app.delete('/api/:table/:id', authRequired, adminPermissionRequired('admin.delet
 app.post('/api/auth/send-otp', async (req, res) => {
   try {
     const { phone } = req.body;
-    if (!phone) return res.status(400).json({ error: 'Téléphone requis' });
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
-    const expires = new Date(Date.now() + 10 * 60 * 1000);
-    await pool.query(
-      `INSERT INTO users (phone, otp_code, otp_expires_at, role) 
-       VALUES ($1, $2, $3, 'client')
-       ON CONFLICT (phone) DO UPDATE SET otp_code = $2, otp_expires_at = $3`,
-      [phone, otp, expires]
+    const raw = String(phone || '').replace(/\D/g, '');
+    // Support cleaned (674465093) and prefixed (+237674465093) formats
+    const bare = raw.replace(/^(?:00)?237/, '');
+    if (!bare) return res.status(400).json({ error: 'Téléphone requis' });
+
+    // Chercher les deux formats
+    const { rows: users } = await pool.query(
+      'SELECT id, phone FROM users WHERE phone = $1 OR phone = $2 LIMIT 1',
+      [bare, `+237${bare}`]
     );
-    console.log(`📱 OTP pour ${phone}: ${otp}`);
-    res.json({ success: true, message: 'OTP envoyé' });
+    const exists = users.length > 0;
+    const exactPhone = exists ? users[0].phone : null;
+
+    if (exists && exactPhone) {
+      // Code fixe 5 chiffres : 12345
+      const otp = '12345';
+      const expires = new Date(Date.now() + 10 * 60 * 1000);
+      const fallbackName = buildFallbackClientName(exactPhone);
+      await pool.query(
+        `UPDATE users
+         SET otp_code = $1,
+             otp_expires_at = $2,
+             full_name = CASE
+               WHEN role = 'client' AND NULLIF(btrim(full_name), '') IS NULL THEN $4
+               ELSE full_name
+             END,
+             updated_at = now()
+         WHERE phone = $3`,
+        [otp, expires, exactPhone, fallbackName]
+      );
+      console.log(`OTP pour ${exactPhone}: ${otp}`);
+    }
+
+    res.json({ success: true, exists });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1184,9 +1323,11 @@ app.post('/api/auth/send-otp', async (req, res) => {
 app.post('/api/auth/verify-otp', async (req, res) => {
   try {
     const { phone, code, requestedRole } = req.body;
+    const raw = String(phone || '').replace(/\D/g, '');
+    const bare = raw.replace(/^(?:00)?237/, '');
     const { rows: [user] } = await pool.query(
-      `SELECT * FROM users WHERE phone = $1 AND otp_code = $2 AND otp_expires_at > now()`,
-      [phone, code]
+      `SELECT * FROM users WHERE (phone = $1 OR phone = $3) AND otp_code = $2 AND otp_expires_at > now()`,
+      [bare, code, `+237${bare}`]
     );
     if (!user) return res.status(401).json({ error: 'Code invalide ou expiré' });
 
@@ -1208,15 +1349,26 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     } else {
       role = (requestedRole && requestedRole !== 'admin') ? requestedRole : 'client';
     }
-    await pool.query(
-      `UPDATE users SET otp_code = NULL, otp_expires_at = NULL, role = $2, updated_at = now() WHERE id = $1`,
-      [user.id, role]
+    const fallbackName = buildFallbackClientName(user.phone || phone);
+    const { rows: [freshUser] } = await pool.query(
+      `UPDATE users
+       SET otp_code = NULL,
+           otp_expires_at = NULL,
+           role = $2::user_role,
+           full_name = CASE
+             WHEN $2::text = 'client' AND NULLIF(btrim(full_name), '') IS NULL THEN $3
+             ELSE full_name
+           END,
+           updated_at = now()
+       WHERE id = $1
+       RETURNING *`,
+      [user.id, role, fallbackName]
     );
 
-    const updatedUser = { ...user, role };
+    const updatedUser = freshUser || { ...user, role };
     const adminAccess = role === 'admin' ? await loadAdminAccess(pool, user.id) : null;
     const authUser = buildAuthUser(updatedUser, adminAccess);
-    const token = jwt.sign({ sub: user.id, phone, role, isApproved: authUser.isApproved }, JWT_SECRET, { expiresIn: '30d' });
+    const token = jwt.sign({ sub: user.id, phone: updatedUser.phone, role, isApproved: authUser.isApproved }, JWT_SECRET, { expiresIn: '30d' });
     res.json({ user: authUser, token, session: { access_token: token } });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1226,8 +1378,14 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 // POST /api/auth/signin — password sign-in
 app.post('/api/auth/signin', async (req, res) => {
   try {
-    const { phone, password } = req.body;
-    const { rows: [user] } = await pool.query('SELECT * FROM users WHERE phone = $1', [phone]);
+    const { phone, email, password } = req.body;
+    const identifier = String(phone || email || '').trim();
+    const normalizedPhone = cleanPhone(identifier);
+    const normalizedEmail = cleanEmail(identifier);
+    const { rows: [user] } = await pool.query(
+      'SELECT * FROM users WHERE phone = $1 OR lower(email) = lower($2) LIMIT 1',
+      [normalizedPhone, normalizedEmail || identifier.toLowerCase()]
+    );
     if (!user || !user.password_hash) return res.status(401).json({ error: 'Identifiants invalides' });
 
     const valid = await bcrypt.compare(password, user.password_hash);
@@ -1235,21 +1393,23 @@ app.post('/api/auth/signin', async (req, res) => {
 
     const adminAccess = user.role === 'admin' ? await loadAdminAccess(pool, user.id) : null;
     const authUser = buildAuthUser(user, adminAccess);
-    const token = jwt.sign({ sub: user.id, phone, role: user.role, isApproved: authUser.isApproved }, JWT_SECRET, { expiresIn: '30d' });
+    const token = jwt.sign({ sub: user.id, phone: user.phone, role: user.role, isApproved: authUser.isApproved }, JWT_SECRET, { expiresIn: '30d' });
     res.json({ user: authUser, token, session: { access_token: token } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
-
 // POST /api/auth/signup
 app.post('/api/auth/signup', async (req, res) => {
   try {
     // Support both formats: {phone, password, name, role} and Supabase {email, password, options: {data: {phone, full_name}}}
-    const phone = req.body.phone || req.body.options?.data?.phone || req.body.email || '';
+    const rawPhone = req.body.phone || req.body.options?.data?.phone || '';
+    const phone = cleanPhone(rawPhone);
     const name = req.body.name || req.body.options?.data?.full_name || '';
     const password = req.body.password || '';
     const role = req.body.role || 'client';
+    const fullName = isBlankName(name) && role === 'client' ? buildFallbackClientName(phone) : name;
+    const email = resolveUserEmail({ email: req.body.email, name: fullName, phone, role });
     if (role === 'admin') return res.status(403).json({ error: 'La creation admin publique est interdite.' });
     if (!['client', 'restaurant', 'livreur'].includes(role)) return res.status(400).json({ error: 'Role invalide' });
     if (!phone) return res.status(400).json({ error: 'Numéro de téléphone requis' });
@@ -1261,12 +1421,12 @@ app.post('/api/auth/signup', async (req, res) => {
     if (existing.length) return res.status(409).json({ error: 'Ce numéro est déjà utilisé. Connectez-vous.' });
     const hash = password ? await bcrypt.hash(password, SALT_ROUNDS) : null;
     const { rows: [user] } = await pool.query(
-      `INSERT INTO users (phone, password_hash, full_name, role) VALUES ($1, $2, $3, $4)
+      `INSERT INTO users (phone, email, password_hash, full_name, role) VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [phone, hash, name, role]
+      [phone, email, hash, fullName, role]
     );
     const authUser = buildAuthUser(user);
-    const token = jwt.sign({ sub: user.id, phone, role: user.role, isApproved: authUser.isApproved }, JWT_SECRET, { expiresIn: '30d' });
+    const token = jwt.sign({ sub: user.id, phone: user.phone, role: user.role, isApproved: authUser.isApproved }, JWT_SECRET, { expiresIn: '30d' });
     res.status(201).json({ user: authUser, token, session: { access_token: token } });
   } catch (err) {
     res.status(500).json({ error: err.message });

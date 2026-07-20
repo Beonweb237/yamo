@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { submitApplication, type ApplicationType } from '../lib/applications';
 import { activeCities, getNeighborhoods } from '../data/locations';
 import { slugify } from '../lib/utils';
+import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
 
 function FileUploadField({
   label,
@@ -286,7 +287,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
             <Globe className="w-3.5 h-3.5 text-green-primary" />
             Adresse web de votre restaurant
           </label>
-          <div className="flex items-center gap-1 bg-white rounded-xl border border-border-custom px-4 h-12 transition-all focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 hover:border-text-muted">
+          <div className="flex items-center gap-1 bg-white rounded-xl border border-border-custom px-4 h-12 transition-all focus-within:border-green-primary hover:border-text-muted">
             <span className="text-text-muted text-xs font-inter shrink-0 select-none">miamexpress.cm/restaurant/</span>
             <input
               type="text"
@@ -324,12 +325,12 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
           <label className="block text-text-primary font-inter text-sm font-semibold">
             Téléphone <span className="text-error">*</span>
           </label>
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 transition-all focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 hover:border-text-muted">
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 transition-all focus-within:border-green-primary hover:border-text-muted">
             <span className="text-text-primary font-inter text-sm font-semibold shrink-0 select-none">+237</span>
             <input
               type="tel"
-              value={contactPhone.replace('+237 ', '')}
-              onChange={(e) => setContactPhone('+237 ' + e.target.value.replace(/\s/g, ''))}
+              value={displayCameroonPhone(contactPhone)}
+              onChange={(e) => setContactPhone(normalizeCameroonPhone(e.target.value))}
               placeholder="6XX XX XX XX"
               className="flex-1 bg-transparent text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
               required

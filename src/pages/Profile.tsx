@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import { trashItem } from '../lib/trash';
+import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -279,7 +280,7 @@ export default function Profile() {
                 className="w-full bg-white rounded-xl border border-border-custom px-4 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted transition-all focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 hover:border-text-muted"
               />
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-11 transition-all focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 hover:border-text-muted">
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-11 transition-all focus-within:border-green-primary hover:border-text-muted">
                   <Globe className="w-4 h-4 text-text-muted shrink-0" />
                   <select
                     value={profileLang}
@@ -292,13 +293,13 @@ export default function Profile() {
                 </div>
                 <span className="text-text-muted text-xs font-inter truncate min-w-0">{user.phone}</span>
               </div>
-              <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-11 transition-all focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 hover:border-text-muted">
+              <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-11 transition-all focus-within:border-green-primary hover:border-text-muted">
                 <MessageCircle className="w-4 h-4 text-green-primary shrink-0" />
                 <span className="text-text-primary font-inter text-sm font-semibold shrink-0 select-none">+237</span>
                 <input
                   type="tel"
-                  value={whatsapp.replace('+237 ', '')}
-                  onChange={(e) => setWhatsapp('+237 ' + e.target.value.replace(/\s/g, ''))}
+                  value={displayCameroonPhone(whatsapp)}
+                  onChange={(e) => setWhatsapp(normalizeCameroonPhone(e.target.value))}
                   placeholder="6XX XX XX XX (WhatsApp)"
                   className="flex-1 min-w-0 bg-transparent text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
                 />

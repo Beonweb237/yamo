@@ -20,31 +20,31 @@ const REVIEW_TEMPLATES = [
     rating: 5,
     comment: 'Commande livree chaude, portions genereuses et emballage tres soigne. Experience premium du debut a la fin.',
     tags: ['plats chauds', 'emballage soigne', 'rapide'],
-    authorName: 'Client test A.',
+    authorName: null,
   },
   {
     rating: 5,
     comment: 'Le restaurant a respecte les indications et la qualite etait constante. Je recommande sans hesitation.',
     tags: ['qualite constante', 'instructions respectees', 'savoureux'],
-    authorName: 'Client test B.',
+    authorName: null,
   },
   {
     rating: 4,
     comment: 'Tres bonne commande, livraison propre et service fluide. Une petite marge sur le delai, mais l ensemble reste excellent.',
     tags: ['service fluide', 'bon gout', 'fiable'],
-    authorName: 'Client test C.',
+    authorName: null,
   },
   {
     rating: 5,
     comment: 'Presentation impeccable, plat bien assaisonne et suivi de commande rassurant. C est exactement le niveau attendu.',
     tags: ['presentation', 'bien assaisonne', 'suivi clair'],
-    authorName: 'Client test D.',
+    authorName: null,
   },
   {
     rating: 4,
     comment: 'Bon rapport qualite prix et repas arrive dans un tres bon etat. Je commanderai encore chez ce restaurant.',
     tags: ['bon rapport qualite prix', 'repas intact', 'recommande'],
-    authorName: 'Client test E.',
+    authorName: null,
   },
 ];
 
@@ -267,6 +267,15 @@ async function insertReview(client, review) {
   return { inserted: true, id: rows[0].id };
 }
 
+// Nom d'auteur DÉRIVÉ du profil client réel (jamais un libellé fabriqué).
+// "Jean Test" -> "Jean T." ; vide -> null (affiché "Client vérifié").
+function anonymizeName(fullName) {
+  const s = String(fullName ?? '').replace(/\s+/g, ' ').trim();
+  if (!s) return null;
+  const parts = s.split(' ');
+  return parts.length > 1 ? `${parts[0]} ${parts[1][0].toUpperCase()}.` : parts[0];
+}
+
 async function seedReviews(client, orders, isTest) {
   const stats = { inserted: 0, skipped: 0, restaurantReviews: 0, driverReviews: 0, dishReviews: 0 };
   const touchedRestaurantIds = new Set();
@@ -277,6 +286,7 @@ async function seedReviews(client, orders, isTest) {
     const orderId = String(order.id);
     const restaurantId = String(order.restaurant_id);
     const customerId = String(order.customer_id);
+    const derivedAuthor = anonymizeName(order.customer_name);
     const driverId = order.driver_id ? String(order.driver_id) : order.delivery_driver_id;
     touchedRestaurantIds.add(restaurantId);
 
@@ -289,7 +299,7 @@ async function seedReviews(client, orders, isTest) {
       rating: base.rating,
       comment: base.comment,
       tags: base.tags,
-      authorName: base.authorName,
+      authorName: derivedAuthor,
       isTest,
       createdAt,
     });
@@ -308,7 +318,7 @@ async function seedReviews(client, orders, isTest) {
         rating: driver.rating,
         comment: driver.comment,
         tags: driver.tags,
-        authorName: base.authorName,
+        authorName: derivedAuthor,
         isTest,
         createdAt,
       });
@@ -329,7 +339,7 @@ async function seedReviews(client, orders, isTest) {
         rating: dishTemplate.rating,
         comment: dishTemplate.comment,
         tags: dishTemplate.tags,
-        authorName: base.authorName,
+        authorName: derivedAuthor,
         isTest,
         createdAt,
       });
