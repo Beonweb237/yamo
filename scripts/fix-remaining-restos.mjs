@@ -7,7 +7,7 @@ const pool = new Pool({
   port: Number(process.env.PGPORT || 5432),
   database: process.env.PGDATABASE || 'miamexpress',
   user: process.env.PGUSER || 'miamexpress',
-  password: process.env.PGPASSWORD || 'REMOVED_SECRET',
+  password: process.env.PGPASSWORD || process.env.DB_PASSWORD,
 });
 
 async function query(sql, params = []) {
@@ -148,7 +148,7 @@ async function main() {
   // Use child process to run seed-review-examples
   const { execSync } = await import('child_process');
   const result = execSync('cd /home/ubuntu/miamexpress && node scripts/seed-review-examples.mjs 2>&1 || true', {
-    env: { ...process.env, DB_PASSWORD: 'REMOVED_SECRET' }
+    env: { ...process.env, DB_PASSWORD: process.env.DB_PASSWORD || process.env.PGPASSWORD }
   });
   console.log(result.toString());
 }

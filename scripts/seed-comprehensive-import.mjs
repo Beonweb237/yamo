@@ -8,7 +8,7 @@ const pool = new Pool({
   port: Number(process.env.PGPORT || 5432),
   database: process.env.PGDATABASE || 'miamexpress',
   user: process.env.PGUSER || 'miamexpress',
-  password: process.env.PGPASSWORD || 'REMOVED_SECRET',
+  password: process.env.PGPASSWORD || process.env.DB_PASSWORD,
 });
 
 async function query(sql, params = []) {

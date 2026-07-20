@@ -28,7 +28,7 @@ import {
 // La racine du projet est la source canonique sur le VPS. Le fichier
 // server/.env.server reste supporte pour les anciennes installations, sans
 // pouvoir ecraser une valeur deja chargee depuis la racine.
-dotenv.config({ path: new URL('../../.env.server', import.meta.url) });
+dotenv.config({ path: new URL('../../.env.server', import.meta.url), override: true });
 dotenv.config({ path: new URL('../.env.server', import.meta.url) });
 
 const { Pool } = pg;
@@ -36,8 +36,21 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, { cors: { origin: '*' } });
 
+// Secrets OBLIGATOIRES via l'environnement — plus de valeur en dur (elles se
+// retrouvaient dans le code source / l'historique git). L'API refuse de démarrer
+// si l'un manque, plutôt que d'utiliser un secret par défaut connu de tous.
+const REQUIRED_SECRETS = ['JWT_SECRET', 'DB_PASSWORD'];
+const missingSecrets = REQUIRED_SECRETS.filter((k) => !process.env[k]);
+if (missingSecrets.length) {
+  console.error(
+    `FATAL: variable(s) d'environnement manquante(s): ${missingSecrets.join(', ')}. ` +
+    `Définissez-les dans .env.server (VPS) avant de démarrer l'API.`
+  );
+  process.exit(1);
+}
+
 const PORT = process.env.API_PORT || 3002;
-const JWT_SECRET = process.env.JWT_SECRET || 'REMOVED_SECRET';
+const JWT_SECRET = process.env.JWT_SECRET;
 const SALT_ROUNDS = 10;
 
 // ─── Database ─────────────────────────────────────────────────
@@ -46,7 +59,7 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
   database: process.env.DB_NAME || 'miamexpress',
   user: process.env.DB_USER || 'miamexpress',
-  password: process.env.DB_PASSWORD || 'REMOVED_SECRET',
+  password: process.env.DB_PASSWORD,
 });
 
 // ─── Middleware ───────────────────────────────────────────────
@@ -1530,6 +1543,7 @@ httpServer.listen(PORT, '127.0.0.1', () => {
 });
 
 export default app;
+
 
 
 

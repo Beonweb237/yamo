@@ -122,7 +122,7 @@ function makePool(env) {
     port: Number(env.DB_PORT || env.PGPORT || 5432),
     database: env.DB_NAME || env.PGDATABASE || 'miamexpress',
     user: env.DB_USER || env.PGUSER || 'miamexpress',
-    password: env.DB_PASSWORD || env.PGPASSWORD || 'REMOVED_SECRET',
+    password: env.DB_PASSWORD || env.PGPASSWORD,
     ssl,
   });
 }

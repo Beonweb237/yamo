@@ -1,8 +1,11 @@
 import pg from 'pg';
 const { Pool } = pg;
 const pool = new Pool({
-  host: '127.0.0.1', port: 5432, database: 'miamexpress',
-  user: 'miamexpress', password: 'REMOVED_SECRET'
+  host: process.env.DB_HOST || process.env.PGHOST || '127.0.0.1',
+  port: Number(process.env.DB_PORT || process.env.PGPORT || 5432),
+  database: process.env.DB_NAME || process.env.PGDATABASE || 'miamexpress',
+  user: process.env.DB_USER || process.env.PGUSER || 'miamexpress',
+  password: process.env.DB_PASSWORD || process.env.PGPASSWORD,
 });
 
 const stats = await pool.query(`
