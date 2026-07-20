@@ -26,6 +26,7 @@ import { processFormImage } from '../lib/media';
 import { parseHours, formatHours, isWithinHours } from '../lib/hours';
 import { getBalance, canAcceptOrder, grantWelcomeBonus, requestRecharge, fetchLedger, listRecharges, InsufficientPointsError, type PointsBalance, type PointsLedgerEntry, type RechargeRequest, type RechargeMethod } from '../lib/points';
 import { POINTS_CONFIG } from '../data/launchConfig';
+import { displayCameroonPhone, normalizeCameroonPhone, phoneForTel } from '../lib/phone';
 import {
   Dialog,
   DialogContent,
@@ -631,11 +632,11 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                               livrée/annulée pour éviter un accès permanent au numéro. */}
                           {!isFinal && order.contactPhone && (
                             <a
-                              href={`tel:${order.contactPhone}`}
+                              href={`tel:${phoneForTel(order.contactPhone)}`}
                               className="inline-flex items-center gap-1.5 text-green-primary text-xs font-inter font-medium mb-1 hover:underline"
                             >
                               <Phone className="w-3.5 h-3.5" />
-                              Appeler le client · {order.contactPhone}
+                              Appeler le client · {displayCameroonPhone(order.contactPhone)}
                             </a>
                           )}
                           {prepMessage && (
@@ -2286,7 +2287,7 @@ function ProfileTab({
   // Série PTS : données du parcours garantie (facultatives — sans code marchand,
   // les commandes se déroulent sans étape garantie, comme avant).
   const [merchantCode, setMerchantCode] = useState(restaurant.merchantCode ?? '');
-  const [assistanceWhatsapp, setAssistanceWhatsapp] = useState(restaurant.assistanceWhatsapp ?? '');
+  const [assistanceWhatsapp, setAssistanceWhatsapp] = useState(normalizeCameroonPhone(restaurant.assistanceWhatsapp ?? ''));
 
   const deliveryTimeOptions = ['10-20 min', '20-30 min', '30-45 min', '45-60 min', '60-90 min'];
   // Tolérance : une valeur historique hors liste reste sélectionnable.
@@ -2307,7 +2308,7 @@ function ProfileTab({
         deliveryTime,
         minOrder: Number(minOrder),
         merchantCode: merchantCode.trim() || undefined,
-        assistanceWhatsapp: assistanceWhatsapp.trim() || undefined,
+        assistanceWhatsapp: normalizeCameroonPhone(assistanceWhatsapp) || undefined,
       };
       await updateRestaurantProfile(restaurant.id, patch);
       onUpdate(patch);
@@ -2390,9 +2391,9 @@ function ProfileTab({
           <input
             id="profile-assistance-whatsapp"
             type="tel"
-            value={assistanceWhatsapp}
-            onChange={(e) => setAssistanceWhatsapp(e.target.value)}
-            placeholder="Ex. +237 6XX XX XX XX"
+            value={displayCameroonPhone(assistanceWhatsapp)}
+            onChange={(e) => setAssistanceWhatsapp(normalizeCameroonPhone(e.target.value))}
+            placeholder="Ex. 6XX XX XX XX"
             className="w-full bg-white border border-border-custom rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
           />
           <p className="text-[11px] text-text-muted font-inter mt-1">

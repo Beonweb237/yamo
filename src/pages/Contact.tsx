@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { contactFAQ } from '../data/mockData';
 import { whatsappLink } from '../data/support';
+import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
 
 const contactChannels = [
   {
@@ -26,7 +27,7 @@ const contactChannels = [
     title: 'Support Client',
     description: 'Vous avez une question sur votre commande ? Notre \u00e9quipe client est l\u00e0 pour vous.',
     email: 'client@miamexpress.cm',
-    phone: '+237 677 77 77 70',
+    phone: '677 77 77 70',
     cta: 'Contacter le Support',
     whatsapp: whatsappLink('Bonjour MiamExpress, j\u2019ai une question sur ma commande.'),
   },
@@ -35,7 +36,7 @@ const contactChannels = [
     title: 'Support Restaurateur',
     description: 'Besoin d\'aide avec votre tableau de bord, votre menu, ou vos paiements ?',
     email: 'partenaires@miamexpress.cm',
-    phone: '+237 677 77 77 71',
+    phone: '677 77 77 71',
     cta: 'Contacter le Support Partenaire',
     whatsapp: whatsappLink('Bonjour MiamExpress, je suis restaurateur partenaire et j\u2019ai besoin d\u2019aide.'),
   },
@@ -44,7 +45,7 @@ const contactChannels = [
     title: 'Support Livreur',
     description: 'Questions sur l\'application livreur, vos revenus, ou votre compte ?',
     email: 'livreurs@miamexpress.cm',
-    phone: '+237 677 77 77 72',
+    phone: '677 77 77 72',
     cta: 'Contacter le Support Livreur',
     whatsapp: whatsappLink('Bonjour MiamExpress, je suis livreur et j\u2019ai besoin d\u2019aide.'),
   },
@@ -111,7 +112,7 @@ export default function Contact() {
   // Le message part réellement via WhatsApp (canal principal au Cameroun) :
   // le formulaire compose le texte, l'utilisateur confirme l'envoi dans WhatsApp.
   const buildMessageBody = () =>
-    `Bonjour MiamExpress,\n\nSujet : ${SUBJECT_LABELS[subject] ?? subject}\n\n${message.trim()}\n\n— ${name.trim()}${phone.trim() ? `\nTéléphone : ${phone.trim()}` : ''}\nEmail : ${email.trim()}`;
+    `Bonjour MiamExpress,\n\nSujet : ${SUBJECT_LABELS[subject] ?? subject}\n\n${message.trim()}\n\n— ${name.trim()}${phone.trim() ? `\nTéléphone : ${displayCameroonPhone(phone)}` : ''}\nEmail : ${email.trim()}`;
 
   const mailtoHref = () =>
     `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`[${SUBJECT_LABELS[subject] ?? 'Contact'}] ${name.trim()}`)}&body=${encodeURIComponent(buildMessageBody())}`;
@@ -163,7 +164,7 @@ export default function Contact() {
           >
             {[
               { icon: Mail, text: 'support@miamexpress.cm' },
-              { icon: Phone, text: '+237 677 77 77 77' },
+              { icon: Phone, text: '677 77 77 77' },
               { icon: Clock, text: 'Lun\u2013Sam, 8h\u201322h' },
             ].map((item, i) => (
               <span key={i} className="inline-flex items-center gap-2 text-white font-inter text-sm">
@@ -281,9 +282,9 @@ export default function Contact() {
                   </label>
                   <input
                     type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+237 6XX XXX XXX"
+                    value={displayCameroonPhone(phone)}
+                    onChange={(e) => setPhone(normalizeCameroonPhone(e.target.value))}
+                    placeholder="6XX XXX XXX"
                     className="w-full h-12 px-4 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/12 placeholder:text-text-muted"
                   />
                 </div>

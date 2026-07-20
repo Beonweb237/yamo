@@ -10,7 +10,7 @@ interface OtpInputProps {
 // Saisie de code OTP en cases individuelles : auto-avance, retour arrière,
 // collage du code complet. `value` reste une simple chaîne de chiffres,
 // compatible avec le state `code` existant des formulaires.
-export default function OtpInput({ length = 6, value, onChange, disabled }: OtpInputProps) {
+export default function OtpInput({ length = 5, value, onChange, disabled }: OtpInputProps) {
   const refs = useRef<Array<HTMLInputElement | null>>([]);
 
   const applyDigits = (start: number, digits: string) => {

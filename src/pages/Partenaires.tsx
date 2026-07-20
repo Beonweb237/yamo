@@ -424,7 +424,7 @@ export default function Partenaires() {
             className="flex items-center justify-center gap-2 text-white/60 font-inter text-sm"
           >
             <Phone className="w-4 h-4" />
-            Questions ? Contactez-nous au +237 677 77 77 77
+            Questions ? Contactez-nous au 677 77 77 77
           </motion.p>
         </div>
       </section>

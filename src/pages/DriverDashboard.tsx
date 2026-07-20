@@ -12,6 +12,7 @@ import { getRestaurantCoords, getCustomerCoords, simulateDriverPosition } from '
 import { reportIncident, INCIDENT_LABELS, type IncidentType } from '../lib/incidents';
 import { usePolling } from '../hooks/usePolling';
 import { toast } from 'sonner';
+import { phoneForWhatsapp } from '../lib/phone';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,9 +26,9 @@ import {
 
 type Tab = 'available' | 'mine' | 'wallet';
 
-// Lien WhatsApp avec message prérempli (numéros stockés avec espaces/+).
+// Lien WhatsApp avec message prérempli. Les numéros restent stockés au format national.
 function whatsappTo(phone: string, message: string): string {
-  return `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+  return `https://wa.me/${phoneForWhatsapp(phone)}?text=${encodeURIComponent(message)}`;
 }
 
 export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {

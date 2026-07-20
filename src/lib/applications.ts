@@ -35,6 +35,7 @@ export interface Application extends ApplicationInput {
   restaurantId?: string | null;
   rejectionReason?: string;
   createdAt: string;
+  applicantEmail?: string;
 }
 
 const LOCAL_APPLICATIONS_KEY = 'yamo_local_applications';
@@ -137,7 +138,7 @@ async function enrichApplicationsWithUsers(apps: Application[]): Promise<Applica
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, full_name, phone, service_neighborhoods')
+      .select('id, full_name, phone, email, service_neighborhoods')
       .in('id', applicantIds)
       .limit(Math.max(applicantIds.length, 1));
     if (error || !data) return apps;
@@ -150,6 +151,7 @@ async function enrichApplicationsWithUsers(apps: Application[]): Promise<Applica
         ...app,
         applicantName: app.applicantName ?? user.full_name ?? undefined,
         contactPhone: app.contactPhone ?? user.phone ?? undefined,
+        applicantEmail: app.applicantEmail ?? user.email ?? undefined,
         serviceNeighborhoods: app.serviceNeighborhoods ?? user.service_neighborhoods ?? undefined,
       };
     });

@@ -20,9 +20,9 @@ async function main() {
 
   // 1. Creer des livreurs
   const drivers = [
-    ['Boris Kamga', '+237677000001'],
-    ['Chantal Ngo', '+237677000002'],
-    ['David Essomba', '+237677000003'],
+    ['Boris Kamga', '677000001'],
+    ['Chantal Ngo', '677000002'],
+    ['David Essomba', '677000003'],
   ];
 
   for (const [name, phone] of drivers) {

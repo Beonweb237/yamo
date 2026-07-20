@@ -293,7 +293,7 @@ export default function AdminRestaurants() {
                 </h3>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-amber-700 font-inter">Email</span>
-                  <span className="text-sm font-mono font-medium text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{getUserEmail(selectedRestaurant.phone)}</span>
+                  <span className="text-sm font-mono font-medium text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{selectedRestaurant.email || getUserEmail(selectedRestaurant.phone, selectedRestaurant.name)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-amber-700 font-inter">Téléphone</span>
@@ -305,7 +305,7 @@ export default function AdminRestaurants() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-amber-700 font-inter">Code OTP</span>
-                  <span className="text-sm font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{ADMIN_DEFAULT_PASSWORD}</span>
+                  <span className="text-sm font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">12345</span>
                 </div>
                 <p className="text-[11px] text-amber-600 font-inter mt-1">Connexion : email ou téléphone + mot de passe {ADMIN_DEFAULT_PASSWORD}</p>
               </div>

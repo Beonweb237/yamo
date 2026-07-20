@@ -6,6 +6,8 @@ import { fetchAllApplications, approveApplication, rejectApplication, type Appli
 import { toast } from 'sonner';
 import PageHeader from '../../components/PageHeader';
 import { approveAdminApplication, createAdminAccount, rejectAdminApplication } from '../../lib/admin';
+import { ADMIN_DEFAULT_PASSWORD } from '../../contexts/AuthContext';
+import { displayCameroonPhone, normalizeCameroonPhone } from '../../lib/phone';
 
 type Tab = 'pending' | 'approved' | 'rejected';
 
@@ -46,7 +48,7 @@ export default function AdminApplications() {
     neighborhood: '',
     address: '',
     notes: '',
-    password: '12345',
+    password: ADMIN_DEFAULT_PASSWORD,
   });
 
   const load = useCallback(async () => {
@@ -110,7 +112,7 @@ export default function AdminApplications() {
       neighborhood: '',
       address: '',
       notes: '',
-      password: '12345',
+      password: ADMIN_DEFAULT_PASSWORD,
     });
   };
 
@@ -120,7 +122,8 @@ export default function AdminApplications() {
 
   const handleCreateAccount = async () => {
     if (!createType) return;
-    if (!createForm.contactPhone.trim()) {
+    const contactPhone = normalizeCameroonPhone(createForm.contactPhone);
+    if (!contactPhone) {
       toast.error('Le téléphone est requis.');
       return;
     }
@@ -139,12 +142,12 @@ export default function AdminApplications() {
         type: createType,
         applicantName: createForm.applicantName.trim() || createForm.restaurantName.trim(),
         restaurantName: createType === 'restaurant' ? createForm.restaurantName.trim() : undefined,
-        contactPhone: createForm.contactPhone.trim(),
+        contactPhone,
         city: createForm.city.trim() || undefined,
         neighborhood: createForm.neighborhood.trim() || undefined,
         address: createForm.address.trim() || undefined,
         notes: createForm.notes.trim() || undefined,
-        password: createForm.password || '12345',
+        password: createForm.password || ADMIN_DEFAULT_PASSWORD,
       });
       if (!result) throw new Error('Création directe disponible uniquement en mode VPS.');
       setCreateType(null);
@@ -410,11 +413,14 @@ export default function AdminApplications() {
               )}
               <label className="block">
                 <span className="block text-text-muted text-xs font-inter mb-1">Téléphone</span>
-                <input value={createForm.contactPhone} onChange={(e) => updateCreateForm('contactPhone', e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" placeholder="+237690000000" />
+                <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-11">
+                  <span className="text-text-primary font-inter text-sm font-semibold shrink-0">+237</span>
+                  <input value={displayCameroonPhone(createForm.contactPhone)} onChange={(e) => updateCreateForm('contactPhone', normalizeCameroonPhone(e.target.value))} className="flex-1 min-w-0 bg-transparent text-text-primary font-inter text-sm outline-none" placeholder="690000000" />
+                </div>
               </label>
               <label className="block">
                 <span className="block text-text-muted text-xs font-inter mb-1">Mot de passe</span>
-                <input value={createForm.password} onChange={(e) => updateCreateForm('password', e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" placeholder="12345" />
+                <input value={createForm.password} onChange={(e) => updateCreateForm('password', e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" placeholder={ADMIN_DEFAULT_PASSWORD} />
               </label>
               <label className="block">
                 <span className="block text-text-muted text-xs font-inter mb-1">Ville</span>

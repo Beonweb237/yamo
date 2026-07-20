@@ -47,7 +47,7 @@ interface CustomerRecord extends Omit<AdminCustomerRecord, 'savedAddresses'> {
 const LOCAL_USERS_KEY = 'yamo_local_users';
 const LOCAL_ORDERS_KEY = 'yamo_local_orders';
 
-function readUsers(): Record<string, { id: string; phone: string; name?: string; role: string; isApproved: boolean; isSuspended: boolean; suspensionReason?: string | null; city?: string | null }> {
+function readUsers(): Record<string, { id: string; phone: string; email?: string | null; name?: string; role: string; isApproved: boolean; isSuspended: boolean; suspensionReason?: string | null; city?: string | null }> {
   try {
     return JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) ?? '{}');
   } catch { return {}; }
@@ -103,6 +103,7 @@ function buildCustomers(users: Record<string, unknown>, orders: Order[]): Custom
     return {
       id: u.id,
       phone: u.phone ?? '',
+      email: u.email ?? undefined,
       name: u.name ?? undefined,
       role: u.role ?? 'client',
       isApproved: u.isApproved ?? true,
@@ -157,6 +158,7 @@ export default function AdminCustomers() {
     return customers.filter((c) =>
       (c.name ?? '').toLowerCase().includes(q) ||
       c.phone.toLowerCase().includes(q) ||
+      (c.email ?? '').toLowerCase().includes(q) ||
       (c.city ?? '').toLowerCase().includes(q)
     );
   }, [customers, query]);
@@ -513,7 +515,7 @@ export default function AdminCustomers() {
                 </h3>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-amber-700 font-inter">Email</span>
-                  <span className="text-sm font-mono font-medium text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{getUserEmail(selectedCustomer.phone)}</span>
+                  <span className="text-sm font-mono font-medium text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{selectedCustomer.email || getUserEmail(selectedCustomer.phone, selectedCustomer.name)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-amber-700 font-inter">Téléphone</span>
@@ -525,7 +527,7 @@ export default function AdminCustomers() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-amber-700 font-inter">Code OTP</span>
-                  <span className="text-sm font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{ADMIN_DEFAULT_PASSWORD}</span>
+                  <span className="text-sm font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">12345</span>
                 </div>
                 <p className="text-[11px] text-amber-600 font-inter mt-1">Connexion : email ou téléphone + mot de passe {ADMIN_DEFAULT_PASSWORD}</p>
               </div>

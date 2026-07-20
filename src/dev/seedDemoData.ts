@@ -30,21 +30,21 @@ interface SeedClient {
 }
 
 const CLIENTS: SeedClient[] = [
-  { id: `${PREFIX}cl-1`, phone: '+237650000001', name: 'Marie Ngono', city: 'Yaoundé', neighborhood: 'Bastos', landmark: 'Face pharmacie Bastos' },
-  { id: `${PREFIX}cl-2`, phone: '+237650000002', name: 'Jean-Paul Mbarga', city: 'Yaoundé', neighborhood: 'Mvan', landmark: 'Carrefour Mvan, immeuble bleu' },
-  { id: `${PREFIX}cl-3`, phone: '+237650000003', name: 'Aïcha Bello', city: 'Douala', neighborhood: 'Akwa', landmark: 'Près du marché central' },
-  { id: `${PREFIX}cl-4`, phone: '+237650000004', name: 'Serge Kamdem', city: 'Douala', neighborhood: 'Bonapriso', landmark: 'Rue des écoles, portail vert' },
-  { id: `${PREFIX}cl-5`, phone: '+237650000005', name: 'Clarisse Etoundi', city: 'Yaoundé', neighborhood: 'Biyem-Assi', landmark: 'Derrière la station Total' },
-  { id: `${PREFIX}cl-6`, phone: '+237650000006', name: 'Ibrahim Njoya', city: 'Douala', neighborhood: 'Makepe', landmark: 'Rond-point Maetur' },
-  { id: `${PREFIX}cl-7`, phone: '+237650000007', name: 'Sandrine Fotso', city: 'Yaoundé', neighborhood: 'Essos', landmark: 'Entrée chapelle Essos' },
-  { id: `${PREFIX}cl-8`, phone: '+237650000008', name: 'Patrick Abena', city: 'Douala', neighborhood: 'Deido', landmark: 'Face collège de Deido' },
-  { id: `${PREFIX}cl-9`, phone: '+237650000009', name: 'Vanessa Moussa', city: 'Yaoundé', neighborhood: 'Mokolo', landmark: 'Immeuble en face du marché' },
-  { id: `${PREFIX}cl-10`, phone: '+237650000010', name: 'Éric Tchamba', city: 'Douala', neighborhood: 'Bali', landmark: 'À côté boulangerie Saker' },
-  { id: `${PREFIX}cl-11`, phone: '+237650000011', name: 'Rachel Toukam', city: 'Yaoundé', neighborhood: 'Nlongkak', landmark: 'Entrée Cité des Palmiers' },
-  { id: `${PREFIX}cl-12`, phone: '+237650000012', name: 'Benoît Djomgoué', city: 'Douala', neighborhood: 'Logpom', landmark: 'Carrefour Logpom, pharmacie' },
-  { id: `${PREFIX}cl-13`, phone: '+237650000013', name: 'Fadimatou Ousmane', city: 'Yaoundé', neighborhood: 'Elig-Essono', landmark: 'Près du centre commercial' },
-  { id: `${PREFIX}cl-14`, phone: '+237650000014', name: 'Cédric Nkolo', city: 'Douala', neighborhood: 'New Bell', landmark: 'Marché New Bell, entrée sud' },
-  { id: `${PREFIX}cl-15`, phone: '+237650000015', name: 'Amélie Sanga', city: 'Yaoundé', neighborhood: 'Odza', landmark: 'Face station Total Odza' },
+  { id: `${PREFIX}cl-1`, phone: '650000001', name: 'Marie Ngono', city: 'Yaoundé', neighborhood: 'Bastos', landmark: 'Face pharmacie Bastos' },
+  { id: `${PREFIX}cl-2`, phone: '650000002', name: 'Jean-Paul Mbarga', city: 'Yaoundé', neighborhood: 'Mvan', landmark: 'Carrefour Mvan, immeuble bleu' },
+  { id: `${PREFIX}cl-3`, phone: '650000003', name: 'Aïcha Bello', city: 'Douala', neighborhood: 'Akwa', landmark: 'Près du marché central' },
+  { id: `${PREFIX}cl-4`, phone: '650000004', name: 'Serge Kamdem', city: 'Douala', neighborhood: 'Bonapriso', landmark: 'Rue des écoles, portail vert' },
+  { id: `${PREFIX}cl-5`, phone: '650000005', name: 'Clarisse Etoundi', city: 'Yaoundé', neighborhood: 'Biyem-Assi', landmark: 'Derrière la station Total' },
+  { id: `${PREFIX}cl-6`, phone: '650000006', name: 'Ibrahim Njoya', city: 'Douala', neighborhood: 'Makepe', landmark: 'Rond-point Maetur' },
+  { id: `${PREFIX}cl-7`, phone: '650000007', name: 'Sandrine Fotso', city: 'Yaoundé', neighborhood: 'Essos', landmark: 'Entrée chapelle Essos' },
+  { id: `${PREFIX}cl-8`, phone: '650000008', name: 'Patrick Abena', city: 'Douala', neighborhood: 'Deido', landmark: 'Face collège de Deido' },
+  { id: `${PREFIX}cl-9`, phone: '650000009', name: 'Vanessa Moussa', city: 'Yaoundé', neighborhood: 'Mokolo', landmark: 'Immeuble en face du marché' },
+  { id: `${PREFIX}cl-10`, phone: '650000010', name: 'Éric Tchamba', city: 'Douala', neighborhood: 'Bali', landmark: 'À côté boulangerie Saker' },
+  { id: `${PREFIX}cl-11`, phone: '650000011', name: 'Rachel Toukam', city: 'Yaoundé', neighborhood: 'Nlongkak', landmark: 'Entrée Cité des Palmiers' },
+  { id: `${PREFIX}cl-12`, phone: '650000012', name: 'Benoît Djomgoué', city: 'Douala', neighborhood: 'Logpom', landmark: 'Carrefour Logpom, pharmacie' },
+  { id: `${PREFIX}cl-13`, phone: '650000013', name: 'Fadimatou Ousmane', city: 'Yaoundé', neighborhood: 'Elig-Essono', landmark: 'Près du centre commercial' },
+  { id: `${PREFIX}cl-14`, phone: '650000014', name: 'Cédric Nkolo', city: 'Douala', neighborhood: 'New Bell', landmark: 'Marché New Bell, entrée sud' },
+  { id: `${PREFIX}cl-15`, phone: '650000015', name: 'Amélie Sanga', city: 'Yaoundé', neighborhood: 'Odza', landmark: 'Face station Total Odza' },
 ];
 
 // ── 8 DRIVERS (4 Douala, 4 Yaoundé) ─────────────────────────
@@ -55,14 +55,14 @@ interface SeedDriver {
 }
 
 const DRIVERS: SeedDriver[] = [
-  { id: `${PREFIX}drv-1`, phone: '+237670000001', name: 'Paul Kamga', city: 'Douala', neighborhoods: ['Akwa', 'Bonapriso', 'Deido'], activityLevel: 2.0 },
-  { id: `${PREFIX}drv-2`, phone: '+237670000002', name: 'Hervé Mpondo', city: 'Douala', neighborhoods: ['Makepe', 'Bali', 'Logpom'], activityLevel: 1.5 },
-  { id: `${PREFIX}drv-3`, phone: '+237670000003', name: 'Sylvain Ebongue', city: 'Douala', neighborhoods: ['Bonanjo', 'New Bell', 'Pk8'], activityLevel: 0.8 },
-  { id: `${PREFIX}drv-4`, phone: '+237670000004', name: 'Alain Tchinda', city: 'Douala', neighborhoods: ['Akwa', 'Bonapriso', 'Deido'], activityLevel: 0.3 },
-  { id: `${PREFIX}drv-5`, phone: '+237670000005', name: 'Brice Onana', city: 'Yaoundé', neighborhoods: ['Bastos', 'Omnisport', 'Mvan'], activityLevel: 1.8 },
-  { id: `${PREFIX}drv-6`, phone: '+237670000006', name: 'Christophe Eyia', city: 'Yaoundé', neighborhoods: ['Mokolo', 'Biyem-Assi', 'Essos'], activityLevel: 1.2 },
-  { id: `${PREFIX}drv-7`, phone: '+237670000007', name: 'Lionel Ngane', city: 'Yaoundé', neighborhoods: ['Nlongkak', 'Elig-Essono', 'Odza'], activityLevel: 0.6 },
-  { id: `${PREFIX}drv-8`, phone: '+237670000008', name: 'Moïse Simo', city: 'Yaoundé', neighborhoods: ['Bastos', 'Mokolo', 'Melen'], activityLevel: 0.2 },
+  { id: `${PREFIX}drv-1`, phone: '670000001', name: 'Paul Kamga', city: 'Douala', neighborhoods: ['Akwa', 'Bonapriso', 'Deido'], activityLevel: 2.0 },
+  { id: `${PREFIX}drv-2`, phone: '670000002', name: 'Hervé Mpondo', city: 'Douala', neighborhoods: ['Makepe', 'Bali', 'Logpom'], activityLevel: 1.5 },
+  { id: `${PREFIX}drv-3`, phone: '670000003', name: 'Sylvain Ebongue', city: 'Douala', neighborhoods: ['Bonanjo', 'New Bell', 'Pk8'], activityLevel: 0.8 },
+  { id: `${PREFIX}drv-4`, phone: '670000004', name: 'Alain Tchinda', city: 'Douala', neighborhoods: ['Akwa', 'Bonapriso', 'Deido'], activityLevel: 0.3 },
+  { id: `${PREFIX}drv-5`, phone: '670000005', name: 'Brice Onana', city: 'Yaoundé', neighborhoods: ['Bastos', 'Omnisport', 'Mvan'], activityLevel: 1.8 },
+  { id: `${PREFIX}drv-6`, phone: '670000006', name: 'Christophe Eyia', city: 'Yaoundé', neighborhoods: ['Mokolo', 'Biyem-Assi', 'Essos'], activityLevel: 1.2 },
+  { id: `${PREFIX}drv-7`, phone: '670000007', name: 'Lionel Ngane', city: 'Yaoundé', neighborhoods: ['Nlongkak', 'Elig-Essono', 'Odza'], activityLevel: 0.6 },
+  { id: `${PREFIX}drv-8`, phone: '670000008', name: 'Moïse Simo', city: 'Yaoundé', neighborhoods: ['Bastos', 'Mokolo', 'Melen'], activityLevel: 0.2 },
 ];
 
 // ── COMMENTAIRES ────────────────────────────────────────────
@@ -271,7 +271,7 @@ export function seedDemoData(): string {
         ...(forOther ? {
           recipient: {
             name: pick(rng, ['Grand-mère Jeanne', 'Tante Suzanne', 'Frère Michel', 'Cousine Esther', 'Voisin Thomas']),
-            phone: pick(rng, ['+237690000020', '+237690000021', '+237690000022']),
+            phone: pick(rng, ['690000020', '690000021', '690000022']),
             contactInstructions: pick(rng, ['Appeler avant de livrer', 'Laisser au gardien', 'Sonner 2 fois', '']),
           }
         } : {}),

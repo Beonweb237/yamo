@@ -7,22 +7,46 @@ import pg from 'pg';
 import { ensureAdminRbacSchema, replaceAdminUserRoles } from '../server/src/admin-rbac.js';
 
 const { Pool } = pg;
-const DEFAULT_PASSWORD = '12345';
+const DEFAULT_PASSWORD = 'Miamexpress2025';
+const ADMIN_DEMO_PASSWORD = '12345';
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(scriptDir, '..');
 
+function cleanPhone(phone) {
+  let digits = String(phone || '').replace(/\D/g, '');
+  if (digits.startsWith('00237')) digits = digits.slice(5);
+  if (digits.startsWith('237') && digits.length > 3) digits = digits.slice(3);
+  return digits;
+}
+
+function emailToken(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '') || 'miamexpress';
+}
+
+function demoEmail(name, phone, role) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  const first = emailToken(parts[0] || role || 'demo');
+  const last = emailToken(parts.length > 1 ? parts[parts.length - 1] : cleanPhone(phone).slice(-4) || 'demo');
+  const domain = `${first}.${last}`.length % 2 === 0 ? 'gmail.com' : 'yahoo.fr';
+  return `${last}.${first}@${domain}`;
+}
+
 const adminDemoProfiles = [
-  ['Administrateur Demo', '+237690000001', 'super_admin', 'global', null],
-  ['Mimb Nout', '+237674465093', 'super_admin', 'global', null],
-  ['Admin General Demo', '+237690000021', 'admin_general', 'global', null],
-  ['Responsable Douala Demo', '+237690000022', 'city_manager', 'city', 'Douala'],
-  ['Gestion Restaurants Demo', '+237690000023', 'restaurant_manager', 'global', null],
-  ['Gestion Livreurs Demo', '+237690000024', 'courier_manager', 'global', null],
-  ['Support Client Demo', '+237690000025', 'support_agent', 'global', null],
-  ['Dispatcher Douala Demo', '+237690000026', 'dispatcher', 'city', 'Douala'],
-  ['Finance Demo', '+237690000027', 'finance_manager', 'global', null],
-  ['Moderation Demo', '+237690000028', 'quality_moderator', 'global', null],
-  ['Analyste Demo', '+237690000029', 'readonly_analyst', 'global', null],
+  ['Administrateur Demo', '690000001', 'super_admin', 'global', null],
+  ['Mimb Nout', '674465093', 'super_admin', 'global', null],
+  ['Admin General Demo', '690000021', 'admin_general', 'global', null],
+  ['Responsable Douala Demo', '690000022', 'city_manager', 'city', 'Douala'],
+  ['Gestion Restaurants Demo', '690000023', 'restaurant_manager', 'global', null],
+  ['Gestion Livreurs Demo', '690000024', 'courier_manager', 'global', null],
+  ['Support Client Demo', '690000025', 'support_agent', 'global', null],
+  ['Dispatcher Douala Demo', '690000026', 'dispatcher', 'city', 'Douala'],
+  ['Finance Demo', '690000027', 'finance_manager', 'global', null],
+  ['Moderation Demo', '690000028', 'quality_moderator', 'global', null],
+  ['Analyste Demo', '690000029', 'readonly_analyst', 'global', null],
 ];
 
 async function loadBcrypt() {
@@ -66,21 +90,21 @@ const pool = new Pool({
 });
 
 const demoClients = [
-  ['Amina Ndongo', '+237650200001', 'Douala'],
-  ['Yannick Talla', '+237650200002', 'Douala'],
-  ['Clarisse Mballa', '+237650200003', 'Yaounde'],
-  ['Patrick Essomba', '+237650200004', 'Yaounde'],
-  ['Rita Fotso', '+237650200005', 'Bafoussam'],
-  ['Michel Kamdem', '+237650200006', 'Bafoussam'],
-  ['Sandra Ebelle', '+237650200007', 'Limbe'],
-  ['Eric Muna', '+237650200008', 'Limbe'],
-  ['Diane Atangana', '+237650200009', 'Kribi'],
-  ['Joel Nsame', '+237650200010', 'Kribi'],
-  ['Nadia Fopa', '+237650200011', 'Douala'],
-  ['Kevin Mbarga', '+237650200012', 'Yaounde'],
-  ['Prisca Ngono', '+237650200013', 'Bafoussam'],
-  ['Cedric Wambo', '+237650200014', 'Limbe'],
-  ['Grace Enow', '+237650200015', 'Kribi'],
+  ['Amina Ndongo', '650200001', 'Douala'],
+  ['Yannick Talla', '650200002', 'Douala'],
+  ['Clarisse Mballa', '650200003', 'Yaounde'],
+  ['Patrick Essomba', '650200004', 'Yaounde'],
+  ['Rita Fotso', '650200005', 'Bafoussam'],
+  ['Michel Kamdem', '650200006', 'Bafoussam'],
+  ['Sandra Ebelle', '650200007', 'Limbe'],
+  ['Eric Muna', '650200008', 'Limbe'],
+  ['Diane Atangana', '650200009', 'Kribi'],
+  ['Joel Nsame', '650200010', 'Kribi'],
+  ['Nadia Fopa', '650200011', 'Douala'],
+  ['Kevin Mbarga', '650200012', 'Yaounde'],
+  ['Prisca Ngono', '650200013', 'Bafoussam'],
+  ['Cedric Wambo', '650200014', 'Limbe'],
+  ['Grace Enow', '650200015', 'Kribi'],
 ];
 
 const cities = {
@@ -93,7 +117,7 @@ const cities = {
 const driverSubmissions = Object.entries(cities).flatMap(([city, zones], cityIndex) =>
   zones.map((zone, zoneIndex) => ({
     name: `Livreur soumis ${city} ${zoneIndex + 1}`,
-    phone: `+237651${String(cityIndex + 1).padStart(2, '0')}${String(zoneIndex + 1).padStart(3, '0')}`,
+    phone: `651${String(cityIndex + 1).padStart(2, '0')}${String(zoneIndex + 1).padStart(3, '0')}`,
     city,
     address: zone,
     notes: `Candidature demo livreur en attente - zone ${zone}. Moto disponible, pieces a verifier par admin.`,
@@ -101,14 +125,14 @@ const driverSubmissions = Object.entries(cities).flatMap(([city, zones], cityInd
 );
 
 const restaurantSubmissions = [
-  ['Le Comptoir de Bonamoussadi', '+237652300001', 'Douala', 'Bonamoussadi'],
-  ['Akwa Lunch House', '+237652300002', 'Douala', 'Akwa'],
-  ['Bastos Saveurs', '+237652300003', 'Yaounde', 'Bastos'],
-  ['Mvog-Mbi Grill', '+237652300004', 'Yaounde', 'Mvog-Mbi'],
-  ['Tamdja Food Lab', '+237652300005', 'Bafoussam', 'Tamdja'],
-  ['Kamkop Delices', '+237652300006', 'Bafoussam', 'Kamkop'],
-  ['Kribi Ocean Demo', '+237652300007', 'Kribi', 'Mboa Manga'],
-  ['Mpalla Seafood Demo', '+237652300008', 'Kribi', 'Mpalla'],
+  ['Le Comptoir de Bonamoussadi', '652300001', 'Douala', 'Bonamoussadi'],
+  ['Akwa Lunch House', '652300002', 'Douala', 'Akwa'],
+  ['Bastos Saveurs', '652300003', 'Yaounde', 'Bastos'],
+  ['Mvog-Mbi Grill', '652300004', 'Yaounde', 'Mvog-Mbi'],
+  ['Tamdja Food Lab', '652300005', 'Bafoussam', 'Tamdja'],
+  ['Kamkop Delices', '652300006', 'Bafoussam', 'Kamkop'],
+  ['Kribi Ocean Demo', '652300007', 'Kribi', 'Mboa Manga'],
+  ['Mpalla Seafood Demo', '652300008', 'Kribi', 'Mpalla'],
 ].map(([restaurantName, phone, city, zone]) => ({
   ownerName: `Responsable ${restaurantName}`,
   restaurantName,
@@ -123,12 +147,15 @@ async function query(sql, params = []) {
 }
 
 async function upsertDemoUser({ role, name, phone, city, approved, passwordHash }) {
+  const normalizedPhone = cleanPhone(phone);
+  const email = demoEmail(name, normalizedPhone, role);
   const { rows: [user] } = await query(
     `INSERT INTO users (
-       phone, password_hash, full_name, role, is_approved, is_suspended, is_online, city, created_at, updated_at
+       phone, email, password_hash, full_name, role, is_approved, is_suspended, is_online, city, created_at, updated_at
      )
-     VALUES ($1, $2, $3, $4, $5, false, false, $6, now(), now())
+     VALUES ($1, $2, $3, $4, $5, $6, false, false, $7, now(), now())
      ON CONFLICT (phone) DO UPDATE SET
+       email = EXCLUDED.email,
        password_hash = EXCLUDED.password_hash,
        full_name = EXCLUDED.full_name,
        role = EXCLUDED.role,
@@ -138,7 +165,7 @@ async function upsertDemoUser({ role, name, phone, city, approved, passwordHash 
        suspension_reason = null,
        updated_at = now()
      RETURNING *`,
-    [phone.replace(/\s+/g, ''), passwordHash, name, role, approved, city || null]
+    [normalizedPhone, email, passwordHash, name, role, approved, city || null]
   );
   return user;
 }
@@ -159,7 +186,7 @@ async function ensurePendingApplication({ user, type, restaurantName, city, addr
          notes = CASE WHEN status = 'pending' THEN $7 ELSE notes END
        WHERE id = $1 AND applicant_id = $2
        RETURNING *`,
-      [existing.id, user.id, restaurantName || null, city || null, address || null, phone || user.phone, notes || null]
+      [existing.id, user.id, restaurantName || null, city || null, address || null, cleanPhone(phone || user.phone) || user.phone, notes || null]
     );
     return { row: updated, created: false };
   }
@@ -170,7 +197,7 @@ async function ensurePendingApplication({ user, type, restaurantName, city, addr
      )
      VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7, null, now())
      RETURNING *`,
-    [user.id, type, restaurantName || null, city || null, address || null, phone || user.phone, notes || null]
+    [user.id, type, restaurantName || null, city || null, address || null, cleanPhone(phone || user.phone) || user.phone, notes || null]
   );
   return { row: created, created: true };
 }
@@ -178,7 +205,9 @@ async function ensurePendingApplication({ user, type, restaurantName, city, addr
 async function main() {
   console.log('=== Seed admin demo MiamExpress ===');
   const bcrypt = await loadBcrypt();
-  const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
+  const defaultPasswordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
+  const adminPasswordHash = await bcrypt.hash(ADMIN_DEMO_PASSWORD, 10);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email text');
 
   await ensureAdminRbacSchema(pool);
   let adminProfilesTouched = 0;
@@ -189,7 +218,7 @@ async function main() {
       phone,
       city: scopeType === 'city' ? scopeValue : 'Douala',
       approved: true,
-      passwordHash,
+      passwordHash: adminPasswordHash,
     });
     await replaceAdminUserRoles(pool, {
       adminUserId: adminUser.id,
@@ -201,7 +230,7 @@ async function main() {
 
   let clientsTouched = 0;
   for (const [name, phone, city] of demoClients) {
-    await upsertDemoUser({ role: 'client', name, phone, city, approved: true, passwordHash });
+    await upsertDemoUser({ role: 'client', name, phone, city, approved: true, passwordHash: defaultPasswordHash });
     clientsTouched += 1;
   }
 
@@ -213,7 +242,7 @@ async function main() {
       phone: driver.phone,
       city: driver.city,
       approved: false,
-      passwordHash,
+      passwordHash: defaultPasswordHash,
     });
     const result = await ensurePendingApplication({
       user,
@@ -234,7 +263,7 @@ async function main() {
       phone: resto.phone,
       city: resto.city,
       approved: false,
-      passwordHash,
+      passwordHash: defaultPasswordHash,
     });
     const result = await ensurePendingApplication({
       user,
@@ -262,7 +291,7 @@ async function main() {
   console.log(`Nouvelles candidatures restaurants creees: ${restaurantAppsCreated}`);
   console.table(appStats);
   console.log(`Profils admin demo synchronises: ${adminProfilesTouched}`);
-  console.log(`Mot de passe demo commun: ${DEFAULT_PASSWORD}`);
+  console.log(`Mot de passe demo operationnel commun: ${DEFAULT_PASSWORD}`);
 }
 
 main()

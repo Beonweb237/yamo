@@ -555,7 +555,7 @@ export default function Livreurs() {
             </Link>
             <p className="flex items-center justify-center gap-2 text-white/60 font-inter text-sm mt-4">
               <Phone className="w-4 h-4" />
-              Questions ? Appelez-nous au +237 677 77 77 77
+              Questions ? Appelez-nous au 677 77 77 77
             </p>
           </motion.div>
         </div>

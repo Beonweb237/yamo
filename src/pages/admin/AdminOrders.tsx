@@ -1,7 +1,7 @@
 import { usePolling } from '../../hooks/usePolling';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { RefreshCw, Search, Phone, MessageCircle, XCircle } from 'lucide-react';
+import { RefreshCw, Search, Phone, MessageCircle, XCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useRestaurants } from '../../hooks/useCatalog';
 import { fetchAllOrders, cancelOrder, getDriverPhone, type OrderStatus, type Order } from '../../lib/orders';
 import { Skeleton } from '../../components/ui/skeleton';
@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { phoneForWhatsapp } from '../../lib/phone';
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'En attente', confirmed: 'Confirmée', preparing: 'En préparation',
@@ -31,9 +32,10 @@ const statusLabels: Record<OrderStatus, string> = {
 };
 
 const ACTIVE_STATUSES: OrderStatus[] = ['pending', 'confirmed', 'preparing', 'ready', 'picked_up', 'delivering'];
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 function whatsappTo(phone: string, message: string): string {
-  return `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+  return `https://wa.me/${phoneForWhatsapp(phone)}?text=${encodeURIComponent(message)}`;
 }
 
 export default function AdminOrders() {
@@ -47,6 +49,8 @@ export default function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>(
     statusParam && statusParam in statusLabels ? statusParam : 'all'
   );
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
 
   const load = useCallback(async () => { setOrders(await fetchAllOrders()); setLoading(false); }, []);
   usePolling(load, 30000);
@@ -68,6 +72,18 @@ export default function AdminOrders() {
     }
     return r;
   }, [orders, statusFilter, search, restaurantNameById]);
+
+  useEffect(() => { setPage(1); }, [search, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = filtered.length === 0 ? 0 : (safePage - 1) * perPage + 1;
+  const pageEnd = Math.min(safePage * perPage, filtered.length);
+  const paginatedOrders = useMemo(
+    () => filtered.slice((safePage - 1) * perPage, safePage * perPage),
+    [filtered, safePage, perPage]
+  );
+  const goToPage = (nextPage: number) => setPage(Math.max(1, Math.min(nextPage, totalPages)));
 
   // Fiche commande (CONF-19) : détail + actions annuler/contacter.
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -119,7 +135,7 @@ export default function AdminOrders() {
             <table className="w-full text-sm font-inter">
               <thead><tr className="text-left text-text-muted text-xs"><th className="pb-2 pr-4">Commande</th><th className="pb-2 pr-4">Bénéficiaire</th><th className="pb-2 pr-4">Restaurant</th><th className="pb-2 pr-4">Statut</th><th className="pb-2 pr-4">Total</th><th className="pb-2">Date</th></tr></thead>
               <tbody className="divide-y divide-border-light">
-                {filtered.map((order) => (
+                {paginatedOrders.map((order) => (
                   <tr
                     key={order.id}
                     onClick={() => setSelectedId(order.id)}
@@ -154,6 +170,89 @@ export default function AdminOrders() {
                 ))}
               </tbody>
             </table>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-4 pt-3 border-t border-border-light">
+              <div className="flex flex-wrap items-center gap-2 text-text-muted text-xs font-inter">
+                <span>{filtered.length} commande{filtered.length > 1 ? 's' : ''}</span>
+                <span>·</span>
+                <span>Affichage {pageStart}-{pageEnd}</span>
+                <span>·</span>
+                <select
+                  value={perPage}
+                  onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}
+                  className="bg-bg-secondary border border-border-custom rounded px-2 py-1 text-xs outline-none"
+                  aria-label="Nombre de commandes par page"
+                >
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>{size} par page</option>
+                  ))}
+                </select>
+                <span>· Page {safePage} / {totalPages}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => goToPage(1)}
+                  disabled={safePage <= 1}
+                  className="p-1.5 rounded hover:bg-border-light disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Première page"
+                  aria-label="Première page"
+                >
+                  <ChevronsLeft className="w-4 h-4 text-text-muted" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToPage(safePage - 1)}
+                  disabled={safePage <= 1}
+                  className="p-1.5 rounded hover:bg-border-light disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Page précédente"
+                  aria-label="Page précédente"
+                >
+                  <ChevronLeft className="w-4 h-4 text-text-muted" />
+                </button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
+                  let pageNumber: number;
+                  if (totalPages <= 5) pageNumber = index + 1;
+                  else if (safePage <= 3) pageNumber = index + 1;
+                  else if (safePage >= totalPages - 2) pageNumber = totalPages - 4 + index;
+                  else pageNumber = safePage - 2 + index;
+                  return (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      onClick={() => goToPage(pageNumber)}
+                      className={`w-8 h-8 rounded text-xs font-inter font-medium transition-colors ${
+                        pageNumber === safePage
+                          ? 'bg-green-primary text-white'
+                          : 'text-text-secondary hover:bg-border-light'
+                      }`}
+                      aria-current={pageNumber === safePage ? 'page' : undefined}
+                    >
+                      {pageNumber}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => goToPage(safePage + 1)}
+                  disabled={safePage >= totalPages}
+                  className="p-1.5 rounded hover:bg-border-light disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Page suivante"
+                  aria-label="Page suivante"
+                >
+                  <ChevronRight className="w-4 h-4 text-text-muted" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToPage(totalPages)}
+                  disabled={safePage >= totalPages}
+                  className="p-1.5 rounded hover:bg-border-light disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Dernière page"
+                  aria-label="Dernière page"
+                >
+                  <ChevronsRight className="w-4 h-4 text-text-muted" />
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

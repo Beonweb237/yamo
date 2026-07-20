@@ -37,6 +37,7 @@ function mapRestaurant(row: Record<string, unknown>): Restaurant {
     priceRange: row.price_range as string,
     address,
     phone: row.phone as string,
+    email: (row.email as string) ?? undefined,
     hours: row.hours as string,
     isOpen: row.is_open as boolean,
     tags: (row.tags as string[]) ?? [],

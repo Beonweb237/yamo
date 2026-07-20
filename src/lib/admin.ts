@@ -9,6 +9,7 @@ const SESSION_KEY = 'miamexpress_session';
 export interface AdminCustomerRecord {
   id: string;
   phone: string;
+  email?: string | null;
   name?: string | null;
   role: string;
   isApproved: boolean;
@@ -78,6 +79,7 @@ function mapApplication(row: any): Application {
     rejectionReason: row.rejectionReason ?? row.rejection_reason ?? undefined,
     createdAt: row.createdAt ?? row.created_at ?? new Date().toISOString(),
     applicantName: row.applicantName ?? row.applicant_name ?? undefined,
+    applicantEmail: row.applicantEmail ?? row.applicant_email ?? row.email ?? undefined,
     serviceNeighborhoods: row.serviceNeighborhoods ?? row.service_neighborhoods ?? undefined,
   };
 }

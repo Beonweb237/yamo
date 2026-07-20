@@ -338,7 +338,7 @@ const auth = {
     }
   },
 
-  /** Connexion par mot de passe — accepte {email} ou {phone} (l'API stocke l'identifiant dans users.phone). */
+  /** Connexion par mot de passe — accepte {email} ou {phone}. */
   async signInWithPassword({ email, phone, password }: { email?: string; phone?: string; password: string }) {
     const identifier = phone || email || '';
     const res = await apiFetch('/api/auth/signin', { method: 'POST', body: JSON.stringify({ phone: identifier, password }) });
@@ -354,7 +354,7 @@ const auth = {
   }) {
     const actualPhone = phone || options?.data?.phone || email || '';
     const actualName = name || options?.data?.full_name || '';
-    const res = await apiFetch('/api/auth/signup', { method: 'POST', body: JSON.stringify({ phone: actualPhone, password, name: actualName, role }) });
+    const res = await apiFetch('/api/auth/signup', { method: 'POST', body: JSON.stringify({ phone: actualPhone, email, password, name: actualName, role }) });
     const json = await res.json();
     if (!res.ok) return { data: null, error: new Error(json.error || 'Inscription échouée') };
     setSession({ access_token: json.token, user: json.user });

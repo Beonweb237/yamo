@@ -35,34 +35,34 @@ function loadEnvServer() {
 const env = loadEnvServer();
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
-// Every test account uses the +2376900000XX range so they're easy to spot and wipe.
-const TEST_PASSWORD = 'YamoTest2026!';
+// Every test account uses the 6900000XX range so they're easy to spot and wipe.
+const TEST_PASSWORD = 'Miamexpress2025';
 
 // auth.users needs a channel Supabase can actually authenticate (email/password
 // works out of the box; phone requires an SMS provider that isn't configured on
 // this project — see SUPABASE_SETUP.md). `phone` here only fills profiles.phone,
 // the number the app displays; it's independent of the auth identity.
 const CLIENTS = [
-  { email: 'marie.ngo@yamotest.cm', phone: '+237690000001', full_name: 'Marie Ngo', city: 'Douala', neighborhood: 'Bonapriso', landmark: "Près de la pharmacie du rond-point" },
-  { email: 'jean.fotso@yamotest.cm', phone: '+237690000002', full_name: 'Jean Fotso', city: 'Yaoundé', neighborhood: 'Bastos', landmark: "Immeuble bleu, en face de l'ambassade" },
-  { email: 'aicha.bello@yamotest.cm', phone: '+237690000003', full_name: 'Aïcha Bello', city: 'Douala', neighborhood: 'Akwa', landmark: "Rue de la station Total" },
+  { email: 'marie.ngo@gmail.com', phone: '690000001', full_name: 'Marie Ngo', city: 'Douala', neighborhood: 'Bonapriso', landmark: "Près de la pharmacie du rond-point" },
+  { email: 'jean.fotso@gmail.com', phone: '690000002', full_name: 'Jean Fotso', city: 'Yaoundé', neighborhood: 'Bastos', landmark: "Immeuble bleu, en face de l'ambassade" },
+  { email: 'aicha.bello@gmail.com', phone: '690000003', full_name: 'Aïcha Bello', city: 'Douala', neighborhood: 'Akwa', landmark: "Rue de la station Total" },
 ];
 
 const OWNERS = [
-  { email: 'paul.essomba@yamotest.cm', phone: '+237690000011', full_name: 'Paul Essomba', restaurantName: 'Chez Mama' },
-  { email: 'bernadette.mballa@yamotest.cm', phone: '+237690000012', full_name: 'Bernadette Mballa', restaurantName: 'Le Bûcheron' },
-  { email: 'serge.talla@yamotest.cm', phone: '+237690000013', full_name: 'Serge Talla', restaurantName: 'Douala Boulangerie' },
+  { email: 'paul.essomba@gmail.com', phone: '690000011', full_name: 'Paul Essomba', restaurantName: 'Chez Mama' },
+  { email: 'bernadette.mballa@gmail.com', phone: '690000012', full_name: 'Bernadette Mballa', restaurantName: 'Le Bûcheron' },
+  { email: 'serge.talla@gmail.com', phone: '690000013', full_name: 'Serge Talla', restaurantName: 'Douala Boulangerie' },
 ];
 
 const DRIVERS = [
-  { email: 'samuel.njoya@yamotest.cm', phone: '+237690000021', full_name: 'Samuel Njoya', is_approved: true },
-  { email: 'grace.mbeki@yamotest.cm', phone: '+237690000022', full_name: 'Grace Mbeki', is_approved: true },
-  { email: 'alain.fokou@yamotest.cm', phone: '+237690000023', full_name: 'Alain Fokou', is_approved: false }, // pending approval — tests the admin review queue
+  { email: 'samuel.njoya@gmail.com', phone: '690000021', full_name: 'Samuel Njoya', is_approved: true },
+  { email: 'grace.mbeki@gmail.com', phone: '690000022', full_name: 'Grace Mbeki', is_approved: true },
+  { email: 'alain.fokou@gmail.com', phone: '690000023', full_name: 'Alain Fokou', is_approved: false }, // pending approval — tests the admin review queue
 ];
 
-const ADMIN = { email: 'admin@yamotest.cm', phone: '+237690000031', full_name: 'Admin Yamo' };
+const ADMIN = { email: 'admin.yamo@gmail.com', phone: '690000031', full_name: 'Admin Yamo' };
 
-const APPLICANT = { email: 'christelle.manga@yamotest.cm', phone: '+237690000041', full_name: 'Christelle Manga', restaurantName: 'Le Foyer Bassa' };
+const APPLICANT = { email: 'christelle.manga@gmail.com', phone: '690000041', full_name: 'Christelle Manga', restaurantName: 'Le Foyer Bassa' };
 
 function isoMinutesAgo(minutes) {
   return new Date(Date.now() - minutes * 60 * 1000).toISOString();
@@ -299,7 +299,7 @@ async function main() {
         contact_phone: client.phone,
         ordered_for_someone_else: i === 4,
         recipient_name: i === 4 ? 'Oncle Martin' : null,
-        recipient_phone: i === 4 ? '+237699222333' : null,
+        recipient_phone: i === 4 ? '699222333' : null,
         recipient_contact_instructions: i === 4 ? "Appeler le bénéficiaire uniquement à l'arrivée." : null,
         ...buildPreparationFields(scenario.status),
       })

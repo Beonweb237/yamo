@@ -15,20 +15,20 @@ DECLARE
   v_rating int; v_arr uuid[]; v_idx int;
 BEGIN
   INSERT INTO users (phone,role,full_name,is_approved,is_online,city,service_neighborhoods)
-  SELECT '+237677000004','livreur','Franck Biya',true,true,'Douala',ARRAY['Akwa','Bonapriso','Deido']
-  WHERE NOT EXISTS (SELECT 1 FROM users WHERE phone='+237677000004');
+  SELECT '677000004','livreur','Franck Biya',true,true,'Douala',ARRAY['Akwa','Bonapriso','Deido']
+  WHERE NOT EXISTS (SELECT 1 FROM users WHERE phone='677000004');
   INSERT INTO users (phone,role,full_name,is_approved,is_online,city,service_neighborhoods)
-  SELECT '+237677000005','livreur','Georges Mbah',true,true,'Douala',ARRAY['Makepe','Bali','Logpom']
-  WHERE NOT EXISTS (SELECT 1 FROM users WHERE phone='+237677000005');
+  SELECT '677000005','livreur','Georges Mbah',true,true,'Douala',ARRAY['Makepe','Bali','Logpom']
+  WHERE NOT EXISTS (SELECT 1 FROM users WHERE phone='677000005');
   INSERT INTO users (phone,role,full_name,is_approved,is_online,city,service_neighborhoods)
-  SELECT '+237677000006','livreur','Helene Nkotto',true,true,'Yaounde',ARRAY['Bastos','Omnisport','Mvan']
-  WHERE NOT EXISTS (SELECT 1 FROM users WHERE phone='+237677000006');
+  SELECT '677000006','livreur','Helene Nkotto',true,true,'Yaounde',ARRAY['Bastos','Omnisport','Mvan']
+  WHERE NOT EXISTS (SELECT 1 FROM users WHERE phone='677000006');
   INSERT INTO users (phone,role,full_name,is_approved,is_online,city,service_neighborhoods)
-  SELECT '+237677000007','livreur','Irene Zanga',true,false,'Yaounde',ARRAY['Mokolo','Biyem-Assi','Essos']
-  WHERE NOT EXISTS (SELECT 1 FROM users WHERE phone='+237677000007');
+  SELECT '677000007','livreur','Irene Zanga',true,false,'Yaounde',ARRAY['Mokolo','Biyem-Assi','Essos']
+  WHERE NOT EXISTS (SELECT 1 FROM users WHERE phone='677000007');
   INSERT INTO users (phone,role,full_name,is_approved,is_suspended,city,service_neighborhoods)
-  SELECT '+237677000008','livreur','Jean-Pierre Ngassa',true,true,'Yaounde',ARRAY['Nlongkak','Elig-Essono','Odza']
-  WHERE NOT EXISTS (SELECT 1 FROM users WHERE phone='+237677000008');
+  SELECT '677000008','livreur','Jean-Pierre Ngassa',true,true,'Yaounde',ARRAY['Nlongkak','Elig-Essono','Odza']
+  WHERE NOT EXISTS (SELECT 1 FROM users WHERE phone='677000008');
   RAISE NOTICE 'Drivers OK';
 
   SELECT count(*) INTO v_existing FROM orders;
@@ -78,7 +78,7 @@ BEGIN
       (SELECT phone FROM users WHERE id = v_client),
       (v_i % 8 = 0),
       CASE WHEN v_i % 8 = 0 THEN (ARRAY['Maman Rose','Tonton Jean','Cousine Alice','Grand-pere Joseph'])[1 + ((v_i/8) % 4)] ELSE NULL END,
-      CASE WHEN v_i % 8 = 0 THEN '+2376900000' || (10 + (v_i % 10)) ELSE NULL END,
+      CASE WHEN v_i % 8 = 0 THEN '6900000' || (10 + (v_i % 10)) ELSE NULL END,
       CASE WHEN v_i % 7 = 0 THEN (ARRAY['Sans piment sauce a part','Cuisson bien cuite remplacer riz','Livraison 13h-14h','Beaucoup sauce extra piment','Remplacer poulet par poisson'])[1 + ((v_i/7) % 5)] ELSE NULL END,
       CASE WHEN v_status != 'pending' THEN 20 + (v_i % 20) ELSE NULL END,
       CASE WHEN v_status != 'pending' THEN v_created_at + interval '3 minutes' ELSE NULL END,

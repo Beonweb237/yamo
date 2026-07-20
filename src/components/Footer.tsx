@@ -128,7 +128,7 @@ export default function Footer() {
               </li>
               <li className="flex items-center gap-2 text-text-secondary text-sm font-inter">
                 <Phone className="w-4 h-4" />
-                +237 677 77 77 77
+                677 77 77 77
               </li>
               <li>
                 <a

@@ -6,6 +6,7 @@ import { CAMEROON_CITIES } from '../data/cities';
 import { dishCatalog } from '../data/mockData';
 import type { DishCatalogEntry } from '../data/mockData';
 import PageHeader from '../components/PageHeader';
+import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
 import {
   UtensilsCrossed, MapPin, Clock, ArrowLeft, Flame, Leaf, Heart, Apple, Wheat,
   Search, X, ChevronDown, Send, ShoppingBag, Pencil, Trash2, ChefHat, CheckCircle2, UserRound, Phone,
@@ -53,7 +54,7 @@ export default function FoodRequestCreate() {
     dureeSemaines: draft?.dureeSemaines || 1,
     // Commande pour quelqu'un d'autre
     recipientName: draft?.recipientName || '',
-    recipientPhone: draft?.recipientPhone || '',
+    recipientPhone: normalizeCameroonPhone(draft?.recipientPhone || ''),
   });
 
   const [dishes, setDishes] = useState<DishItem[]>(draft?.dishes || []);
@@ -118,7 +119,7 @@ export default function FoodRequestCreate() {
         deliverySchedule,
         deliveryAddress: form.deliveryAddress.trim() || undefined,
         recipientName: form.recipientName.trim() || undefined,
-        recipientPhone: form.recipientPhone.trim() || undefined,
+        recipientPhone: normalizeCameroonPhone(form.recipientPhone) || undefined,
       });
       clearDraft();
       setSuccess(true);
@@ -442,9 +443,9 @@ export default function FoodRequestCreate() {
                   </label>
                   <input
                     type="tel"
-                    value={form.recipientPhone}
-                    onChange={(e) => update('recipientPhone', e.target.value)}
-                    placeholder="Ex: +237 6XX XXX XXX"
+                    value={displayCameroonPhone(form.recipientPhone)}
+                    onChange={(e) => update('recipientPhone', normalizeCameroonPhone(e.target.value))}
+                    placeholder="Ex: 6XX XXX XXX"
                     className="w-full px-3 h-10 rounded-xl border border-border-custom focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 outline-none text-sm font-inter transition-all"
                   />
                 </div>
@@ -474,7 +475,7 @@ export default function FoodRequestCreate() {
                   <p className="text-xs text-text-muted line-clamp-2">{form.description}</p>
                   {dishes.length > 0 && <p className="text-xs">🍽️ {dishes.length} plat{dishes.length > 1 ? 's' : ''} demandé{dishes.length > 1 ? 's' : ''}</p>}
                   {form.recipientName && (
-                    <p className="text-xs">👤 Pour : {form.recipientName}{form.recipientPhone ? ` · ${form.recipientPhone}` : ''}</p>
+                    <p className="text-xs">👤 Pour : {form.recipientName}{form.recipientPhone ? ` · ${displayCameroonPhone(form.recipientPhone)}` : ''}</p>
                   )}
                   <p>📍 {form.city} · 💰 {form.budgetMin.toLocaleString()} – {form.budgetMax.toLocaleString()} FCFA</p>
                 </div>

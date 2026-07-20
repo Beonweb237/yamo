@@ -3,12 +3,14 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { getLocalSuspensionInfo } from '../lib/drivers';
 import { SEED_PROFILES } from '../data/demoAccounts';
 import { checkQuota } from '../lib/quotas';
+import { normalizeCameroonPhone } from '../lib/phone';
 
 export type UserRole = 'client' | 'restaurant' | 'livreur' | 'admin';
 
 export interface AuthUser {
   id: string;
   phone: string;
+  email?: string | null;
   role: UserRole;
   // Clients and admins don't need vetting; restaurant/livreur accounts only
   // become "approved" once an admin validates their application (see
@@ -50,7 +52,7 @@ interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   isSupabaseConfigured: boolean;
-  sendOtp: (phone: string) => Promise<void>;
+  sendOtp: (phone: string) => Promise<{ exists?: boolean } | void>;
   verifyOtp: (phone: string, code: string, requestedRole?: UserRole) => Promise<AuthUser>;
   // Password sign-in for seeded test accounts (scripts/seed-test-data.mjs) —
   // bypasses phone OTP, which needs an SMS provider that isn't configured yet.
@@ -80,30 +82,39 @@ export class RoleMismatchError extends Error {
 }
 
 /** Mot de passe par défaut appliqué à tous les profils mock */
-export const ADMIN_DEFAULT_PASSWORD = '12345';
+export const ADMIN_DEFAULT_PASSWORD = 'Miamexpress2025';
 
-/**
- * Récupère l'email auto-généré d'un utilisateur à partir de son téléphone.
- */
-export function getUserEmail(phone: string): string {
-  const phoneKey = phone.replace(/\s/g, '');
-  return `${phoneKey}@yamo.cm`;
+function emailToken(value: string | null | undefined): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '.')
+    .replace(/^\.+|\.+$/g, '') || 'utilisateur';
 }
 
+export function getUserEmail(phone: string, name?: string | null, storedEmail?: string | null): string {
+  if (storedEmail?.trim()) return storedEmail.trim().toLowerCase();
+  const parts = String(name ?? '').trim().split(/\s+/).filter(Boolean);
+  const first = emailToken(parts[0] || 'client');
+  const last = emailToken(parts.length > 1 ? parts[parts.length - 1] : normalizeCameroonPhone(phone).slice(-4) || 'miamexpress');
+  const domain = `${first}.${last}`.length % 2 === 0 ? 'gmail.com' : 'yahoo.fr';
+  return `${last}.${first}@${domain}`;
+}
 /**
  * Génère un email basé sur le téléphone et stocke le mot de passe
- * par défaut (12345) dans le registre des identifiants email.
+ * par défaut dans le registre des identifiants email.
  * Stocke DEUX entrées pour permettre la connexion par email ET par téléphone :
- *   emailUsers['+237690000003@yamo.cm'] → connexion par email
- *   emailUsers['+237690000003']         → connexion par téléphone
+ *   emailUsers['nom.prenom@gmail.com'] → connexion par email
+ *   emailUsers['690000003']            → connexion par téléphone
  */
 export function autoGenerateCredentials(phone: string, name?: string | null): void {
-  const phoneKey = phone.replace(/\s/g, '');
+  const phoneKey = normalizeCameroonPhone(phone);
   const emailUsers: Record<string, { phone: string; password: string; name: string | null }> =
     JSON.parse(localStorage.getItem(LOCAL_EMAIL_USERS_KEY) ?? '{}');
 
-  // Génère l'email à partir du téléphone
-  const email = `${phoneKey}@yamo.cm`;
+  // Génère l'email au format nom.prenom@gmail.com/yahoo.fr.
+  const email = getUserEmail(phoneKey, name);
 
   // Définit le même payload pour les deux clés
   const payload = { phone: phoneKey, password: ADMIN_DEFAULT_PASSWORD, name: name ?? null };
@@ -127,6 +138,7 @@ function toAuthUserFromSession(u: Record<string, unknown>): AuthUser {
   return {
     id: u.id as string,
     phone: u.phone as string,
+    email: (u.email as string | null) ?? null,
     role: u.role as UserRole,
     isApproved: Boolean(u.isApproved),
     isSuspended: Boolean(u.isSuspended),
@@ -163,8 +175,8 @@ function seedLocalRegistry() {
   }
   const registry: Record<string, AuthUser> = {};
   for (const p of SEED_PROFILES) {
-    const phoneKey = p.phone.replace(/\s/g, '');
-    registry[phoneKey] = p;
+    const phoneKey = normalizeCameroonPhone(p.phone);
+    registry[phoneKey] = { ...p, phone: phoneKey };
     autoGenerateCredentials(phoneKey, p.name);
   }
   localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(registry));
@@ -177,13 +189,13 @@ function seedLocalRegistry() {
  * En mode VPS, le mot de passe est géré côté serveur.
  */
 export function adminSetPassword(phone: string, newPassword: string): void {
-  const phoneKey = phone.replace(/\s/g, '');
+  const phoneKey = normalizeCameroonPhone(phone);
   const emailUsers: Record<string, { phone: string; password: string; name: string | null }> =
     JSON.parse(localStorage.getItem(LOCAL_EMAIL_USERS_KEY) ?? '{}');
 
-  const email = `${phoneKey}@yamo.cm`;
   const registry = readLocalRegistry();
   const user = registry[phoneKey];
+  const email = getUserEmail(phoneKey, user?.name);
   const payload = { phone: phoneKey, password: newPassword, name: user?.name ?? null };
 
   // Met à jour les deux entrées
@@ -261,15 +273,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const sendOtp = useCallback(async (phone: string) => {
     if (isSupabaseConfigured && supabase) {
-      await supabase.auth.sendOtp(phone);
-      return;
+      const result = await supabase.auth.sendOtp(normalizeCameroonPhone(phone));
+      return result;
     }
     // Mock mode: any code works in verifyOtp.
   }, []);
 
   const verifyOtp = useCallback(async (phone: string, code: string, requestedRole: UserRole = 'client') => {
     if (isSupabaseConfigured && supabase) {
-      const json = await supabase.auth.verifyOtp(phone, code, requestedRole);
+      const json = await supabase.auth.verifyOtp(normalizeCameroonPhone(phone), code, requestedRole);
       if (json?.user) {
         const { data } = await supabase.auth.getSession();
         const resolvedUser: AuthUser = data?.session?.user
@@ -284,7 +296,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Dev mode fallback: simulate a verified session without a real SMS provider.
     // The role/approval are fixed the first time a phone number "signs up" and reused after that.
     const registry = readLocalRegistry();
-    const existing = registry[phone];
+    const phoneKey = normalizeCameroonPhone(phone);
+    const existing = registry[phoneKey];
     // Verifie quota avant de creer un nouveau profil
     if (!existing) {
       const quota = checkQuota(requestedRole);
@@ -296,8 +309,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new RoleMismatchError(existing.role);
     }
     const localUser: AuthUser = existing ?? {
-      id: `local-${phone}`,
-      phone,
+      id: `local-${phoneKey}`,
+      phone: phoneKey,
+      email: getUserEmail(phoneKey),
       role: requestedRole,
       isApproved: isSelfApprovingRole(requestedRole),
       isSuspended: false,
@@ -310,11 +324,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localUser.isSuspended = suspensionInfo.isSuspended;
       localUser.suspensionReason = suspensionInfo.reason ?? null;
     }
-    registry[phone] = localUser;
+    registry[phoneKey] = localUser;
     localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(registry));
     localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(localUser));
-    // Auto-génère email + mot de passe 12345 pour tout nouveau profil
-    autoGenerateCredentials(phone, localUser.name);
+    // Auto-génère email + mot de passe par défaut pour tout nouveau profil
+    autoGenerateCredentials(phoneKey, localUser.name);
     setUser(localUser);
     return localUser;
   }, []);
@@ -342,23 +356,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isSupabaseConfigured && supabase && password) {
       // /api/auth/signup crée le compte avec le rôle et renvoie le JWT —
       // pas de table profiles séparée, tout vit dans users côté API.
-      const { data, error } = await supabase.auth.signUp({ email, phone, password, name, role });
+      const phoneKey = normalizeCameroonPhone(phone);
+      const { data, error } = await supabase.auth.signUp({ email, phone: phoneKey, password, name, role });
       if (error) throw error;
       if (!data?.user) throw new Error("Échec de l'inscription.");
       const u = data.user as Record<string, unknown>;
       const authUser: AuthUser = {
         id: u.id as string,
-        phone: (u.phone as string) || phone,
+        phone: (u.phone as string) || phoneKey,
         role: (u.role as UserRole) || role,
         isApproved: Boolean(u.isApproved ?? isSelfApprovingRole(role)),
         isSuspended: false,
+        email: (u.email as string | null) ?? email?.trim().toLowerCase() ?? null,
       };
       setUser(authUser);
       return authUser;
     }
 
     // Mock mode — store in localStorage so the user can log back in.
-    const phoneKey = phone.replace(/\s/g, '');
+    const phoneKey = normalizeCameroonPhone(phone);
     const registry = readLocalRegistry();
 
     if (registry[phoneKey]) {
@@ -374,7 +390,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const localUserId = `local-${phoneKey}`;
     const localUser: AuthUser = {
       id: localUserId,
-      phone,
+      phone: phoneKey,
+      email: email?.trim().toLowerCase() || getUserEmail(phoneKey, name),
       role,
       isApproved: isSelfApprovingRole(role),
       isSuspended: false,
@@ -384,8 +401,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(registry));
     localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(localUser));
 
-    // Auto-génère email + mot de passe 12345 pour tout nouveau profil
-    autoGenerateCredentials(phone, name);
+    // Auto-génère email + mot de passe par défaut pour tout nouveau profil
+    autoGenerateCredentials(phoneKey, name);
 
     setUser(localUser);
     return localUser;
@@ -410,7 +427,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (raw) {
       const session: AuthUser = JSON.parse(raw);
       const registry = readLocalRegistry();
-      const fresh = registry[session.phone];
+      const fresh = registry[normalizeCameroonPhone(session.phone)];
       if (fresh) {
         const { isSuspended, reason } = getLocalSuspensionInfo(fresh.id);
         fresh.isSuspended = isSuspended;
