@@ -70,7 +70,7 @@ export default function Footer() {
                 <a
                   key={i}
                   href="#"
-                  className="w-10 h-10 rounded-full bg-bg-main flex items-center justify-center text-text-secondary hover:bg-green-light hover:text-green-primary transition-colors"
+                  className="w-11 h-11 rounded-full bg-bg-main flex items-center justify-center text-text-secondary hover:bg-green-light hover:text-green-primary transition-colors"
                 >
                   <Icon className="w-4 h-4" />
                 </a>
@@ -88,7 +88,7 @@ export default function Footer() {
                 <li key={link.name}>
                   <Link
                     to={link.path}
-                    className="text-text-secondary text-sm font-inter hover:text-green-primary hover:translate-x-1 transition-all inline-block"
+                    className="text-text-secondary text-sm font-inter hover:text-green-primary hover:translate-x-1 transition-all inline-block py-1"
                   >
                     {link.name}
                   </Link>
@@ -107,7 +107,7 @@ export default function Footer() {
                 <li key={cat.id}>
                   <Link
                     to={`/restaurants?category=${encodeURIComponent(cat.name)}`}
-                    className="text-text-secondary text-sm font-inter hover:text-green-primary hover:translate-x-1 transition-all inline-block"
+                    className="text-text-secondary text-sm font-inter hover:text-green-primary hover:translate-x-1 transition-all inline-block py-1"
                   >
                     {cat.name}
                   </Link>
@@ -161,14 +161,14 @@ export default function Footer() {
             <button
               type="button"
               onClick={() => setLegalModal('privacy')}
-              className="text-text-muted text-xs font-inter hover:text-text-secondary transition-colors"
+              className="text-text-muted text-xs font-inter hover:text-text-secondary transition-colors py-2"
             >
               Politique de confidentialité
             </button>
             <button
               type="button"
               onClick={() => setLegalModal('terms')}
-              className="text-text-muted text-xs font-inter hover:text-text-secondary transition-colors"
+              className="text-text-muted text-xs font-inter hover:text-text-secondary transition-colors py-2"
             >
               Conditions d&apos;utilisation
             </button>

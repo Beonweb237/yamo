@@ -30,7 +30,7 @@ const benefits = [
   {
     icon: Banknote,
     title: 'Revenus Attractifs',
-    description: 'Gagnez jusqu\'\u00e0 50 000 FCFA par semaine. Des primes de performance, des pourboires des clients, et des bonus aux heures de pointe.',
+    description: 'Une r\u00e9mun\u00e9ration \u00e0 chaque course, compl\u00e9t\u00e9e par les pourboires des clients et des bonus aux heures de pointe. Plus vous livrez, plus vous gagnez.',
   },
   {
     icon: Smartphone,
@@ -109,7 +109,9 @@ export default function Livreurs() {
   const monthly = weekly * 4;
 
   return (
-    <div className="pt-0">
+    // overflow-x-hidden : les blocs animés (initial x:±15) hors viewport créaient
+    // un débordement horizontal permanent à 360px (scrollWidth mesuré 374px)
+    <div className="pt-0 overflow-x-hidden">
       {/* Hero */}
       <section className="bg-bg-dark min-h-[85vh] flex items-center relative overflow-hidden">
         <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-green-primary/10 rounded-full blur-3xl" />
@@ -174,8 +176,8 @@ export default function Livreurs() {
                 className="flex gap-8 sm:gap-10 mt-10"
               >
                 {[
-                  { num: '200+', label: 'Livreurs Actifs' },
-                  { num: '50 000 FCFA+', label: 'Revenu Moyen / Semaine' },
+                  { num: '0 FCFA', label: "Frais d'inscription" },
+                  { num: 'À la course', label: 'Rémunération + pourboires' },
                   { num: 'Flexible', label: 'Horaires Libres' },
                 ].map((stat, i) => (
                   <div key={i}>
@@ -244,7 +246,7 @@ export default function Livreurs() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                className="bg-bg-secondary rounded-xl p-6 text-center hover:-translate-y-1 hover:bg-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all duration-250"
+                className="bg-bg-secondary rounded-xl p-6 text-center hover:-translate-y-1 hover:bg-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all duration-200"
               >
                 <div className="w-14 h-14 rounded-full bg-green-light flex items-center justify-center mx-auto mb-4">
                   <b.icon className="w-7 h-7 text-green-primary" />
@@ -414,7 +416,7 @@ export default function Livreurs() {
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
             >
-              <h3 className="font-poppins font-semibold text-gold-accent text-lg mb-4">
+              <h3 className="font-poppins font-semibold text-amber-700 text-lg mb-4">
                 Notre &Eacute;quipement
               </h3>
               <div className="space-y-3">

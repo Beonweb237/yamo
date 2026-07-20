@@ -85,21 +85,47 @@ function Accordion({ items }: { items: { question: string; answer: string; categ
   );
 }
 
+const SUBJECT_LABELS: Record<string, string> = {
+  order: 'Question sur une commande',
+  technical: 'Problème technique',
+  partner: 'Devenir partenaire restaurant',
+  driver: 'Devenir livreur',
+  other: 'Autre',
+};
+
+const SUPPORT_WHATSAPP = '237677777777';
+const SUPPORT_EMAIL = 'support@miamexpress.cm';
+
 export default function Contact() {
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
+  // Le message part réellement via WhatsApp (canal principal au Cameroun) :
+  // le formulaire compose le texte, l'utilisateur confirme l'envoi dans WhatsApp.
+  const buildMessageBody = () =>
+    `Bonjour MiamExpress,\n\nSujet : ${SUBJECT_LABELS[subject] ?? subject}\n\n${message.trim()}\n\n— ${name.trim()}${phone.trim() ? `\nTéléphone : ${phone.trim()}` : ''}\nEmail : ${email.trim()}`;
+
+  const mailtoHref = () =>
+    `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`[${SUBJECT_LABELS[subject] ?? 'Contact'}] ${name.trim()}`)}&body=${encodeURIComponent(buildMessageBody())}`;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    window.open(`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(buildMessageBody())}`, '_blank', 'noopener,noreferrer');
     setFormSubmitted(true);
-    setTimeout(() => setFormSubmitted(false), 5000);
+    setTimeout(() => setFormSubmitted(false), 8000);
   };
 
   return (
-    <div className="pt-[72px]">
+    // overflow-x-hidden : blocs animés (initial x) hors viewport → scrollWidth 364px à 360
+    <div className="pt-[72px] overflow-x-hidden">
       {/* Hero */}
       <section className="bg-green-primary pt-12 pb-24 sm:pt-16 sm:pb-28">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 text-center">
@@ -158,7 +184,7 @@ export default function Contact() {
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.5 + i * 0.12, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] p-6 hover:-translate-y-1 hover:shadow-lg transition-all duration-250"
+              className="bg-white rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] p-6 hover:-translate-y-1 hover:shadow-lg transition-all duration-200"
             >
               <div className="w-14 h-14 rounded-full bg-green-light flex items-center justify-center mb-4">
                 <ch.icon className="w-7 h-7 text-green-primary" />
@@ -218,7 +244,7 @@ export default function Contact() {
                   className="flex items-center gap-2 bg-green-light text-green-primary font-inter text-sm p-4 rounded-lg mb-4"
                 >
                   <CheckCircle className="w-5 h-5 shrink-0" />
-                  Message envoy&eacute; ! Nous vous r&eacute;pondrons sous 24h.
+                  Votre message est pr&ecirc;t dans WhatsApp — appuyez sur Envoyer pour nous le transmettre. Nous r&eacute;pondons sous 24h.
                 </motion.div>
               )}
 
@@ -230,6 +256,8 @@ export default function Contact() {
                   <input
                     type="text"
                     required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     placeholder="Votre nom et pr&eacute;nom"
                     className="w-full h-12 px-4 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/12 placeholder:text-text-muted"
                   />
@@ -241,6 +269,8 @@ export default function Contact() {
                   <input
                     type="email"
                     required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="votre@email.com"
                     className="w-full h-12 px-4 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/12 placeholder:text-text-muted"
                   />
@@ -251,6 +281,8 @@ export default function Contact() {
                   </label>
                   <input
                     type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
                     placeholder="+237 6XX XXX XXX"
                     className="w-full h-12 px-4 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/12 placeholder:text-text-muted"
                   />
@@ -261,6 +293,8 @@ export default function Contact() {
                   </label>
                   <select
                     required
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
                     className="w-full h-12 px-4 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/12"
                   >
                     <option value="">S&eacute;lectionnez un sujet</option>
@@ -278,6 +312,8 @@ export default function Contact() {
                   <textarea
                     required
                     rows={5}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
                     placeholder="D&eacute;crivez votre question ou probl&egrave;me en d&eacute;tail..."
                     className="w-full px-4 py-3 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/12 placeholder:text-text-muted resize-none"
                   />
@@ -287,8 +323,17 @@ export default function Contact() {
                   className="w-full bg-green-primary text-white font-inter font-semibold h-12 rounded-lg hover:bg-green-dark transition-colors flex items-center justify-center gap-2"
                 >
                   <Send className="w-4 h-4" />
-                  Envoyer le Message
+                  Envoyer via WhatsApp
                 </button>
+                <p className="text-center text-text-muted text-xs font-inter">
+                  Vous pr&eacute;f&eacute;rez l&apos;email ?{' '}
+                  <a
+                    href={mailtoHref()}
+                    className="text-green-primary font-medium hover:text-green-dark underline"
+                  >
+                    Envoyer par email
+                  </a>
+                </p>
               </form>
             </motion.div>
 

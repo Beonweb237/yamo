@@ -2,6 +2,36 @@ import { supabase, isSupabaseConfigured, isSupabaseAuthenticated } from './supab
 import type { CartItem } from '../contexts/CartContext';
 import { restaurants as mockRestaurants } from '../data/mockData';
 import { parseCityFromAddress, parseNeighborhoodFromAddress } from '../data/locations';
+// Série PTS : réservation/règlement des points au point de passage unique des
+// transitions de statut (précédent : CustomerBlockedError). En mode VPS, le
+// hold/settle est fait côté serveur dans la même transaction que le statut
+// (PTS-08) — les appels ci-dessous ne concernent que le chemin mock.
+import { holdPoints, settleHold, hasActiveHold, convertPointsToRefund } from './points';
+import { POINTS_CONFIG } from '../data/launchConfig';
+
+// Série PTS — code marchand effectif d'un resto : mock + overrides locaux
+// (précédent yamo_own_drivers : lecture directe pour éviter l'import croisé
+// avec catalog.ts). Sans code marchand → pas de garantie, parcours inchangé.
+function getRestaurantMerchantInfo(restaurantId: string): { merchantCode?: string; assistanceWhatsapp?: string } {
+  let override: Record<string, { merchantCode?: string; assistanceWhatsapp?: string }> = {};
+  try {
+    override = JSON.parse(localStorage.getItem('yamo_restaurant_overrides') ?? '{}');
+  } catch { /* overrides illisibles : on retombe sur le mock */ }
+  const base = mockRestaurants.find((r) => r.id === restaurantId);
+  return {
+    merchantCode: override[restaurantId]?.merchantCode ?? base?.merchantCode,
+    assistanceWhatsapp: override[restaurantId]?.assistanceWhatsapp ?? base?.assistanceWhatsapp,
+  };
+}
+
+/** Garantie initiale à l'acceptation — null si le resto n'a pas de code marchand. */
+function initialGuarantee(restaurantId: string): OrderGuarantee | null {
+  const { merchantCode } = getRestaurantMerchantInfo(restaurantId);
+  if (!merchantCode) return null;
+  return { status: 'awaiting_payment', amountFcfa: POINTS_CONFIG.GUARANTEE_AMOUNT_FCFA };
+}
+
+export { getRestaurantMerchantInfo };
 
 const LOCAL_USERS_KEY = 'yamo_local_users'; // shared with AuthContext/applications.ts
 
@@ -81,6 +111,32 @@ export function getDriverPhone(driverId: string | null | undefined): string | nu
   }
 }
 
+/**
+ * Nom complet du livreur (registre utilisateurs mock) — null si inconnu.
+ * Côté client, préférer `getDriverDisplayName` (anonymisé).
+ */
+export function getDriverName(driverId: string | null | undefined): string | null {
+  if (!driverId) return null;
+  try {
+    const registry = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) ?? '{}') as Record<string, { id?: string; name?: string | null }>;
+    const entry = Object.values(registry).find((u) => u?.id === driverId);
+    return entry?.name?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Nom du livreur anonymisé pour l'affichage client (« Paul K. ») — même
+ * convention que les auteurs d'avis (CONF-26). Null si le nom est inconnu.
+ */
+export function getDriverDisplayName(driverId: string | null | undefined): string | null {
+  const name = getDriverName(driverId);
+  if (!name) return null;
+  const parts = name.split(/\s+/);
+  return parts.length > 1 ? `${parts[0]} ${parts[1][0].toUpperCase()}.` : parts[0];
+}
+
 export type PaymentMethod = 'cash' | 'mtn_momo' | 'orange_money';
 export type OrderStatus =
   | 'pending'
@@ -121,6 +177,23 @@ export interface OrderInput {
 /** Auteur d'une annulation de commande. */
 export type CancelledBy = 'customer' | 'restaurant' | 'admin';
 
+// ── Série PTS : garantie client ──────────────────────────────────────────
+// Sous-état de 'confirmed' (AUCUN nouveau statut global de commande) :
+// awaiting_payment → declared (client) → confirmed (resto) → puis, en litige,
+// forfeited (rejet abusif) ou refunded (faute resto/livreur). GUARANTEE_MODE
+// 'deducted' : dans le cas nominal la garantie est déduite du total à la
+// livraison — elle n'est jamais « remboursée », zéro procédure.
+export type GuaranteeStatus = 'awaiting_payment' | 'declared' | 'confirmed' | 'forfeited' | 'refunded';
+
+export interface OrderGuarantee {
+  status: GuaranteeStatus;
+  amountFcfa: number;
+  /** Note libre du client à la déclaration (ex. référence de transaction). */
+  proofNote?: string | null;
+  declaredAt?: string | null;
+  confirmedAt?: string | null;
+}
+
 export interface Order extends Omit<OrderInput, 'items'> {
   id: string;
   status: OrderStatus;
@@ -141,6 +214,11 @@ export interface Order extends Omit<OrderInput, 'items'> {
   disputeResolved?: boolean;
   /** Note de traitement du litige (admin). */
   disputeResolutionNote?: string | null;
+  /**
+   * Série PTS — garantie client. Absente : commande historique, ou resto sans
+   * code marchand (la commande se déroule alors exactement comme avant).
+   */
+  guarantee?: OrderGuarantee | null;
   confirmedAt?: string | null;
   preparationEtaMinutes?: number | null;
   estimatedReadyAt?: string | null;
@@ -557,6 +635,24 @@ export async function updateOrderStatus(
   }
 
   const now = new Date().toISOString();
+  const current = readLocalOrders().find((o) => o.id === orderId);
+
+  // Série PTS — acceptation : réserver les points AVANT d'écrire le statut.
+  // InsufficientPointsError remonte à l'appelant et la transition n'a pas lieu.
+  if (status === 'confirmed' && current && current.status === 'pending') {
+    await holdPoints(current.restaurantId, orderId);
+  }
+  // Série PTS — la préparation ne démarre pas tant que la garantie n'est pas
+  // confirmée par le resto (sous-état de 'confirmed' ; absente = pas de blocage).
+  if (status === 'preparing' && current?.guarantee && current.guarantee.status !== 'confirmed') {
+    throw new Error('La garantie du client doit être confirmée avant de lancer la préparation.');
+  }
+  // Série PTS — livraison : consommer le hold (tolérant pour les commandes
+  // historiques acceptées avant le chantier : pas de hold → rien à régler).
+  if (status === 'delivered' && current && (await hasActiveHold(current.restaurantId, orderId))) {
+    await settleHold(current.restaurantId, orderId, 'consume');
+  }
+
   const updated = readLocalOrders().map((o) =>
     o.id === orderId
       ? {
@@ -582,6 +678,27 @@ export async function cancelOrder(orderId: string, reason: string, by: Cancelled
   if (!cleanReason) throw new Error("Le motif d'annulation est obligatoire.");
 
   const now = new Date().toISOString();
+
+  // Série PTS — règlement du hold à l'annulation : pénalité si faute du resto,
+  // restitution intégrale sinon. Une commande jamais acceptée (ou antérieure au
+  // chantier) n'a pas de hold : rien à régler.
+  const current = readLocalOrders().find((o) => o.id === orderId);
+  if (current && (await hasActiveHold(current.restaurantId, orderId))) {
+    await settleHold(current.restaurantId, orderId, by === 'restaurant' ? 'penalty' : 'release');
+  }
+  // Série PTS — garantie déjà sécurisée : toute annulation la rembourse au
+  // client. Faute du resto → remboursement garanti par sa caution points
+  // (idempotent sur orderId — pas de double conversion si l'arbitrage admin
+  // repasse par ici). Autres auteurs → reversement organisé par l'assistance.
+  if (current?.guarantee && ['declared', 'confirmed'].includes(current.guarantee.status)) {
+    await settleGuarantee(orderId, 'refunded');
+    if (by === 'restaurant') {
+      try {
+        await convertPointsToRefund(current.restaurantId, orderId, current.guarantee.amountFcfa);
+      } catch { /* caution insuffisante : reliquat hors application (phase 1) */ }
+    }
+  }
+
   const updated = readLocalOrders().map((o) =>
     o.id === orderId
       ? { ...o, status: 'cancelled' as OrderStatus, cancellationReason: cleanReason, cancelledBy: by, updatedAt: now }
@@ -628,6 +745,13 @@ export async function confirmOrderWithPreparation(orderId: string, preparationEt
     return;
   }
 
+  // Série PTS — l'acceptation passe aussi par ici : réserver les points AVANT
+  // d'écrire (InsufficientPointsError ⇒ la commande reste en attente).
+  const current = readLocalOrders().find((o) => o.id === orderId);
+  if (current && current.status === 'pending') {
+    await holdPoints(current.restaurantId, orderId);
+  }
+
   const updated = readLocalOrders().map((o) =>
     o.id === orderId
       ? {
@@ -637,10 +761,177 @@ export async function confirmOrderWithPreparation(orderId: string, preparationEt
         confirmedAt: confirmedAt.toISOString(),
         preparationEtaMinutes: minutes,
         estimatedReadyAt: estimatedReadyAt.toISOString(),
+        // Série PTS : la garantie naît à l'acceptation (une seule fois).
+        guarantee: o.guarantee ?? initialGuarantee(o.restaurantId),
       }
       : o
   );
   writeLocalOrders(updated);
+}
+
+// ── Série PTS : cycle de vie de la garantie client ───────────────────────
+
+function updateGuarantee(orderId: string, patch: Partial<OrderGuarantee>): void {
+  const now = new Date().toISOString();
+  const updated = readLocalOrders().map((o) =>
+    o.id === orderId && o.guarantee
+      ? { ...o, guarantee: { ...o.guarantee, ...patch }, updatedAt: now }
+      : o
+  );
+  writeLocalOrders(updated);
+}
+
+/** Le client déclare avoir payé la garantie au code marchand du resto. */
+export async function declareGuaranteePaid(orderId: string, proofNote?: string): Promise<void> {
+  const order = readLocalOrders().find((o) => o.id === orderId);
+  if (!order?.guarantee) throw new Error('Cette commande ne porte pas de garantie.');
+  if (order.guarantee.status !== 'awaiting_payment') return; // idempotent
+  updateGuarantee(orderId, {
+    status: 'declared',
+    proofNote: proofNote?.trim() || null,
+    declaredAt: new Date().toISOString(),
+  });
+}
+
+/** Le resto confirme avoir reçu la garantie sur son compte marchand. */
+export async function confirmGuaranteeReceived(orderId: string): Promise<void> {
+  const order = readLocalOrders().find((o) => o.id === orderId);
+  if (!order?.guarantee) throw new Error('Cette commande ne porte pas de garantie.');
+  if (order.guarantee.status === 'confirmed') return; // idempotent
+  updateGuarantee(orderId, { status: 'confirmed', confirmedAt: new Date().toISOString() });
+}
+
+/** Le resto n'a pas reçu le paiement déclaré : retour à l'attente. */
+export async function rejectGuaranteeDeclaration(orderId: string): Promise<void> {
+  const order = readLocalOrders().find((o) => o.id === orderId);
+  if (!order?.guarantee) throw new Error('Cette commande ne porte pas de garantie.');
+  if (order.guarantee.status !== 'declared') return;
+  updateGuarantee(orderId, { status: 'awaiting_payment', proofNote: null, declaredAt: null });
+}
+
+/** Issue de litige (PTS-05, décision admin) : confiscation ou remboursement. */
+export async function settleGuarantee(orderId: string, outcome: 'forfeited' | 'refunded'): Promise<void> {
+  const order = readLocalOrders().find((o) => o.id === orderId);
+  if (!order?.guarantee) throw new Error('Cette commande ne porte pas de garantie.');
+  if (order.guarantee.status === outcome) return; // idempotent
+  updateGuarantee(orderId, { status: outcome });
+}
+
+/** Reste à payer à la livraison (mode 'deducted') : total − garantie sécurisée. */
+export function remainingDueAtDelivery(order: Order): number {
+  const g = order.guarantee;
+  if (!g || !['declared', 'confirmed'].includes(g.status)) return order.total;
+  return Math.max(0, order.total - g.amountFcfa);
+}
+
+// ── Série PTS : arbitrage admin des litiges avec garantie ────────────────
+
+/**
+ * Strike client pour rejet abusif : compté dans le registre local ; au 2e,
+ * le compte est suspendu (contrôlé par CustomerBlockedError à la commande
+ * suivante — mécanisme existant LOT-16).
+ */
+export function markAbusiveRejection(customerId: string): { count: number; suspended: boolean } {
+  let registry: Record<string, { id: string; isSuspended?: boolean; suspensionReason?: string | null; abusiveRejections?: number }> = {};
+  try {
+    registry = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) ?? '{}');
+  } catch { /* registre illisible : strike non comptée */ }
+  const entry = Object.entries(registry).find(([, u]) => u.id === customerId);
+  if (!entry) return { count: 0, suspended: false };
+  const [phone, user] = entry;
+  const count = (user.abusiveRejections ?? 0) + 1;
+  const suspended = count >= 2;
+  registry[phone] = {
+    ...user,
+    abusiveRejections: count,
+    isSuspended: suspended ? true : user.isSuspended,
+    suspensionReason: suspended
+      ? 'Rejets de livraison abusifs répétés (2). Contactez le support MiamExpress.'
+      : user.suspensionReason ?? null,
+  };
+  localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(registry));
+  return { count, suspended };
+}
+
+export type GuaranteeDecision = 'abusive_rejection' | 'restaurant_fault' | 'driver_fault';
+
+export interface GuaranteeDecisionResult {
+  driverShareFcfa: number;
+  restaurantShareFcfa: number;
+  refundPointsConverted: number;
+  refundShortfallFcfa: number;
+  customerStrikes: number;
+  customerSuspended: boolean;
+}
+
+/**
+ * Applique en une action l'issue d'un litige portant sur une commande garantie.
+ * Phase 1 : les REVERSEMENTS d'argent (part livreur/resto d'une garantie
+ * confisquée, reliquat d'un remboursement) se font hors application — le
+ * résultat retourné sert à l'afficher et à le tracer dans le litige.
+ */
+export async function applyGuaranteeDecision(
+  orderId: string,
+  decision: GuaranteeDecision
+): Promise<GuaranteeDecisionResult> {
+  const order = readLocalOrders().find((o) => o.id === orderId);
+  if (!order) throw new Error('Commande introuvable.');
+  const g = order.guarantee;
+  if (!g || !['declared', 'confirmed'].includes(g.status)) {
+    throw new Error('Cette commande ne porte pas de garantie active.');
+  }
+
+  const result: GuaranteeDecisionResult = {
+    driverShareFcfa: 0,
+    restaurantShareFcfa: 0,
+    refundPointsConverted: 0,
+    refundShortfallFcfa: 0,
+    customerStrikes: 0,
+    customerSuspended: false,
+  };
+
+  if (decision === 'abusive_rejection') {
+    // Le client a refusé une livraison conforme : garantie confisquée,
+    // répartie livreur d'abord (il s'est déplacé), reliquat au resto.
+    await settleGuarantee(orderId, 'forfeited');
+    if (POINTS_CONFIG.GUARANTEE_FORFEIT_DRIVER_FIRST) {
+      result.driverShareFcfa = Math.min(g.amountFcfa, order.deliveryFee);
+      result.restaurantShareFcfa = g.amountFcfa - result.driverShareFcfa;
+    } else {
+      result.restaurantShareFcfa = g.amountFcfa;
+    }
+    const strike = markAbusiveRejection(order.customerId);
+    result.customerStrikes = strike.count;
+    result.customerSuspended = strike.suspended;
+    if (order.status !== 'cancelled' && order.status !== 'delivered') {
+      await cancelOrder(orderId, 'Rejet de livraison jugé abusif (arbitrage MiamExpress)', 'customer');
+    }
+    return result;
+  }
+
+  // Non-livraison : le client est remboursé intégralement.
+  await settleGuarantee(orderId, 'refunded');
+  if (decision === 'restaurant_fault') {
+    // Remboursement garanti par la caution points du resto.
+    try {
+      const entry = await convertPointsToRefund(order.restaurantId, orderId, g.amountFcfa);
+      result.refundPointsConverted = -entry.points;
+    } catch {
+      // Caution insuffisante : le reliquat se règle hors application (phase 1).
+      result.refundShortfallFcfa = g.amountFcfa;
+    }
+    if (order.status !== 'cancelled' && order.status !== 'delivered') {
+      await cancelOrder(orderId, 'Non-livraison — faute du restaurant (arbitrage MiamExpress)', 'restaurant');
+    }
+  } else {
+    // Faute livreur : le resto n'est pas pénalisé ; le reversement de la
+    // garantie (encaissée par le resto) au client s'organise via l'assistance.
+    result.refundShortfallFcfa = g.amountFcfa;
+    if (order.status !== 'cancelled' && order.status !== 'delivered') {
+      await cancelOrder(orderId, 'Non-livraison — faute du livreur (arbitrage MiamExpress)', 'admin');
+    }
+  }
+  return result;
 }
 
 // ─────────────────────────────────────────────────────────────

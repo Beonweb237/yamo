@@ -43,7 +43,7 @@ export default function Favorites() {
         />
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-white rounded-xl border border-border-custom p-1 w-fit shadow-sm mb-6">
+        <div className="flex gap-1 bg-white rounded-xl border border-border-custom p-1 w-fit max-w-full overflow-x-auto scrollbar-hide shadow-sm mb-6">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -71,19 +71,19 @@ export default function Favorites() {
                 <Link
                   key={resto.id}
                   to={`/restaurant/${resto.slug || resto.id}`}
-                  className="block bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden hover:shadow-[0_12px_32px_rgba(0,0,0,0.10)] hover:-translate-y-1 transition-all duration-250 group"
+                  className="block bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden hover:shadow-[0_12px_32px_rgba(0,0,0,0.10)] hover:-translate-y-1 transition-all duration-200 group"
                 >
                   <div className="aspect-[16/10] overflow-hidden relative">
                     <AppImage
                       src={resto.image}
                       alt={resto.name}
                       fallbackLabel={resto.category}
-                      className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-400"
+                      className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-300"
                     />
                     <button
                       onClick={(e) => { e.preventDefault(); toggleFavorite(resto.id); }}
                       aria-label="Retirer des favoris"
-                      className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors"
+                      className="absolute top-3 right-3 w-11 h-11 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors"
                     >
                       <Heart className="w-4 h-4 fill-error text-error" />
                     </button>
@@ -96,7 +96,7 @@ export default function Favorites() {
                   <div className="p-4">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <h3 className="font-inter font-semibold text-text-primary text-sm truncate">{resto.name}</h3>
-                      <span className="flex items-center gap-0.5 text-xs text-gold-accent shrink-0">
+                      <span className="flex items-center gap-0.5 text-xs text-amber-700 shrink-0">
                         <Star className="w-3.5 h-3.5 fill-gold-accent" />{resto.rating}
                       </span>
                     </div>
@@ -121,8 +121,8 @@ export default function Favorites() {
               {favoriteDishGroups.map((group) => (
                 <Link
                   key={group.key}
-                  to={`/article/${dishSlug(group.displayName)}`}
-                  className="group text-left bg-white rounded-2xl border border-border-custom shadow-sm overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-250"
+                  to={`/plat/${dishSlug(group.displayName)}`}
+                  className="group text-left bg-white rounded-2xl border border-border-custom shadow-sm overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-bg-secondary">
                     {group.bestImage ? (
@@ -140,7 +140,7 @@ export default function Favorites() {
                       type="button"
                       onClick={(e) => { e.preventDefault(); toggleFavoriteDish(group.key); }}
                       aria-label="Retirer des favoris"
-                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors shadow-sm"
+                      className="absolute top-2 right-2 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors shadow-sm"
                     >
                       <Heart className="w-3.5 h-3.5 fill-error text-error" />
                     </button>

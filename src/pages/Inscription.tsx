@@ -9,7 +9,10 @@ import {
   Mail,
   Loader2,
   ArrowRight,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
+import AuthHeader from '../components/AuthHeader';
 import { useAuth, type AuthUser, type UserRole } from '../contexts/AuthContext';
 import { fetchMyApplications } from '../lib/applications';
 import {
@@ -120,6 +123,8 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
   const [phone, setPhone] = useState('+237 ');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null);
@@ -161,24 +166,16 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
 
   return (
     <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
-      <div className="w-full max-w-[420px] bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-6 sm:p-8 my-12">
+      <div className="w-full max-w-[420px] bg-white rounded-2xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden my-12">
 
-        {/* ── Profile header ── */}
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-green-primary flex items-center justify-center">
-            <profile.icon className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="font-poppins font-bold text-text-primary text-xl">{profile.title}</h1>
-          </div>
-        </div>
-        <p className="text-text-secondary font-inter text-sm mb-6 ml-[52px]">
-          {profile.subtitle}
-        </p>
+        {/* ── Branded header ── */}
+        <AuthHeader icon={profile.icon} title={profile.title} subtitle={profile.subtitle} />
+
+        <div className="px-6 sm:px-8 pb-6 sm:pb-8">
 
         {/* ── Demo banner ── */}
         {!isSupabaseConfigured && (
-          <div className="bg-gold-light text-gold-accent text-xs font-inter rounded-lg px-3 py-2 mb-5">
+          <div className="bg-gold-light text-amber-700 text-xs font-inter rounded-lg px-3 py-2 mb-5">
             Mode démo : les comptes sont sauvegardés localement dans votre navigateur.
           </div>
         )}
@@ -240,7 +237,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
             <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
               <ShieldCheck className="w-4 h-4 text-text-muted shrink-0" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="6 caractères minimum"
@@ -248,6 +245,14 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
                 required
                 minLength={6}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                className="text-text-muted hover:text-text-secondary transition-colors shrink-0 p-1 -mr-1"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
@@ -257,7 +262,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
             <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
               <ShieldCheck className="w-4 h-4 text-text-muted shrink-0" />
               <input
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Répétez votre mot de passe"
@@ -265,10 +270,18 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
                 required
                 minLength={6}
               />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                aria-label={showConfirmPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                className="text-text-muted hover:text-text-secondary transition-colors shrink-0 p-1 -mr-1"
+              >
+                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
-          {error && <p className="text-error text-sm font-inter">{error}</p>}
+          {error && <p className="text-error text-sm font-inter" role="alert">{error}</p>}
 
           <p className="text-text-muted text-xs font-inter text-center">
             En vous inscrivant, vous acceptez nos{' '}
@@ -281,7 +294,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {submitting ? (
               <>
@@ -289,7 +302,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
                 Création du compte...
               </>
             ) : (
-              'Créer mon compte'
+              <>Créer mon compte <ArrowRight className="w-4 h-4" /></>
             )}
           </button>
         </form>
@@ -347,6 +360,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
             Se connecter
           </Link>
         </p>
+        </div>
       </div>
 
       {/* ── Legal modals ── */}

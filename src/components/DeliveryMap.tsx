@@ -71,6 +71,18 @@ function ClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void
   return null;
 }
 
+// Recalcule les tuiles quand le conteneur change de taille (panneau sticky,
+// passage plein écran, rotation) — Leaflet ne le détecte pas seul.
+function InvalidateOnResize() {
+  const map = useMap();
+  useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
+}
+
 export default function DeliveryMap({ points, height = '400px', scrollWheelZoom = true, onMapClick, estimated = false, hideNavigation = false }: {
   points: MapPoint[];
   height?: string;
@@ -96,9 +108,16 @@ export default function DeliveryMap({ points, height = '400px', scrollWheelZoom 
   const wazeUrl = dest ? `https://waze.com/ul?ll=${dest.lat},${dest.lng}&navigate=yes` : '#';
   const googleUrl = dest ? `https://www.google.com/maps/dir/?api=1&destination=${dest.lat},${dest.lng}` : '#';
 
+  // Une hauteur en % doit être propagée par le wrapper (sinon elle s'effondre à 0,
+  // le wrapper étant en hauteur auto) : le wrapper prend 100% et la carte flex-1.
+  const isRelativeHeight = height.endsWith('%');
+
   return (
-    <div>
-      <div style={{ height }} className="relative rounded-xl overflow-hidden border border-border-custom">
+    <div style={isRelativeHeight ? { height: '100%', display: 'flex', flexDirection: 'column' } : undefined}>
+      <div
+        style={isRelativeHeight ? { flex: '1 1 0%', minHeight: 0 } : { height }}
+        className="relative rounded-xl overflow-hidden border border-border-custom"
+      >
         {estimated && (
           <span className="absolute top-2 right-2 z-[500] bg-white/95 text-text-secondary text-[11px] font-inter font-medium px-2.5 py-1 rounded-full border border-border-custom shadow-sm pointer-events-none">
             Position estimée
@@ -129,6 +148,7 @@ export default function DeliveryMap({ points, height = '400px', scrollWheelZoom 
             );
           })}
           <AutoPan point={driverPoint ?? null} />
+          <InvalidateOnResize />
           {onMapClick && <ClickHandler onClick={onMapClick} />}
         </MapContainer>
       </div>

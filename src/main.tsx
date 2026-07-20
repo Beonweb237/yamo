@@ -7,6 +7,12 @@ import { SettingsProvider } from './contexts/SettingsContext'
 import './index.css'
 import App from './App.tsx'
 
+// Utilitaire de seed démo (avis, commandes, clients fictifs) — dev uniquement,
+// éliminé du build de production. Voir src/dev/seedDemoData.ts.
+if (import.meta.env.DEV) {
+  import('./dev/seedDemoData')
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>

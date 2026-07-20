@@ -1,4 +1,4 @@
-﻿# ============================================================
+# ============================================================
 # MiamExpress — Script de déploiement (Windows → VPS)
 # Usage : .\scripts\deploy.ps1 [-VpsHost <host>] [-VpsUser <user>] [-VpsPath <path>] [-SshKey <path>] [-SkipBuild] [-DryRun]
 # ============================================================
@@ -6,7 +6,7 @@ param(
   [string]$VpsHost = "vps-0943c5fc.vps.ovh.ca",
   [string]$VpsUser = "ubuntu",
   [string]$VpsPath = "/home/ubuntu/miamexpress",
-  [string]$SshKey = "$env:USERPROFILE\.ssh\id_ed25519",
+  [string]$SshKey = "$env:USERPROFILE\.ssh\id_ed25519_jackpot",
   [switch]$SkipBuild,
   [switch]$DryRun
 )
@@ -72,9 +72,12 @@ if (-not $SkipBuild) {
   Write-Host "── 2/6 Build frontend ───────────────────────────────────" -ForegroundColor Cyan
   Set-Location $AppDir
   Write-Host "   npm run build..."
-  npm run build 2>&1 | Select-Object -Last 5
-  if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Build échoué" -ForegroundColor Red
+  $buildOutput = npm run build 2>&1
+  $buildOutput | Select-Object -Last 5
+  $global:LASTEXITCODE = $LASTEXITCODE
+  if ($global:LASTEXITCODE -ne 0) {
+    Write-Host "❌ Build échoué (code: $LASTEXITCODE)" -ForegroundColor Red
+    Write-Host $buildOutput -ForegroundColor DarkGray
     exit 1
   }
   Write-Host "   ✅ Build OK → dist/"
@@ -122,10 +125,27 @@ if (Test-Path $serverDir) {
   }
   else {
     if ($rsyncAvailable) {
-      rsync -avz -e "ssh $sshFlags" --exclude 'node_modules' "$serverDir/" "$VpsUser@$VpsHost`:$VpsPath/server/" 2>&1 | Select-Object -Last 3
+      rsync -avz -e "ssh $sshFlags" --exclude 'node_modules' --exclude '.env' --exclude '.env.*' "$serverDir/" "$VpsUser@$VpsHost`:$VpsPath/server/" 2>&1 | Select-Object -Last 3
     }
     else {
-      Invoke-Expression "scp $scpFlags -r '$serverDir\*' $VpsUser@$VpsHost`:$VpsPath/server/" 2>&1 | Select-Object -Last 3
+      $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+      $tempServerDir = Join-Path $tempRoot ("miamexpress-server-sync-" + [guid]::NewGuid().ToString("N"))
+      $tempServerDirFull = [System.IO.Path]::GetFullPath($tempServerDir)
+      if (-not $tempServerDirFull.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase)) { throw "Temp dir invalide: $tempServerDirFull" }
+      New-Item -ItemType Directory -Path $tempServerDirFull | Out-Null
+      try {
+        Get-ChildItem -LiteralPath $serverDir -Force | Where-Object {
+          $_.Name -ne 'node_modules' -and $_.Name -ne '.env' -and $_.Name -notlike '.env.*'
+        } | ForEach-Object {
+          Copy-Item -LiteralPath $_.FullName -Destination $tempServerDirFull -Recurse -Force
+        }
+        Invoke-Expression "scp $scpFlags -r '$tempServerDirFull\*' $VpsUser@$VpsHost`:$VpsPath/server/" 2>&1 | Select-Object -Last 3
+      }
+      finally {
+        if ((Test-Path -LiteralPath $tempServerDirFull) -and $tempServerDirFull.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+          Remove-Item -LiteralPath $tempServerDirFull -Recurse -Force
+        }
+      }
     }
     Write-Host "   ✅ server/ synchronisé"
   }

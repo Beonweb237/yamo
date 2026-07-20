@@ -6,12 +6,21 @@
 //   GET  /api/admin/incidents
 //   POST /api/admin/incidents/:id/resolve   body { resolutionNote? }
 
-export type IncidentType = 'client_injoignable' | 'adresse_introuvable' | 'commande_incomplete';
+export type IncidentType =
+  | 'client_injoignable'
+  | 'adresse_introuvable'
+  | 'commande_incomplete'
+  // Série PTS : refus à la porte (signalé par le livreur) et non-conformité
+  // (signalée par le client) — litiges arbitrés avec effet sur la garantie.
+  | 'livraison_refusee'
+  | 'commande_non_conforme';
 
 export const INCIDENT_LABELS: Record<IncidentType, string> = {
   client_injoignable: 'Client injoignable',
   adresse_introuvable: 'Adresse introuvable',
   commande_incomplete: 'Commande incomplète au retrait',
+  livraison_refusee: 'Livraison refusée par le client',
+  commande_non_conforme: 'Commande non conforme (client)',
 };
 
 export interface DeliveryIncident {
@@ -20,6 +29,8 @@ export interface DeliveryIncident {
   driverId: string;
   type: IncidentType;
   note?: string;
+  /** Série PTS : auteur du signalement (absent = livreur, historique). */
+  reportedBy?: 'driver' | 'customer';
   status: 'open' | 'resolved';
   createdAt: string;
   resolvedAt?: string | null;
@@ -47,6 +58,7 @@ export async function reportIncident(params: {
   driverId: string;
   type: IncidentType;
   note?: string;
+  reportedBy?: 'driver' | 'customer';
 }): Promise<DeliveryIncident> {
   const incident: DeliveryIncident = {
     id: crypto.randomUUID(),
@@ -54,6 +66,7 @@ export async function reportIncident(params: {
     driverId: params.driverId,
     type: params.type,
     note: params.note?.trim() || undefined,
+    reportedBy: params.reportedBy ?? 'driver',
     status: 'open',
     createdAt: new Date().toISOString(),
   };

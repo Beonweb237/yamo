@@ -1,13 +1,20 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Package, Clock, Star, Store, UserRound, XCircle, RotateCcw, Loader2 } from 'lucide-react';
+import { Package, Clock, Star, Store, UserRound, XCircle, RotateCcw, Loader2, ShieldCheck, MessageCircle } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { fetchMenuItems } from '../lib/catalog';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchOrders, getOrderPreparationMessage, getDriverPhone, cancelOrder, type Order, type OrderStatus } from '../lib/orders';
+import { hasOrderReview, submitOrderReview } from '../lib/reviews';
+import { fetchOrders, getOrderPreparationMessage, getDriverPhone, getDriverDisplayName, cancelOrder, declareGuaranteePaid, remainingDueAtDelivery, getRestaurantMerchantInfo, type Order, type OrderStatus } from '../lib/orders';
+import { reportIncident } from '../lib/incidents';
+import { fetchDriversStats, type DriverStats } from '../lib/drivers';
 import { whatsappLink, SUPPORT_PHONE } from '../data/support';
 import { usePolling } from '../hooks/usePolling';
 import { toast } from 'sonner';
+import OrderStatusStepper from '../components/OrderStatusStepper';
+import { Skeleton } from '../components/ui/skeleton';
+import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
+import { getRestaurantCoords, getCustomerCoords, simulateDriverPosition } from '../lib/tracking';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,11 +36,7 @@ const CANCEL_REASONS = [
 
 const DELIVERY_REVIEW_TAGS = ['Ponctuel', 'Courtois', 'Suivi clair', 'Commande intacte'];
 const RESTAURANT_REVIEW_TAGS = ['Tres bon', 'Bien emballe', 'Portions genereuses', 'Conforme', 'Rapide'];
-import { hasOrderReview, submitOrderReview } from '../lib/reviews';
-import OrderStatusStepper from '../components/OrderStatusStepper';
-import { Skeleton } from '../components/ui/skeleton';
-import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
-import { getRestaurantCoords, getCustomerCoords, simulateDriverPosition } from '../lib/tracking';
+
 
 // Points de suivi — uniquement si les coordonnées du restaurant ET du client
 // sont réellement résolues (pas de positions inventées : sans coordonnées, la
@@ -56,6 +59,97 @@ function whatsappTo(phone: string, message: string): string {
   return `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
 }
 
+// Numéro court lisible et stable dérivé de l'id (uuid ou id mock) — un id
+// tronqué brut (« #seed-dem », « #a3f0c2… ») est illisible pour le client.
+// Série PTS — encart garantie côté client (composant dédié : le compilateur
+// React n'accepte pas ce bloc en IIFE dans le rendu de la liste).
+function GuaranteeCard({
+  order, merchantInfo, note, onNoteChange, onDeclare, submitting,
+}: {
+  order: Order;
+  merchantInfo: { merchantCode?: string; assistanceWhatsapp?: string };
+  note: string;
+  onNoteChange: (v: string) => void;
+  onDeclare: () => void;
+  submitting: boolean;
+}) {
+  const g = order.guarantee;
+  if (!g) return null;
+  const { merchantCode, assistanceWhatsapp } = merchantInfo;
+
+  if (g.status === 'awaiting_payment') {
+    return (
+      <div className="bg-gold-light border border-gold-accent/40 rounded-xl p-4 mb-3">
+        <p className="flex items-center gap-1.5 font-inter font-semibold text-text-primary text-sm mb-1">
+          <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0" />
+          Sécurisez votre commande — garantie {g.amountFcfa.toLocaleString()} FCFA
+        </p>
+        <p className="text-text-secondary text-xs font-inter mb-3">
+          Payez la garantie au code marchand du restaurant. Elle sera{' '}
+          <span className="font-semibold">déduite du total</span> à la livraison
+          (remboursée intégralement en cas de non-livraison).
+        </p>
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="bg-white rounded-lg border border-border-custom px-3 py-2 font-poppins font-bold text-text-primary text-lg tracking-wider">
+            {merchantCode}
+          </span>
+          {assistanceWhatsapp && (
+            <a
+              href={`https://wa.me/${assistanceWhatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Bonjour, je paie la garantie de ma commande MiamExpress ${shortOrderId(order.id)}.`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-green-primary font-inter text-xs font-medium bg-white border border-border-custom rounded-lg px-3 min-h-11 hover:bg-green-light transition-colors"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              WhatsApp assistance resto
+            </a>
+          )}
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => onNoteChange(e.target.value)}
+            placeholder="Réf. de transaction (optionnel)"
+            className="flex-1 min-w-0 bg-white rounded-lg border border-border-custom px-3 h-11 text-sm font-inter outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
+          />
+          <button
+            onClick={onDeclare}
+            disabled={submitting}
+            className="shrink-0 bg-green-primary hover:bg-green-dark text-white font-inter font-semibold text-sm px-4 h-11 rounded-lg transition-colors disabled:opacity-60"
+          >
+            {submitting ? 'Envoi...' : "J'ai payé la garantie"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+  if (g.status === 'declared') {
+    return (
+      <div className="flex items-start gap-2 bg-bg-secondary rounded-lg px-3 py-2.5 mb-3 text-xs font-inter text-text-secondary">
+        <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+        <span>
+          Garantie déclarée payée{g.proofNote ? ` (réf. ${g.proofNote})` : ''} — en attente
+          de confirmation du restaurant. La préparation démarrera juste après.
+        </span>
+      </div>
+    );
+  }
+  if (g.status === 'confirmed') {
+    return (
+      <p className="flex items-center gap-1.5 bg-green-light/60 rounded-lg px-3 py-2 mb-3 text-xs font-inter text-text-secondary">
+        <ShieldCheck className="w-3.5 h-3.5 text-green-primary shrink-0" />
+        Garantie {g.amountFcfa.toLocaleString()} FCFA confirmée — déduite du total à la livraison.
+      </p>
+    );
+  }
+  return null;
+}
+
+function shortOrderId(id: string): string {
+  return `#Y-${id.replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`;
+}
+
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'En attente',
   confirmed: 'Confirmée',
@@ -70,8 +164,8 @@ const statusLabels: Record<OrderStatus, string> = {
 const statusColors: Record<OrderStatus, string> = {
   pending: 'bg-bg-secondary text-text-secondary',
   confirmed: 'bg-green-light text-green-primary',
-  preparing: 'bg-gold-light text-gold-accent',
-  ready: 'bg-gold-light text-gold-accent',
+  preparing: 'bg-gold-light text-amber-700',
+  ready: 'bg-gold-light text-amber-700',
   picked_up: 'bg-green-light text-green-primary',
   delivering: 'bg-green-light text-green-primary',
   delivered: 'bg-green-light text-green-primary',
@@ -89,6 +183,11 @@ export default function Orders() {
   const [reviewTags, setReviewTags] = useState<string[]>([]);
   const [reviewSubmittingId, setReviewSubmittingId] = useState<string | null>(null);
   const [reviewSubmitted, setReviewSubmitted] = useState<Record<string, boolean>>({});
+
+  // Stats du livreur assigné (note moyenne, nb de courses) — chargées une
+  // fois par livreur pour les commandes en cours de livraison.
+  const [driverStatsMap, setDriverStatsMap] = useState<Record<string, DriverStats>>({});
+  const requestedDriverIds = useRef<Set<string>>(new Set());
 
   // Restaurant review state
   const [restoReviewingId, setRestoReviewingId] = useState<string | null>(null);
@@ -121,7 +220,7 @@ export default function Orders() {
       setReviewComment('');
       setReviewTags([]);
       setReviewRating(5);
-      toast.success('Avis livraison enregistre.');
+      toast.success('Avis livraison enregistré.');
     } catch (err) {
       toast.error((err as Error).message || "Impossible d'enregistrer l'avis.");
     } finally {
@@ -155,7 +254,7 @@ export default function Orders() {
       setRestoComment('');
       setRestoTags([]);
       setRestoRating(5);
-      toast.success('Avis restaurant enregistre.');
+      toast.success('Avis restaurant enregistré.');
     } catch (err) {
       toast.error((err as Error).message || "Impossible d'enregistrer l'avis.");
     } finally {
@@ -198,7 +297,82 @@ export default function Orders() {
     });
   }, [user]);
 
+  // Le tick initial de usePolling part avant que l'auth soit résolue (user
+  // null → early return) : recharger dès que loadOrders change évite d'attendre
+  // le tick suivant (15 s de skeleton au premier affichage).
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
+
+  // Note moyenne du livreur assigné — une seule requête par livreur, hors
+  // ticks de polling (requestedDriverIds fait office de garde).
+  useEffect(() => {
+    const ids = [...new Set(
+      orders
+        .filter((o) => (o.status === 'picked_up' || o.status === 'delivering') && o.driverId)
+        .map((o) => o.driverId as string)
+    )].filter((id) => !requestedDriverIds.current.has(id));
+    if (ids.length === 0) return;
+    ids.forEach((id) => requestedDriverIds.current.add(id));
+    fetchDriversStats(ids)
+      .then((stats) => setDriverStatsMap((prev) => ({ ...prev, ...stats })))
+      .catch(() => { /* silencieux : la fiche livreur s'affiche sans note */ });
+  }, [orders]);
+
   usePolling(loadOrders, 15000);
+
+  // ── Série PTS — garantie client ────────────────────────────────────────
+  const [guaranteeNotes, setGuaranteeNotes] = useState<Record<string, string>>({});
+  const [guaranteeSubmittingId, setGuaranteeSubmittingId] = useState<string | null>(null);
+  // Code marchand/WhatsApp par resto — résolu hors rendu (lecture localStorage),
+  // différé d'un tick (même motif que la géoloc de DishResults).
+  const [merchantInfos, setMerchantInfos] = useState<Record<string, { merchantCode?: string; assistanceWhatsapp?: string }>>({});
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const ids = [...new Set(orders.map((o) => o.restaurantId))];
+      setMerchantInfos(Object.fromEntries(ids.map((id) => [id, getRestaurantMerchantInfo(id)])));
+    }, 0);
+    return () => clearTimeout(t);
+  }, [orders]);
+
+  const handleDeclareGuarantee = async (order: Order) => {
+    setGuaranteeSubmittingId(order.id);
+    try {
+      await declareGuaranteePaid(order.id, guaranteeNotes[order.id]);
+      toast.success('Paiement déclaré — le restaurant va confirmer la réception.');
+      loadOrders();
+    } catch (err) {
+      toast.error((err as Error).message || 'Impossible de déclarer le paiement.');
+    } finally {
+      setGuaranteeSubmittingId(null);
+    }
+  };
+
+  // Litige client sur une livraison en cours (motif obligatoire — arbitré par
+  // l'admin avec effet sur la garantie, PTS-05).
+  const [disputeTarget, setDisputeTarget] = useState<Order | null>(null);
+  const [disputeNote, setDisputeNote] = useState('');
+  const [disputeSubmitting, setDisputeSubmitting] = useState(false);
+
+  const handleSubmitDispute = async () => {
+    if (!disputeTarget || !disputeNote.trim()) return;
+    setDisputeSubmitting(true);
+    try {
+      await reportIncident({
+        orderId: disputeTarget.id,
+        driverId: disputeTarget.driverId ?? 'inconnu',
+        type: 'commande_non_conforme',
+        note: disputeNote,
+        reportedBy: 'customer',
+      });
+      toast.success("Litige ouvert — l'équipe MiamExpress tranche sous 24 h.");
+      setDisputeTarget(null);
+    } catch (err) {
+      toast.error((err as Error).message || "Impossible d'ouvrir le litige.");
+    } finally {
+      setDisputeSubmitting(false);
+    }
+  };
 
   // Annulation client (CONF-04) — possible tant que le restaurant n'a pas
   // commencé la préparation (pending/confirmed), motif obligatoire.
@@ -335,18 +509,25 @@ export default function Orders() {
           <div className="space-y-4">
             {orders.map((order) => (
               <div key={order.id} className="bg-white rounded-2xl border border-border-custom shadow-sm hover:shadow-md transition-shadow p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-inter font-semibold text-text-primary text-sm">
-                    Commande #{order.id.slice(0, 8)}
-                  </span>
-                  <span className={`text-xs font-inter font-medium px-2.5 py-1 rounded-full ${statusColors[order.status]}`}>
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="min-w-0">
+                    <p className="font-inter font-semibold text-text-primary text-sm truncate">
+                      {order.restaurantName || 'Restaurant'}
+                    </p>
+                    <p className="text-text-muted text-xs font-inter">Commande {shortOrderId(order.id)}</p>
+                  </div>
+                  <span className={`shrink-0 text-xs font-inter font-medium px-2.5 py-1 rounded-full ${statusColors[order.status]}`}>
                     {statusLabels[order.status]}
                   </span>
                 </div>
 
-                <div className="mb-4">
-                  <OrderStatusStepper status={order.status} />
-                </div>
+                {/* Le stepper n'a de sens que pour une commande en cours — sur
+                    l'historique (livrée/annulée), le badge de statut suffit. */}
+                {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                  <div className="mb-4">
+                    <OrderStatusStepper status={order.status} />
+                  </div>
+                )}
 
                 {order.status === 'cancelled' && order.cancellationReason && (
                   <div className="bg-error/5 text-text-secondary rounded-lg px-3 py-2 mb-3 text-xs font-inter">
@@ -387,6 +568,18 @@ export default function Orders() {
                   </div>
                 )}
 
+                {/* Série PTS — garantie client (sous-état de « Confirmée ») */}
+                {order.status === 'confirmed' && order.guarantee && (
+                  <GuaranteeCard
+                    order={order}
+                    merchantInfo={merchantInfos[order.restaurantId] ?? {}}
+                    note={guaranteeNotes[order.id] ?? ''}
+                    onNoteChange={(v) => setGuaranteeNotes((prev) => ({ ...prev, [order.id]: v }))}
+                    onDeclare={() => handleDeclareGuarantee(order)}
+                    submitting={guaranteeSubmittingId === order.id}
+                  />
+                )}
+
                 <div className="space-y-1 mb-3">
                   {order.items.map((it, i) => (
                     <p key={i} className="text-text-secondary text-sm font-inter">
@@ -399,8 +592,16 @@ export default function Orders() {
                     <Clock className="w-3.5 h-3.5" />
                     {new Date(order.createdAt).toLocaleString('fr-FR')}
                   </span>
-                  <span className="font-inter font-bold text-text-primary text-sm">
-                    {order.total.toLocaleString()} FCFA
+                  <span className="text-right">
+                    <span className="block font-inter font-bold text-text-primary text-sm">
+                      {order.total.toLocaleString()} FCFA
+                    </span>
+                    {/* Série PTS : garantie sécurisée → le solde dû à la livraison change */}
+                    {remainingDueAtDelivery(order) !== order.total && !['delivered', 'cancelled'].includes(order.status) && (
+                      <span className="block text-green-primary text-[11px] font-inter font-medium">
+                        Reste à payer à la livraison : {remainingDueAtDelivery(order).toLocaleString()} FCFA
+                      </span>
+                    )}
                   </span>
                 </div>
 
@@ -413,6 +614,12 @@ export default function Orders() {
                       </p>
                       <p className="text-text-secondary text-xs font-inter">
                         Donnez ce code au livreur à la remise de votre commande.
+                        {order.guarantee && (
+                          <>
+                            {' '}<span className="font-medium">Code remis = livraison conforme.</span>{' '}
+                            Un problème ? Ouvrez un litige AVANT de refuser, sinon votre garantie est perdue.
+                          </>
+                        )}
                       </p>
                     </div>
                     <span className="font-poppins font-bold text-green-primary text-3xl tracking-[0.2em] shrink-0" aria-label={`Code de livraison : ${order.deliveryCode.split('').join(' ')}`}>
@@ -421,12 +628,23 @@ export default function Orders() {
                   </div>
                 )}
 
+                {/* Série PTS : litige client sur la livraison en cours */}
+                {(order.status === 'picked_up' || order.status === 'delivering') && (
+                  <button
+                    onClick={() => { setDisputeTarget(order); setDisputeNote(''); }}
+                    className="flex items-center gap-1.5 text-error font-inter text-xs font-medium mb-3 hover:opacity-80 transition-opacity min-h-11"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    Signaler un problème avec cette livraison
+                  </button>
+                )}
+
                 {(order.status === 'pending' || order.status === 'confirmed') && (
                   <div className="mt-3 pt-3 border-t border-border-light">
                     <button
                       type="button"
                       onClick={() => openCancelDialog(order)}
-                      className="flex items-center gap-1.5 text-error font-inter text-sm font-medium hover:opacity-80 transition-opacity"
+                      className="flex items-center gap-1.5 text-error font-inter text-sm font-medium hover:opacity-80 transition-opacity min-h-11"
                     >
                       <XCircle className="w-4 h-4" />
                       Annuler la commande
@@ -439,15 +657,38 @@ export default function Orders() {
                   // livreur quand son numéro est résolvable, sinon vers le
                   // support MiamExpress (jamais de message simulé).
                   const driverPhone = getDriverPhone(order.driverId);
-                  const contactMessage = `Bonjour, commande MiamExpress #${order.id.slice(0, 8)} — ${order.address.fullText || 'adresse indiquée sur la commande'}`;
+                  const contactMessage = `Bonjour, commande MiamExpress ${shortOrderId(order.id)} — ${order.address.fullText || 'adresse indiquée sur la commande'}`;
                   const waHref = driverPhone ? whatsappTo(driverPhone, contactMessage) : whatsappLink(contactMessage);
+                  // Identité minimale du livreur, visible uniquement pendant la
+                  // livraison active : prénom + initiale et note moyenne.
+                  const driverName = getDriverDisplayName(order.driverId);
+                  const stats = order.driverId ? driverStatsMap[order.driverId] : undefined;
                   return (
                     <div className="mt-3 pt-3 border-t border-border-light">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 rounded-full bg-green-light flex items-center justify-center shrink-0">
+                          <UserRound className="w-4 h-4 text-green-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-inter font-semibold text-text-primary text-sm truncate">
+                            {driverName ? `Votre livreur : ${driverName}` : 'Votre livreur'}
+                          </p>
+                          {stats && stats.averageRating != null && (
+                            <p className="flex items-center gap-1 text-xs text-text-secondary font-inter">
+                              <Star className="w-3 h-3 fill-gold-accent text-gold-accent" />
+                              {stats.averageRating.toFixed(1)}
+                              <span className="text-text-muted">
+                                · {stats.completedDeliveries} course{stats.completedDeliveries > 1 ? 's' : ''}
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
                       <div className="flex gap-1.5 flex-wrap">
                         <a
                           href={`tel:${driverPhone ?? SUPPORT_PHONE}`}
                           aria-label={driverPhone ? 'Appeler le livreur' : 'Appeler le support MiamExpress'}
-                          className="text-[11px] bg-bg-secondary rounded-full px-3 py-1.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors"
+                          className="text-xs bg-bg-secondary rounded-full px-3.5 py-2.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors inline-flex items-center"
                         >
                           📞 {driverPhone ? 'Appeler le livreur' : 'Appeler le support'}
                         </a>
@@ -456,7 +697,7 @@ export default function Orders() {
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={driverPhone ? 'Écrire au livreur sur WhatsApp' : 'Écrire au support sur WhatsApp'}
-                          className="text-[11px] bg-bg-secondary rounded-full px-3 py-1.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors"
+                          className="text-xs bg-bg-secondary rounded-full px-3.5 py-2.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors inline-flex items-center"
                         >
                           💬 WhatsApp {driverPhone ? 'livreur' : 'support'}
                         </a>
@@ -503,32 +744,57 @@ export default function Orders() {
                             </button>
                           ))}
                         </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {DELIVERY_REVIEW_TAGS.map((tag) => {
+                            const active = reviewTags.includes(tag);
+                            return (
+                              <button
+                                key={tag}
+                                type="button"
+                                onClick={() => toggleReviewTag(tag)}
+                                className={`h-7 px-2.5 rounded-full border text-[11px] font-inter font-medium transition-colors ${active
+                                  ? 'bg-green-light border-green-primary text-green-primary'
+                                  : 'bg-white border-border-custom text-text-secondary hover:text-green-primary hover:border-green-primary'
+                                  }`}
+                              >
+                                {tag}
+                              </button>
+                            );
+                          })}
+                        </div>
                         <textarea
                           value={reviewComment}
                           onChange={(e) => setReviewComment(e.target.value)}
                           placeholder="Votre avis sur la livraison (optionnel)..."
                           rows={2}
-                          className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted"
+                          maxLength={500}
+                          disabled={reviewSubmittingId === order.id}
+                          className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted disabled:opacity-60"
                         />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleSubmitReview(order.id)}
-                            className="bg-green-primary text-white font-inter font-medium text-xs px-4 h-9 rounded-lg hover:bg-green-dark transition-colors"
-                          >
-                            Envoyer
-                          </button>
-                          <button
-                            onClick={() => setReviewingId(null)}
-                            className="text-text-secondary font-inter text-xs px-3 h-9 rounded-lg hover:bg-bg-secondary transition-colors"
-                          >
-                            Annuler
-                          </button>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-[11px] text-text-muted font-inter">{reviewComment.length}/500</span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleSubmitReview(order.id)}
+                              disabled={reviewSubmittingId === order.id}
+                              className="inline-flex items-center gap-1.5 bg-green-primary text-white font-inter font-medium text-xs px-4 h-9 rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60"
+                            >
+                              {reviewSubmittingId === order.id ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Envoi...</> : 'Envoyer'}
+                            </button>
+                            <button
+                              onClick={() => { setReviewingId(null); setReviewTags([]); }}
+                              disabled={reviewSubmittingId === order.id}
+                              className="text-text-secondary font-inter text-xs px-3 h-9 rounded-lg hover:bg-bg-secondary transition-colors disabled:opacity-60"
+                            >
+                              Annuler
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ) : (
                       <button
                         onClick={() => setReviewingId(order.id)}
-                        className="flex items-center gap-1.5 text-green-primary font-inter text-sm font-medium hover:text-green-dark transition-colors"
+                        className="flex items-center gap-1.5 text-green-primary font-inter text-sm font-medium hover:text-green-dark transition-colors min-h-11"
                       >
                         <Star className="w-4 h-4" />
                         Noter la livraison
@@ -563,32 +829,57 @@ export default function Orders() {
                             </button>
                           ))}
                         </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {RESTAURANT_REVIEW_TAGS.map((tag) => {
+                            const active = restoTags.includes(tag);
+                            return (
+                              <button
+                                key={tag}
+                                type="button"
+                                onClick={() => toggleRestoTag(tag)}
+                                className={`h-7 px-2.5 rounded-full border text-[11px] font-inter font-medium transition-colors ${active
+                                  ? 'bg-green-light border-green-primary text-green-primary'
+                                  : 'bg-white border-border-custom text-text-secondary hover:text-green-primary hover:border-green-primary'
+                                  }`}
+                              >
+                                {tag}
+                              </button>
+                            );
+                          })}
+                        </div>
                         <textarea
                           value={restoComment}
                           onChange={(e) => setRestoComment(e.target.value)}
                           placeholder="Votre avis sur le restaurant (optionnel)..."
                           rows={2}
-                          className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted"
+                          maxLength={500}
+                          disabled={restoReviewSubmittingId === order.id}
+                          className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted disabled:opacity-60"
                         />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleSubmitRestoReview(order.id, order.restaurantId)}
-                            className="bg-green-primary text-white font-inter font-medium text-xs px-4 h-9 rounded-lg hover:bg-green-dark transition-colors"
-                          >
-                            Envoyer
-                          </button>
-                          <button
-                            onClick={() => setRestoReviewingId(null)}
-                            className="text-text-secondary font-inter text-xs px-3 h-9 rounded-lg hover:bg-bg-secondary transition-colors"
-                          >
-                            Annuler
-                          </button>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-[11px] text-text-muted font-inter">{restoComment.length}/500</span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleSubmitRestoReview(order.id, order.restaurantId)}
+                              disabled={restoReviewSubmittingId === order.id}
+                              className="inline-flex items-center gap-1.5 bg-green-primary text-white font-inter font-medium text-xs px-4 h-9 rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60"
+                            >
+                              {restoReviewSubmittingId === order.id ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Envoi...</> : 'Envoyer'}
+                            </button>
+                            <button
+                              onClick={() => { setRestoReviewingId(null); setRestoTags([]); }}
+                              disabled={restoReviewSubmittingId === order.id}
+                              className="text-text-secondary font-inter text-xs px-3 h-9 rounded-lg hover:bg-bg-secondary transition-colors disabled:opacity-60"
+                            >
+                              Annuler
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ) : (
                       <button
                         onClick={() => setRestoReviewingId(order.id)}
-                        className="flex items-center gap-1.5 text-green-primary font-inter text-sm font-medium hover:text-green-dark transition-colors"
+                        className="flex items-center gap-1.5 text-green-primary font-inter text-sm font-medium hover:text-green-dark transition-colors min-h-11"
                       >
                         <Store className="w-4 h-4" />
                         Noter le restaurant
@@ -619,6 +910,37 @@ export default function Orders() {
               className="bg-green-primary text-white hover:bg-green-dark"
             >
               Vider et recommander
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Série PTS — litige client sur la livraison (motif obligatoire) */}
+      <AlertDialog open={!!disputeTarget} onOpenChange={(open) => { if (!open) setDisputeTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Signaler un problème — commande {disputeTarget ? shortOrderId(disputeTarget.id) : ''}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Décrivez précisément le problème (plat manquant, commande non conforme…).
+              L&apos;équipe MiamExpress tranche sous 24 h : si la livraison est jugée
+              conforme, la garantie est perdue ; sinon elle vous est remboursée intégralement.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <textarea
+            value={disputeNote}
+            onChange={(e) => setDisputeNote(e.target.value)}
+            placeholder="Motif du litige (obligatoire)"
+            rows={3}
+            className="w-full bg-white rounded-lg border border-border-custom px-3 py-2 text-sm font-inter outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all resize-none"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleSubmitDispute}
+              disabled={!disputeNote.trim() || disputeSubmitting}
+              className="bg-error text-white hover:bg-error/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {disputeSubmitting ? 'Envoi...' : 'Ouvrir le litige'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -147,7 +147,7 @@ export default function AdminDashboard() {
             <div className="divide-y divide-border-light">
               {topRestaurants.map((r, i) => (
                 <div key={r.name} className="py-2.5 flex items-center gap-3">
-                  <span className={`w-6 h-6 rounded-full text-xs font-inter font-bold flex items-center justify-center shrink-0 ${i < 3 ? 'bg-gold-light text-gold-accent' : 'text-text-muted'}`}>{i + 1}</span>
+                  <span className={`w-6 h-6 rounded-full text-xs font-inter font-bold flex items-center justify-center shrink-0 ${i < 3 ? 'bg-gold-light text-amber-700' : 'text-text-muted'}`}>{i + 1}</span>
                   <p className="flex-1 font-inter font-medium text-text-primary text-sm truncate">{r.name}</p>
                   <p className="text-text-muted text-xs font-inter shrink-0">{r.orders} cmd.</p>
                   <p className="font-inter font-semibold text-green-primary text-sm shrink-0 w-24 text-right">{r.revenue.toLocaleString()} FCFA</p>
@@ -166,7 +166,7 @@ export default function AdminDashboard() {
             <div className="divide-y divide-border-light">
               {topDishes.map((d, i) => (
                 <div key={d.name} className="py-2.5 flex items-center gap-3">
-                  <span className={`w-6 h-6 rounded-full text-xs font-inter font-bold flex items-center justify-center shrink-0 ${i < 3 ? 'bg-gold-light text-gold-accent' : 'text-text-muted'}`}>{i + 1}</span>
+                  <span className={`w-6 h-6 rounded-full text-xs font-inter font-bold flex items-center justify-center shrink-0 ${i < 3 ? 'bg-gold-light text-amber-700' : 'text-text-muted'}`}>{i + 1}</span>
                   <p className="flex-1 font-inter font-medium text-text-primary text-sm truncate">{d.name}</p>
                   <p className="text-text-muted text-xs font-inter shrink-0">{d.quantity} vendus</p>
                   <p className="font-inter font-semibold text-green-primary text-sm shrink-0 w-24 text-right">{d.revenue.toLocaleString()} FCFA</p>

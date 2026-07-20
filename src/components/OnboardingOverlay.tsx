@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UtensilsCrossed, MapPin, Bike } from 'lucide-react';
 import { activeCities } from '../data/locations';
@@ -34,6 +34,15 @@ export default function OnboardingOverlay({ onClose }: { onClose: () => void }) 
     markCompleted();
     onClose();
   };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const finish = (goExplore: boolean) => {
     markCompleted();
@@ -80,7 +89,7 @@ export default function OnboardingOverlay({ onClose }: { onClose: () => void }) 
           <button
             type="button"
             onClick={close}
-            className="text-text-secondary font-inter text-sm hover:text-text-primary px-2 py-1"
+            className="text-text-secondary font-inter text-sm hover:text-text-primary px-3 min-h-11 inline-flex items-center rounded-lg"
           >
             Passer
           </button>
@@ -101,7 +110,7 @@ export default function OnboardingOverlay({ onClose }: { onClose: () => void }) 
               id="onboarding-city"
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              className="w-full bg-bg-secondary rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none"
+              className="w-full bg-white border border-border-custom rounded-lg px-3 h-12 text-text-primary font-inter text-[15px] outline-none"
             >
               {activeCities.map((c) => (
                 <option key={c.id} value={c.name}>{c.name}</option>

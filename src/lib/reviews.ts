@@ -5,6 +5,26 @@ import type { Restaurant } from '../data/mockData';
 export type ReviewTargetType = 'restaurant' | 'driver' | 'dish';
 export type ReviewStatus = 'published' | 'pending' | 'hidden';
 
+// Réponse officielle du restaurant à un avis : une seule par avis, éditable,
+// modérable indépendamment de l'avis (jamais de fil de discussion).
+export interface OwnerReply {
+  text: string;
+  createdAt: string;
+  updatedAt?: string | null;
+  status: 'published' | 'hidden';
+  moderationReason?: string | null;
+}
+
+// Signalement d'un avis par le restaurant (« demander une modération ») :
+// un seul signalement actif par avis, traité par l'admin — soit en modérant
+// l'avis (masquer/publier le clôt automatiquement), soit en le classant
+// sans action.
+export interface OwnerReport {
+  reason: string;
+  createdAt: string;
+  status: 'open' | 'resolved';
+}
+
 export interface Review {
   id: string;
   orderId: string;
@@ -24,6 +44,8 @@ export interface Review {
   moderationReason?: string | null;
   createdAt: string;
   updatedAt?: string | null;
+  ownerReply?: OwnerReply | null;
+  ownerReport?: OwnerReport | null;
 }
 
 export interface ReviewSummary {
@@ -76,6 +98,168 @@ const PRIOR_WEIGHT = 8;
 const MAX_COMMENT_LENGTH = 500;
 const MAX_TAGS = 6;
 const MAX_TAG_LENGTH = 40;
+
+const ALLOW_DEV_REVIEW_FALLBACK = !USE_VPS_REVIEWS && (import.meta.env.DEV || import.meta.env.VITE_FORCE_MOCK_AUTH === 'true' || import.meta.env.VITE_ENABLE_DEMO_DATA === 'true');
+const LOCAL_DEMO_REVIEWS: Review[] = [
+  {
+    id: 'local-demo-review-chez-mama-1',
+    orderId: 'local-demo-delivered-order-1',
+    customerId: 'local-demo-customer-1',
+    targetType: 'restaurant',
+    targetId: '1',
+    restaurantId: '1',
+    driverId: null,
+    dishId: null,
+    rating: 5,
+    comment: 'Commande livrée chaude, portions généreuses et emballage très soigné. Expérience premium du début à la fin.',
+    tags: ['plats chauds', 'emballage soigné', 'rapide'],
+    authorName: 'Client test A.',
+    isVerifiedOrder: true,
+    isTest: true,
+    status: 'published',
+    moderationReason: null,
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    updatedAt: null,
+  },
+  {
+    id: 'local-demo-review-chez-mama-2',
+    orderId: 'local-demo-delivered-order-2',
+    customerId: 'local-demo-customer-2',
+    targetType: 'restaurant',
+    targetId: '1',
+    restaurantId: '1',
+    driverId: null,
+    dishId: null,
+    rating: 5,
+    comment: 'Le restaurant a respecté les indications et la qualité était constante. Je recommande sans hésitation.',
+    tags: ['qualité constante', 'instructions respectées', 'savoureux'],
+    authorName: 'Client test B.',
+    isVerifiedOrder: true,
+    isTest: true,
+    status: 'published',
+    moderationReason: null,
+    createdAt: new Date(Date.now() - 9 * 60 * 60 * 1000).toISOString(),
+    updatedAt: null,
+  },
+  {
+    id: 'local-demo-review-poulet-dg-1',
+    orderId: 'local-demo-delivered-order-3',
+    customerId: 'local-demo-customer-3',
+    targetType: 'restaurant',
+    targetId: '2',
+    restaurantId: '2',
+    driverId: null,
+    dishId: null,
+    rating: 4,
+    comment: "Très bonne commande, livraison propre et service fluide. Une petite marge sur le délai, mais l'ensemble reste excellent.",
+    tags: ['service fluide', 'bon goût', 'fiable'],
+    authorName: 'Client test C.',
+    isVerifiedOrder: true,
+    isTest: true,
+    status: 'published',
+    moderationReason: null,
+    createdAt: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
+    updatedAt: null,
+  },
+  {
+    id: 'local-demo-review-bucheron-1',
+    orderId: 'local-demo-delivered-order-4',
+    customerId: 'local-demo-customer-4',
+    targetType: 'restaurant',
+    targetId: '3',
+    restaurantId: '3',
+    driverId: null,
+    dishId: null,
+    rating: 5,
+    comment: "Présentation impeccable, plat bien assaisonné et suivi de commande rassurant. C'est exactement le niveau attendu.",
+    tags: ['présentation', 'bien assaisonné', 'suivi clair'],
+    authorName: 'Client test D.',
+    isVerifiedOrder: true,
+    isTest: true,
+    status: 'published',
+    moderationReason: null,
+    createdAt: new Date(Date.now() - 27 * 60 * 60 * 1000).toISOString(),
+    updatedAt: null,
+  },
+  {
+    id: 'local-demo-review-seafood-1',
+    orderId: 'local-demo-delivered-order-5',
+    customerId: 'local-demo-customer-5',
+    targetType: 'restaurant',
+    targetId: '5',
+    restaurantId: '5',
+    driverId: null,
+    dishId: null,
+    rating: 4,
+    comment: 'Bon rapport qualite prix et repas arrive dans un tres bon etat. Je commanderai encore chez ce restaurant.',
+    tags: ['bon rapport qualite prix', 'repas intact', 'recommande'],
+    authorName: 'Client test E.',
+    isVerifiedOrder: true,
+    isTest: true,
+    status: 'published',
+    moderationReason: null,
+    createdAt: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString(),
+    updatedAt: null,
+  },
+];
+type ReviewApiRow = Partial<Review> & {
+  order_id?: string;
+  customer_id?: string;
+  target_type?: ReviewTargetType;
+  target_id?: string;
+  restaurant_id?: string;
+  driver_id?: string | null;
+  dish_id?: string | null;
+  author_name?: string | null;
+  is_verified_order?: boolean;
+  is_test?: boolean;
+  moderation_reason?: string | null;
+  created_at?: string;
+  updated_at?: string | null;
+  owner_reply?: unknown;
+  owner_report?: unknown;
+};
+
+type OwnerReplyApiRow = {
+  text?: string;
+  createdAt?: string;
+  created_at?: string;
+  updatedAt?: string | null;
+  updated_at?: string | null;
+  status?: string;
+  moderationReason?: string | null;
+  moderation_reason?: string | null;
+};
+
+type ReviewSummaryApiRow = Partial<ReviewSummary> & {
+  target_type?: ReviewTargetType;
+  target_id?: string;
+  rating_avg?: number;
+  rating_weighted?: number;
+  review_count?: number;
+  published_count?: number;
+  verified_count?: number;
+  updated_at?: string | null;
+};
+
+type EligibilityApiPayload = {
+  canReviewRestaurant?: boolean;
+  canReviewDriver?: boolean;
+  canReviewDishes?: boolean;
+  reasons?: string[];
+  existingReviews?: unknown[];
+};
+
+type LegacyRestaurantReviewRow = {
+  id: string;
+  orderId: string;
+  restaurantId: string;
+  customerId: string;
+  rating: number;
+  comment?: string;
+  authorName?: string | null;
+  createdAt: string;
+};
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback;
@@ -133,7 +317,33 @@ function normalizeStatus(value: unknown): ReviewStatus {
   return value === 'pending' || value === 'hidden' || value === 'published' ? value : 'published';
 }
 
-function normalizeReview(row: any): Review {
+function normalizeOwnerReply(row: unknown): OwnerReply | null {
+  if (!row || typeof row !== 'object') return null;
+  const reply = row as OwnerReplyApiRow;
+  const text = String(reply.text ?? '').trim();
+  if (!text) return null;
+  return {
+    text: text.slice(0, MAX_COMMENT_LENGTH),
+    createdAt: String(reply.createdAt ?? reply.created_at ?? new Date().toISOString()),
+    updatedAt: (reply.updatedAt ?? reply.updated_at ?? null) as string | null,
+    status: reply.status === 'hidden' ? 'hidden' : 'published',
+    moderationReason: (reply.moderationReason ?? reply.moderation_reason ?? null) as string | null,
+  };
+}
+
+function normalizeOwnerReport(row: unknown): OwnerReport | null {
+  if (!row || typeof row !== 'object') return null;
+  const report = row as { reason?: string; createdAt?: string; created_at?: string; status?: string };
+  const reason = String(report.reason ?? '').trim();
+  if (!reason) return null;
+  return {
+    reason: reason.slice(0, MAX_COMMENT_LENGTH),
+    createdAt: String(report.createdAt ?? report.created_at ?? new Date().toISOString()),
+    status: report.status === 'resolved' ? 'resolved' : 'open',
+  };
+}
+
+function normalizeReview(row: ReviewApiRow): Review {
   return {
     id: String(row.id),
     orderId: String(row.orderId ?? row.order_id),
@@ -153,6 +363,8 @@ function normalizeReview(row: any): Review {
     moderationReason: (row.moderationReason ?? row.moderation_reason ?? null) as string | null,
     createdAt: String(row.createdAt ?? row.created_at ?? new Date().toISOString()),
     updatedAt: (row.updatedAt ?? row.updated_at ?? null) as string | null,
+    ownerReply: normalizeOwnerReply(row.ownerReply ?? row.owner_reply),
+    ownerReport: normalizeOwnerReport(row.ownerReport ?? row.owner_report),
   };
 }
 
@@ -167,7 +379,7 @@ function normalizeReviewList(payload: unknown): Review[] {
   return source.map(normalizeReview);
 }
 
-function normalizeSummary(row: any, targetType: ReviewTargetType, targetId: string): ReviewSummary {
+function normalizeSummary(row: ReviewSummaryApiRow | null | undefined, targetType: ReviewTargetType, targetId: string): ReviewSummary {
   const breakdown = row?.breakdown ?? {};
   return {
     targetType: (row?.targetType ?? row?.target_type ?? targetType) as ReviewTargetType,
@@ -224,7 +436,7 @@ function readStoredReviews(): Review[] {
 
 function readLegacyRestaurantReviews(): Review[] {
   if (!storageAvailable()) return [];
-  const legacy = safeParse<any[]>(localStorage.getItem(LEGACY_RESTAURANT_REVIEWS_KEY), []);
+  const legacy = safeParse<LegacyRestaurantReviewRow[]>(localStorage.getItem(LEGACY_RESTAURANT_REVIEWS_KEY), []);
   return legacy.map((row) => normalizeReview({
     id: row.id,
     orderId: row.orderId,
@@ -268,7 +480,10 @@ function readLegacyDeliveryReviews(): Review[] {
 
 function readLocalReviews(): Review[] {
   const merged = new Map<string, Review>();
-  for (const review of [...readLegacyRestaurantReviews(), ...readLegacyDeliveryReviews(), ...readStoredReviews()]) {
+  // Les avis démo sont réservés au dev : en build de production sans VPS,
+  // aucun faux avis ne doit passer pour un avis réel.
+  const demoReviews = ALLOW_DEV_REVIEW_FALLBACK ? LOCAL_DEMO_REVIEWS : [];
+  for (const review of [...demoReviews, ...readLegacyRestaurantReviews(), ...readLegacyDeliveryReviews(), ...readStoredReviews()]) {
     const key = `${review.orderId}:${review.targetType}:${review.targetId}:${review.dishId ?? ''}`;
     merged.set(key, review);
   }
@@ -282,7 +497,7 @@ function writeLocalReviews(reviews: Review[]) {
 
 function syncLegacyRestaurantReview(review: Review) {
   if (!storageAvailable() || review.targetType !== 'restaurant') return;
-  const legacy = safeParse<any[]>(localStorage.getItem(LEGACY_RESTAURANT_REVIEWS_KEY), []);
+  const legacy = safeParse<LegacyRestaurantReviewRow[]>(localStorage.getItem(LEGACY_RESTAURANT_REVIEWS_KEY), []);
   const next = [
     {
       id: review.id,
@@ -317,7 +532,7 @@ async function getDeliveredOrder(orderId: string, customerId?: string): Promise<
     throw new Error('Vous ne pouvez noter que vos propres commandes.');
   }
   if (order.status !== 'delivered') {
-    throw new Error('Seules les commandes livrees peuvent etre notees.');
+    throw new Error('Seules les commandes livrées peuvent être notées.');
   }
   return order;
 }
@@ -395,18 +610,22 @@ function computeSummary(targetType: ReviewTargetType, targetId: string, reviews:
 
 export async function fetchReviewEligibility(orderId: string, customerId?: string): Promise<ReviewEligibility> {
   if (USE_VPS_REVIEWS) {
-    const params = new URLSearchParams({ orderId });
-    if (customerId) params.set('customerId', customerId);
-    const payload = await apiJson<unknown>(`/api/reviews/eligibility?${params.toString()}`);
-    const data = getPayloadData(payload) as any;
-    return {
-      orderId,
-      canReviewRestaurant: Boolean(data?.canReviewRestaurant),
-      canReviewDriver: Boolean(data?.canReviewDriver),
-      canReviewDishes: Boolean(data?.canReviewDishes),
-      reasons: Array.isArray(data?.reasons) ? data.reasons : [],
-      existingReviews: normalizeReviewList(data?.existingReviews ?? []),
-    };
+    try {
+      const params = new URLSearchParams({ orderId });
+      if (customerId) params.set('customerId', customerId);
+      const payload = await apiJson<unknown>(`/api/reviews/eligibility?${params.toString()}`);
+      const data = getPayloadData(payload) as EligibilityApiPayload;
+      return {
+        orderId,
+        canReviewRestaurant: Boolean(data?.canReviewRestaurant),
+        canReviewDriver: Boolean(data?.canReviewDriver),
+        canReviewDishes: Boolean(data?.canReviewDishes),
+        reasons: Array.isArray(data?.reasons) ? data.reasons : [],
+        existingReviews: normalizeReviewList(data?.existingReviews ?? []),
+      };
+    } catch (error) {
+      if (!ALLOW_DEV_REVIEW_FALLBACK) throw error;
+    }
   }
 
   const reviews = readLocalReviews().filter((review) => review.orderId === orderId);
@@ -431,7 +650,6 @@ export async function fetchReviewEligibility(orderId: string, customerId?: strin
     };
   }
 }
-
 export async function submitOrderReview(
   orderId: string,
   input: SubmitOrderReviewInput,
@@ -446,36 +664,44 @@ export async function submitOrderReview(
   };
 
   if (USE_VPS_REVIEWS) {
-    const payload = await apiJson<unknown>('/api/reviews', {
-      method: 'POST',
-      body: JSON.stringify({ orderId, customerId, ...normalized }),
-    });
-    return normalizeReview(getPayloadData(payload));
+    try {
+      const payload = await apiJson<unknown>('/api/reviews', {
+        method: 'POST',
+        body: JSON.stringify({ orderId, customerId, ...normalized }),
+      });
+      return normalizeReview(getPayloadData(payload));
+    } catch (error) {
+      if (!ALLOW_DEV_REVIEW_FALLBACK) throw error;
+    }
   }
 
   const order = await getDeliveredOrder(orderId, customerId);
   const review = makeLocalReview(order, normalized, customerId);
   const stored = readStoredReviews();
   if (readLocalReviews().some((existing) => sameReviewIntent(existing, review))) {
-    throw new Error('Vous avez deja note cet element pour cette commande.');
+    throw new Error('Vous avez déjà noté cet élément pour cette commande.');
   }
   writeLocalReviews([review, ...stored]);
   syncLegacyRestaurantReview(review);
   syncLegacyDriverReview(review);
   return review;
 }
-
 export async function fetchRestaurantReviews(
   restaurantId: string,
   options: { limit?: number; includeHidden?: boolean } = {}
 ): Promise<Review[]> {
   if (USE_VPS_REVIEWS) {
-    const params = new URLSearchParams();
-    if (options.limit) params.set('limit', String(options.limit));
-    if (options.includeHidden) params.set('includeHidden', 'true');
-    const qs = params.toString();
-    const payload = await apiJson<unknown>(`/api/restaurants/${encodeURIComponent(restaurantId)}/reviews${qs ? `?${qs}` : ''}`);
-    return normalizeReviewList(payload);
+    try {
+      const params = new URLSearchParams();
+      if (options.limit) params.set('limit', String(options.limit));
+      if (options.includeHidden) params.set('includeHidden', 'true');
+      const qs = params.toString();
+      const payload = await apiJson<unknown>(`/api/restaurants/${encodeURIComponent(restaurantId)}/reviews${qs ? `?${qs}` : ''}`);
+      const apiReviews = normalizeReviewList(payload);
+      if (apiReviews.length > 0 || !ALLOW_DEV_REVIEW_FALLBACK) return apiReviews;
+    } catch (error) {
+      if (!ALLOW_DEV_REVIEW_FALLBACK) throw error;
+    }
   }
 
   return readLocalReviews()
@@ -486,48 +712,56 @@ export async function fetchRestaurantReviews(
     )
     .slice(0, options.limit ?? 100);
 }
-
 export async function fetchRestaurantRatingSummary(restaurantId: string): Promise<ReviewSummary> {
   if (USE_VPS_REVIEWS) {
-    const payload = await apiJson<unknown>(`/api/restaurants/${encodeURIComponent(restaurantId)}/reviews/summary`);
-    return normalizeSummary(getPayloadData(payload), 'restaurant', restaurantId);
+    try {
+      const payload = await apiJson<unknown>(`/api/restaurants/${encodeURIComponent(restaurantId)}/reviews/summary`);
+      const apiSummary = normalizeSummary(getPayloadData(payload), 'restaurant', restaurantId);
+      if (apiSummary.reviewCount > 0 || !ALLOW_DEV_REVIEW_FALLBACK) return apiSummary;
+    } catch (error) {
+      if (!ALLOW_DEV_REVIEW_FALLBACK) throw error;
+    }
   }
   return computeSummary('restaurant', restaurantId, readLocalReviews());
 }
-
 export async function fetchRestaurantRatingSummaries(restaurantIds: string[]): Promise<Record<string, ReviewSummary>> {
   const uniqueIds = [...new Set(restaurantIds)].filter(Boolean);
   if (uniqueIds.length === 0) return {};
 
   if (USE_VPS_REVIEWS) {
-    const params = new URLSearchParams({ targetType: 'restaurant', targetIds: uniqueIds.join(',') });
-    const payload = await apiJson<unknown>(`/api/reviews/summaries?${params.toString()}`);
-    const rows = Array.isArray(getPayloadData(payload)) ? getPayloadData(payload) as any[] : [];
-    return Object.fromEntries(rows.map((row) => {
-      const targetId = String(row.targetId ?? row.target_id);
-      return [targetId, normalizeSummary(row, 'restaurant', targetId)];
-    }));
+    try {
+      const params = new URLSearchParams({ targetType: 'restaurant', targetIds: uniqueIds.join(',') });
+      const payload = await apiJson<unknown>(`/api/reviews/summaries?${params.toString()}`);
+      const rows = Array.isArray(getPayloadData(payload)) ? getPayloadData(payload) as ReviewSummaryApiRow[] : [];
+      const apiSummaries = Object.fromEntries(rows.map((row) => {
+        const targetId = String(row.targetId ?? row.target_id);
+        return [targetId, normalizeSummary(row, 'restaurant', targetId)];
+      }));
+      if (!ALLOW_DEV_REVIEW_FALLBACK) return apiSummaries;
+
+      const localReviews = readLocalReviews();
+      const merged = { ...apiSummaries };
+      for (const id of uniqueIds) {
+        if (!merged[id] || merged[id].reviewCount === 0) {
+          merged[id] = computeSummary('restaurant', id, localReviews);
+        }
+      }
+      return merged;
+    } catch (error) {
+      if (!ALLOW_DEV_REVIEW_FALLBACK) throw error;
+    }
   }
 
   const reviews = readLocalReviews();
   return Object.fromEntries(uniqueIds.map((id) => [id, computeSummary('restaurant', id, reviews)]));
 }
-
 export async function enrichRestaurantsWithReviewSummaries<T extends Restaurant>(
   restaurants: T[]
 ): Promise<(T & RestaurantRatingFields)[]> {
   try {
     const summaries = await fetchRestaurantRatingSummaries(restaurants.map((restaurant) => restaurant.id));
     return restaurants.map((restaurant) => {
-      const summary = summaries[restaurant.id];
-      if (!summary || summary.reviewCount === 0) {
-        return {
-          ...restaurant,
-          ratingWeighted: restaurant.rating,
-          ratingBreakdown: summary?.breakdown,
-          dynamicReviewCount: 0,
-        };
-      }
+      const summary = summaries[restaurant.id] ?? normalizeSummary(null, 'restaurant', restaurant.id);
       return {
         ...restaurant,
         rating: summary.ratingAvg,
@@ -539,7 +773,15 @@ export async function enrichRestaurantsWithReviewSummaries<T extends Restaurant>
       };
     });
   } catch {
-    return restaurants.map((restaurant) => ({ ...restaurant, ratingWeighted: restaurant.rating }));
+    return restaurants.map((restaurant) => ({
+      ...restaurant,
+      rating: 0,
+      ratingWeighted: 0,
+      reviewCount: 0,
+      dynamicReviewCount: 0,
+      verifiedReviewCount: 0,
+      ratingBreakdown: normalizeSummary(null, 'restaurant', restaurant.id).breakdown,
+    }));
   }
 }
 
@@ -560,13 +802,18 @@ export async function fetchAdminReviews(filters: {
   q?: string;
 } = {}): Promise<Review[]> {
   if (USE_VPS_REVIEWS) {
-    const params = new URLSearchParams();
-    if (filters.targetType && filters.targetType !== 'all') params.set('targetType', filters.targetType);
-    if (filters.status && filters.status !== 'all') params.set('status', filters.status);
-    if (filters.q?.trim()) params.set('q', filters.q.trim());
-    const qs = params.toString();
-    const payload = await apiJson<unknown>(`/api/admin/reviews${qs ? `?${qs}` : ''}`);
-    return normalizeReviewList(payload);
+    try {
+      const params = new URLSearchParams();
+      if (filters.targetType && filters.targetType !== 'all') params.set('targetType', filters.targetType);
+      if (filters.status && filters.status !== 'all') params.set('status', filters.status);
+      if (filters.q?.trim()) params.set('q', filters.q.trim());
+      const qs = params.toString();
+      const payload = await apiJson<unknown>(`/api/admin/reviews${qs ? `?${qs}` : ''}`);
+      const apiReviews = normalizeReviewList(payload);
+      if (apiReviews.length > 0 || !ALLOW_DEV_REVIEW_FALLBACK) return apiReviews;
+    } catch (error) {
+      if (!ALLOW_DEV_REVIEW_FALLBACK) throw error;
+    }
   }
 
   const q = filters.q?.trim().toLowerCase() ?? '';
@@ -584,29 +831,216 @@ export async function fetchAdminReviews(filters: {
     ].some((value) => String(value ?? '').toLowerCase().includes(q));
   });
 }
-
 export async function moderateReview(
   reviewId: string,
   status: ReviewStatus,
   moderationReason?: string
 ): Promise<Review> {
   if (USE_VPS_REVIEWS) {
-    const payload = await apiJson<unknown>(`/api/admin/reviews/${encodeURIComponent(reviewId)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status, moderationReason: moderationReason?.trim() || null }),
-    });
-    return normalizeReview(getPayloadData(payload));
+    try {
+      const payload = await apiJson<unknown>(`/api/admin/reviews/${encodeURIComponent(reviewId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, moderationReason: moderationReason?.trim() || null }),
+      });
+      return normalizeReview(getPayloadData(payload));
+    } catch (error) {
+      if (!ALLOW_DEV_REVIEW_FALLBACK) throw error;
+    }
   }
 
-  const stored = readStoredReviews();
   const updatedAt = new Date().toISOString();
-  const next = stored.map((review) =>
-    review.id === reviewId
-      ? { ...review, status, moderationReason: moderationReason?.trim() || null, updatedAt }
-      : review
-  );
+  return updateStoredReview(reviewId, (review) => ({
+    ...review,
+    status,
+    moderationReason: moderationReason?.trim() || null,
+    updatedAt,
+    // Modérer un avis signalé répond de fait au signalement : il est clos.
+    ownerReport: review.ownerReport?.status === 'open'
+      ? { ...review.ownerReport, status: 'resolved' }
+      : review.ownerReport,
+  }));
+}
+
+// Applique une mutation à un avis du stockage mock. Un avis démo ou hérité
+// (clés legacy) absent de yamo_reviews_v1 est matérialisé avec la mutation —
+// la version stockée prime ensuite sur la source dans le merge de
+// readLocalReviews.
+function updateStoredReview(reviewId: string, mutate: (review: Review) => Review): Review {
+  const stored = readStoredReviews();
+  let next: Review[];
+  if (stored.some((review) => review.id === reviewId)) {
+    next = stored.map((review) => (review.id === reviewId ? mutate(review) : review));
+  } else {
+    const source = readLocalReviews().find((review) => review.id === reviewId);
+    if (!source) throw new Error('Avis introuvable.');
+    next = [mutate(source), ...stored];
+  }
   writeLocalReviews(next);
   const updated = readLocalReviews().find((review) => review.id === reviewId);
   if (!updated) throw new Error('Avis introuvable.');
   return updated;
+}
+
+/**
+ * Réponse officielle du restaurant à un avis (création ou édition).
+ * VPS : POST /api/reviews/:id/reply (le serveur vérifie que le token
+ * appartient au restaurant cible) ; mock : mutation dans yamo_reviews_v1.
+ */
+export async function submitOwnerReply(reviewId: string, text: string): Promise<Review> {
+  const clean = text.trim().slice(0, MAX_COMMENT_LENGTH);
+  if (!clean) throw new Error('La réponse ne peut pas être vide.');
+
+  if (USE_VPS_REVIEWS) {
+    try {
+      const payload = await apiJson<unknown>(`/api/reviews/${encodeURIComponent(reviewId)}/reply`, {
+        method: 'POST',
+        body: JSON.stringify({ text: clean }),
+      });
+      return normalizeReview(getPayloadData(payload) as ReviewApiRow);
+    } catch (error) {
+      if (!ALLOW_DEV_REVIEW_FALLBACK) throw error;
+    }
+  }
+
+  const now = new Date().toISOString();
+  return updateStoredReview(reviewId, (review) => {
+    if (review.status !== 'published') {
+      throw new Error('Impossible de répondre à un avis non publié.');
+    }
+    return {
+      ...review,
+      // Une édition republie la réponse : le contenu est nouveau, la
+      // modération précédente ne s'y applique plus.
+      ownerReply: review.ownerReply
+        ? { ...review.ownerReply, text: clean, updatedAt: now, status: 'published', moderationReason: null }
+        : { text: clean, createdAt: now, updatedAt: null, status: 'published', moderationReason: null },
+    };
+  });
+}
+
+/** Suppression de la réponse par le restaurant. */
+export async function deleteOwnerReply(reviewId: string): Promise<Review> {
+  if (USE_VPS_REVIEWS) {
+    try {
+      const payload = await apiJson<unknown>(`/api/reviews/${encodeURIComponent(reviewId)}/reply`, {
+        method: 'DELETE',
+      });
+      return normalizeReview(getPayloadData(payload) as ReviewApiRow);
+    } catch (error) {
+      if (!ALLOW_DEV_REVIEW_FALLBACK) throw error;
+    }
+  }
+  return updateStoredReview(reviewId, (review) => ({ ...review, ownerReply: null }));
+}
+
+/**
+ * Modération admin de la réponse restaurant — indépendante du statut de
+ * l'avis (masquer une réponse agressive sans toucher l'avis client).
+ */
+export async function moderateOwnerReply(
+  reviewId: string,
+  status: OwnerReply['status'],
+  moderationReason?: string
+): Promise<Review> {
+  if (USE_VPS_REVIEWS) {
+    try {
+      const payload = await apiJson<unknown>(`/api/admin/reviews/${encodeURIComponent(reviewId)}/reply`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, moderationReason: moderationReason?.trim() || null }),
+      });
+      return normalizeReview(getPayloadData(payload) as ReviewApiRow);
+    } catch (error) {
+      if (!ALLOW_DEV_REVIEW_FALLBACK) throw error;
+    }
+  }
+  return updateStoredReview(reviewId, (review) => {
+    if (!review.ownerReply) throw new Error('Aucune réponse à modérer sur cet avis.');
+    return {
+      ...review,
+      ownerReply: {
+        ...review.ownerReply,
+        status,
+        moderationReason: status === 'hidden' ? (moderationReason?.trim() || 'Masquée par la modération.') : null,
+      },
+    };
+  });
+}
+
+/**
+ * Signalement d'un avis par le restaurant — demande de modération avec motif
+ * obligatoire. VPS : POST /api/reviews/:id/report ; mock : yamo_reviews_v1.
+ */
+export async function reportReview(reviewId: string, reason: string): Promise<Review> {
+  const clean = reason.trim().slice(0, MAX_COMMENT_LENGTH);
+  if (!clean) throw new Error('Le motif du signalement est obligatoire.');
+
+  if (USE_VPS_REVIEWS) {
+    try {
+      const payload = await apiJson<unknown>(`/api/reviews/${encodeURIComponent(reviewId)}/report`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: clean }),
+      });
+      return normalizeReview(getPayloadData(payload) as ReviewApiRow);
+    } catch (error) {
+      if (!ALLOW_DEV_REVIEW_FALLBACK) throw error;
+    }
+  }
+
+  return updateStoredReview(reviewId, (review) => {
+    if (review.ownerReport?.status === 'open') {
+      throw new Error('Cet avis est déjà signalé — la modération va le traiter.');
+    }
+    return {
+      ...review,
+      ownerReport: { reason: clean, createdAt: new Date().toISOString(), status: 'open' },
+    };
+  });
+}
+
+/**
+ * Classement d'un signalement par l'admin sans toucher à l'avis (« sans
+ * action »). VPS : PATCH /api/admin/reviews/:id/report.
+ */
+export async function resolveReviewReport(reviewId: string): Promise<Review> {
+  if (USE_VPS_REVIEWS) {
+    try {
+      const payload = await apiJson<unknown>(`/api/admin/reviews/${encodeURIComponent(reviewId)}/report`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'resolved' }),
+      });
+      return normalizeReview(getPayloadData(payload) as ReviewApiRow);
+    } catch (error) {
+      if (!ALLOW_DEV_REVIEW_FALLBACK) throw error;
+    }
+  }
+  return updateStoredReview(reviewId, (review) => {
+    if (!review.ownerReport) throw new Error('Aucun signalement sur cet avis.');
+    return { ...review, ownerReport: { ...review.ownerReport, status: 'resolved' } };
+  });
+}
+
+// ─── Suivi « nouveaux avis » côté restaurateur ────────────────────────────
+// Notification in-app sans infra externe : on mémorise localement la date du
+// dernier passage du restaurateur sur ses avis, et le dashboard compare.
+
+const REVIEWS_SEEN_KEY = 'yamo_resto_reviews_seen';
+
+export function getRestaurantReviewsLastSeen(restaurantId: string): string | null {
+  if (!storageAvailable()) return null;
+  const map = safeParse<Record<string, string>>(localStorage.getItem(REVIEWS_SEEN_KEY), {});
+  return map[restaurantId] ?? null;
+}
+
+export function markRestaurantReviewsSeen(restaurantId: string): void {
+  if (!storageAvailable()) return;
+  const map = safeParse<Record<string, string>>(localStorage.getItem(REVIEWS_SEEN_KEY), {});
+  map[restaurantId] = new Date().toISOString();
+  localStorage.setItem(REVIEWS_SEEN_KEY, JSON.stringify(map));
+}
+
+export function countUnseenReviews(restaurantId: string, reviews: Review[]): number {
+  const lastSeen = getRestaurantReviewsLastSeen(restaurantId);
+  // Premier passage : tout est « déjà vu » pour ne pas alerter sur l'historique.
+  if (!lastSeen) return 0;
+  return reviews.filter((review) => review.status === 'published' && review.createdAt > lastSeen).length;
 }

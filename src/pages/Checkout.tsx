@@ -525,8 +525,8 @@ export default function Checkout() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-text-secondary font-inter text-sm mb-1.5">
-                Ville
-                {cityLocked && <span className="text-green-primary text-[11px] ml-1">(restaurant)</span>}
+                Ville de livraison
+                {cityLocked && <span className="text-green-primary text-[11px] ml-1">(fixée par le restaurant)</span>}
               </label>
               <select
                 value={city}
@@ -593,7 +593,7 @@ export default function Checkout() {
                   type="button"
                   onClick={handleGeolocate}
                   disabled={geoLoading}
-                  className="flex items-center gap-1.5 text-green-primary font-inter text-xs font-medium hover:underline disabled:opacity-50"
+                  className="flex items-center gap-1.5 text-green-primary font-inter text-xs font-medium hover:underline disabled:opacity-50 min-h-11 px-1"
                 >
                   <Navigation className="w-3.5 h-3.5" />
                   {geoLoading ? 'Détection...' : 'Me géolocaliser'}
@@ -732,7 +732,7 @@ export default function Checkout() {
               className="w-full bg-white rounded-xl border border-border-custom px-4 py-2.5 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted uppercase focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
             />
             <p className="text-text-muted text-xs font-inter mt-1">
-              Le code sera vérifié à la confirmation de la commande.
+              Le code promo sera vérifié à la confirmation de la commande.
             </p>
           </div>
           <div className="border-t border-border-light pt-3 space-y-2">
@@ -768,7 +768,7 @@ export default function Checkout() {
         </section>
 
         {isPreviewOnlyRestaurant && (
-          <p className="text-gold-accent bg-gold-light rounded-lg px-3 py-2 text-sm font-inter mb-4">
+          <p className="text-amber-700 bg-gold-light rounded-lg px-3 py-2 text-sm font-inter mb-4">
             Ce restaurant est un aperçu de démonstration et n&apos;est pas encore disponible à la commande.
           </p>
         )}
@@ -781,7 +781,7 @@ export default function Checkout() {
           </div>
         )}
         {belowMinimum && (
-          <div className="bg-gold-light text-gold-accent rounded-lg px-3 py-2.5 text-sm font-inter mb-4" role="status">
+          <div className="bg-gold-light text-amber-700 rounded-lg px-3 py-2.5 text-sm font-inter mb-4" role="status">
             <span className="font-semibold">Commande minimum : {minOrder.toLocaleString()} FCFA.</span>{' '}
             Ajoutez {missingForMinimum.toLocaleString()} FCFA d&apos;articles pour valider.{' '}
             <Link to={`/restaurant/${restaurantId}`} className="underline font-medium hover:opacity-80">

@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Users, Search, Phone, MapPin, ShoppingBag, Ban, CheckCircle, X, ChevronRight, History, AlertTriangle } from 'lucide-react';
+import { Users, Search, Phone, MapPin, ShoppingBag, Ban, CheckCircle, X, ChevronRight, History, AlertTriangle, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -15,6 +15,13 @@ import {
 import type { Order } from '../../lib/orders';
 import { formatOrderTime } from '../../lib/orders';
 import { usePolling } from '../../hooks/usePolling';
+import { adminSetPassword, getUserEmail, ADMIN_DEFAULT_PASSWORD } from '../../contexts/AuthContext';
+import {
+  fetchAdminCustomers,
+  setAdminCustomerSuspended,
+  setAdminUserPassword,
+  type AdminCustomerRecord,
+} from '../../lib/admin';
 
 // ─── Helpers ─────────────────────────────────────────────
 
@@ -22,21 +29,17 @@ function fmt(amount: number): string { return `${amount.toLocaleString()} FCFA`;
 
 // ─── Types ───────────────────────────────────────────────
 
-interface CustomerRecord {
+interface SavedAddress {
   id: string;
-  phone: string;
-  name?: string;
-  role: string;
-  isApproved: boolean;
-  isSuspended: boolean;
-  suspensionReason?: string | null;
-  city?: string | null;
-  // Aggregated from orders
-  orderCount: number;
-  totalSpent: number;
-  lastOrderAt: string | null;
-  cancelledCount: number;
-  orders: Order[];
+  label: string;
+  city: string;
+  neighborhood: string;
+  landmark: string;
+  fullText: string;
+}
+
+interface CustomerRecord extends Omit<AdminCustomerRecord, 'savedAddresses'> {
+  savedAddresses: SavedAddress[];
 }
 
 // ─── Helpers ─────────────────────────────────────────────
@@ -84,6 +87,19 @@ function buildCustomers(users: Record<string, unknown>, orders: Order[]): Custom
     const totalSpent = deliveredOrders.reduce((sum, o) => sum + (o.total ?? 0), 0);
     const cancelledCount = allOrders.filter((o) => o.status === 'cancelled').length;
 
+    // Profile enrichment from localStorage
+    const phoneKey = normalizedPhone;
+    const photoKey = `yamo_profile_photo`;
+    const allPhotos = JSON.parse(localStorage.getItem('yamo_profile_photo') ?? '{}');
+    // La photo est stockée par clé de téléphone dans un objet global ou individuellement
+    const profilePhoto = localStorage.getItem(`yamo_profile_photo_${phoneKey}`) || '';
+    const whatsapp = localStorage.getItem(`yamo_profile_whatsapp_${phoneKey}`) || '';
+    const savedAddresses: SavedAddress[] = (() => {
+      try {
+        return JSON.parse(localStorage.getItem('yamo_saved_addresses') ?? '[]');
+      } catch { return []; }
+    })();
+
     return {
       id: u.id,
       phone: u.phone ?? '',
@@ -93,6 +109,9 @@ function buildCustomers(users: Record<string, unknown>, orders: Order[]): Custom
       isSuspended: u.isSuspended ?? false,
       suspensionReason: u.suspensionReason ?? null,
       city: u.city ?? null,
+      profilePhoto,
+      whatsapp,
+      savedAddresses,
       orderCount: allOrders.length,
       totalSpent,
       lastOrderAt: allOrders.length > 0 ? allOrders[0].createdAt : null,
@@ -110,8 +129,20 @@ export default function AdminCustomers() {
   const [query, setQuery] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
   const [blockTarget, setBlockTarget] = useState<CustomerRecord | null>(null);
+  const [passwordTarget, setPasswordTarget] = useState<CustomerRecord | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const load = useCallback(async () => {
+    try {
+      const apiCustomers = await fetchAdminCustomers();
+      if (apiCustomers) {
+        setCustomers(apiCustomers.map((c) => ({ ...c, savedAddresses: c.savedAddresses as SavedAddress[] })));
+        return;
+      }
+    } catch (err) {
+      console.warn('[admin-customers] API indisponible, repli localStorage', err);
+    }
     const users = readUsers();
     const orders = readOrders();
     setCustomers(buildCustomers(users, orders));
@@ -144,6 +175,18 @@ export default function AdminCustomers() {
   // ── Block / Unblock ────────────────────────────────────
 
   const applyBlock = async (customer: CustomerRecord, suspend: boolean) => {
+    try {
+      const updatedOnServer = await setAdminCustomerSuspended(customer.id, suspend, suspend ? 'Bloqué par admin' : undefined);
+      if (updatedOnServer) {
+        toast.success(suspend ? 'Client bloqué' : 'Client débloqué');
+        await load();
+        setBlockTarget(null);
+        return;
+      }
+    } catch (err) {
+      console.warn('[admin-customers] Suspension API impossible, repli localStorage', err);
+    }
+
     const users = readUsers();
     const key = customer.phone.replace(/\s/g, '');
     if (users[key]) {
@@ -157,6 +200,26 @@ export default function AdminCustomers() {
       load();
     }
     setBlockTarget(null);
+  };
+
+  // ── Set / Reset password ───────────────────────────────
+
+  const applyPassword = async (customer: CustomerRecord) => {
+    if (!newPassword || newPassword.length < 4) {
+      toast.error('Le mot de passe doit contenir au moins 4 caractères.');
+      return;
+    }
+    try {
+      const updatedOnServer = await setAdminUserPassword(customer.id, newPassword);
+      if (!updatedOnServer) adminSetPassword(customer.phone, newPassword);
+    } catch (err) {
+      console.warn('[admin-customers] Mot de passe API impossible, repli localStorage', err);
+      adminSetPassword(customer.phone, newPassword);
+    }
+    toast.success(`Mot de passe défini pour ${customer.name || customer.phone}`);
+    setPasswordTarget(null);
+    setNewPassword('');
+    setShowPassword(false);
   };
 
   // ── Helper: format last order ──────────────────────────
@@ -227,7 +290,7 @@ export default function AdminCustomers() {
           { icon: Users, label: 'Total clients', value: stats.total, color: 'text-blue-600 bg-blue-50' },
           { icon: CheckCircle, label: 'Actifs', value: stats.active, color: 'text-green-primary bg-green-50' },
           { icon: Ban, label: 'Bloqués', value: stats.blocked, color: 'text-red-600 bg-red-50' },
-          { icon: ShoppingBag, label: 'CA généré', value: fmt(stats.totalRevenue), color: 'text-gold-accent bg-gold-light' },
+          { icon: ShoppingBag, label: 'CA généré', value: fmt(stats.totalRevenue), color: 'text-amber-700 bg-gold-light' },
         ].map((card) => (
           <div key={card.label} className="bg-white rounded-xl border border-border-custom p-4">
             <div className={`w-9 h-9 rounded-lg ${card.color} flex items-center justify-center mb-2`}>
@@ -324,8 +387,8 @@ export default function AdminCustomers() {
                   <button
                     onClick={(e) => { e.stopPropagation(); setBlockTarget(c); }}
                     className={`flex items-center gap-1 font-inter font-medium text-xs px-3 h-8 rounded-lg transition-colors ${c.isSuspended
-                        ? 'bg-green-50 text-green-primary hover:bg-green-primary hover:text-white'
-                        : 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white'
+                      ? 'bg-green-50 text-green-primary hover:bg-green-primary hover:text-white'
+                      : 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white'
                       }`}
                     aria-label={c.isSuspended ? 'Débloquer le client' : 'Bloquer le client'}
                   >
@@ -391,6 +454,30 @@ export default function AdminCustomers() {
             <div className="p-5 space-y-5">
               {/* Customer info */}
               <div className="bg-bg-secondary rounded-xl p-4 space-y-3">
+                {/* Profile photo */}
+                {selectedCustomer.profilePhoto && (
+                  <div className="flex justify-center mb-2">
+                    <img
+                      src={selectedCustomer.profilePhoto}
+                      alt="Photo de profil"
+                      className="w-16 h-16 rounded-full object-cover border-2 border-border-custom"
+                    />
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-text-muted font-inter">Nom</span>
+                  <span className="text-sm font-medium text-text-primary">{selectedCustomer.name || '—'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-text-muted font-inter">Téléphone</span>
+                  <span className="text-sm font-medium text-text-primary">{selectedCustomer.phone}</span>
+                </div>
+                {selectedCustomer.whatsapp && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-text-muted font-inter">WhatsApp</span>
+                    <span className="text-sm font-medium text-green-primary">{selectedCustomer.whatsapp}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-text-muted font-inter">Statut</span>
                   {statusBadge(selectedCustomer)}
@@ -419,26 +506,77 @@ export default function AdminCustomers() {
                 )}
               </div>
 
+              {/* Credentials */}
+              <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 space-y-2">
+                <h3 className="font-inter font-semibold text-amber-800 text-sm flex items-center gap-1.5">
+                  <KeyRound className="w-4 h-4" /> Identifiants de connexion
+                </h3>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-amber-700 font-inter">Email</span>
+                  <span className="text-sm font-mono font-medium text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{getUserEmail(selectedCustomer.phone)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-amber-700 font-inter">Téléphone</span>
+                  <span className="text-sm font-mono font-medium text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{selectedCustomer.phone}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-amber-700 font-inter">Mot de passe</span>
+                  <span className="text-sm font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{ADMIN_DEFAULT_PASSWORD}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-amber-700 font-inter">Code OTP</span>
+                  <span className="text-sm font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{ADMIN_DEFAULT_PASSWORD}</span>
+                </div>
+                <p className="text-[11px] text-amber-600 font-inter mt-1">Connexion : email ou téléphone + mot de passe {ADMIN_DEFAULT_PASSWORD}</p>
+              </div>
+
               {/* Actions */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setBlockTarget(selectedCustomer)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl transition-colors ${selectedCustomer.isSuspended
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setBlockTarget(selectedCustomer)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl transition-colors ${selectedCustomer.isSuspended
                       ? 'bg-green-50 text-green-primary hover:bg-green-primary hover:text-white'
                       : 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white'
-                    }`}
-                >
-                  {selectedCustomer.isSuspended ? <><CheckCircle className="w-4 h-4" /> Débloquer</> : <><Ban className="w-4 h-4" /> Bloquer</>}
-                </button>
-                {selectedCustomer.orderCount > 0 && (
-                  <button
-                    onClick={() => { setSelectedCustomer(null); navigate(`/admin/orders`); }}
-                    className="flex-1 flex items-center justify-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl border border-border-custom hover:bg-bg-secondary transition-colors text-text-primary"
+                      }`}
                   >
-                    <History className="w-4 h-4" /> Voir toutes les commandes
+                    {selectedCustomer.isSuspended ? <><CheckCircle className="w-4 h-4" /> Débloquer</> : <><Ban className="w-4 h-4" /> Bloquer</>}
                   </button>
-                )}
+                  {selectedCustomer.orderCount > 0 && (
+                    <button
+                      onClick={() => { setSelectedCustomer(null); navigate(`/admin/orders`); }}
+                      className="flex-1 flex items-center justify-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl border border-border-custom hover:bg-bg-secondary transition-colors text-text-primary"
+                    >
+                      <History className="w-4 h-4" /> Voir toutes les commandes
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => { setNewPassword(''); setShowPassword(false); setPasswordTarget(selectedCustomer); }}
+                  className="flex items-center justify-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl border border-border-custom hover:bg-bg-secondary transition-colors text-text-primary"
+                >
+                  <KeyRound className="w-4 h-4" /> Réinitialiser le mot de passe
+                </button>
               </div>
+
+              {/* Saved addresses */}
+              {selectedCustomer.savedAddresses.length > 0 && (
+                <div>
+                  <h3 className="font-poppins font-semibold text-text-primary text-base mb-3 flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-green-primary" />
+                    Adresses enregistrées ({selectedCustomer.savedAddresses.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {selectedCustomer.savedAddresses.map((addr) => (
+                      <div key={addr.id} className="bg-bg-secondary rounded-xl p-3 text-sm">
+                        <p className="font-inter font-semibold text-text-primary">{addr.label}</p>
+                        <p className="text-text-muted text-xs font-inter">{addr.fullText}</p>
+                        {addr.landmark && <p className="text-text-muted text-xs font-inter mt-0.5">Repère : {addr.landmark}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Order history */}
               <div>
@@ -498,6 +636,48 @@ export default function AdminCustomers() {
           </div>
         </div>
       )}
+
+      {/* ── Set password dialog ──────────────────────────── */}
+      <AlertDialog open={!!passwordTarget} onOpenChange={(open) => { if (!open) { setPasswordTarget(null); setNewPassword(''); setShowPassword(false); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Définir un mot de passe</AlertDialogTitle>
+            <AlertDialogDescription>
+              {passwordTarget && (
+                <>Définir le mot de passe de <strong>{passwordTarget.name || passwordTarget.phone}</strong>. L'utilisateur pourra se connecter avec son numéro de téléphone et ce mot de passe.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Nouveau mot de passe (min. 4 caractères)"
+              autoFocus
+              className="w-full bg-bg-secondary rounded-lg px-3 py-2.5 pr-10 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
+              onKeyDown={(e) => { if (e.key === 'Enter' && passwordTarget) applyPassword(passwordTarget); }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary p-1"
+              aria-label={showPassword ? 'Masquer' : 'Afficher'}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => passwordTarget && applyPassword(passwordTarget)}
+              disabled={!newPassword || newPassword.length < 4}
+            >
+              Enregistrer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

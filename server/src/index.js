@@ -10,7 +10,25 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
 import { initiatePayment, getSaleStatus } from './chariow.js';
+import { registerReviewRoutes } from './reviews-routes.js';
+import { registerPointsRoutes } from './points-routes.js';
+import {
+  adminPermissionDefinitions,
+  adminRoleDefinitions,
+  ensureAdminRbacSchema,
+  hasAdminAccessPermission,
+  listAdminAuditLogs,
+  listAdminUsers,
+  loadAdminAccess,
+  replaceAdminUserRoles,
+  rolePermissionMap,
+  writeAdminAuditLog,
+} from './admin-rbac.js';
 
+// La racine du projet est la source canonique sur le VPS. Le fichier
+// server/.env.server reste supporte pour les anciennes installations, sans
+// pouvoir ecraser une valeur deja chargee depuis la racine.
+dotenv.config({ path: new URL('../../.env.server', import.meta.url) });
 dotenv.config({ path: new URL('../.env.server', import.meta.url) });
 
 const { Pool } = pg;
@@ -45,17 +63,111 @@ function authRequired(req, res, next) {
   } catch { res.status(401).json({ error: 'Token invalide' }); }
 }
 
-function adminRequired(req, res, next) {
+async function adminRequired(req, res, next) {
   if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Admin uniquement' });
-  next();
+  try {
+    req.adminAccess = await loadAdminAccess(pool, req.user.sub);
+    next();
+  } catch (err) {
+    console.error('adminRequired:', err.message);
+    res.status(500).json({ error: 'Verification admin impossible' });
+  }
+}
+
+function adminPermissionRequired(permission) {
+  return async (req, res, next) => {
+    await adminRequired(req, res, () => {
+      if (!hasAdminAccessPermission(req.adminAccess, permission)) {
+        return res.status(403).json({ error: 'Permission insuffisante', permission });
+      }
+      next();
+    });
+  };
+}
+
+function canAdmin(req, permission) {
+  return hasAdminAccessPermission(req.adminAccess, permission);
+}
+
+function requireAdminPermissionInRoute(req, res, permission) {
+  if (canAdmin(req, permission)) return true;
+  res.status(403).json({ error: 'Permission insuffisante', permission });
+  return false;
+}
+
+function buildAuthUser(row, adminAccess = null) {
+  const isApproved = row.role === 'client' || row.role === 'admin' || row.is_approved === true;
+  const user = {
+    id: row.id,
+    phone: row.phone,
+    role: row.role,
+    isApproved,
+    isSuspended: row.is_suspended,
+    suspensionReason: row.suspension_reason,
+    fullName: row.full_name,
+    city: row.city,
+    serviceNeighborhoods: row.service_neighborhoods,
+    isOnline: row.is_online,
+    photoUrl: row.photo_url,
+    language: row.language,
+  };
+  if (row.role === 'admin' && adminAccess) {
+    user.adminRoleCodes = adminAccess.roleCodes;
+    user.adminRoleCode = adminAccess.primaryRoleCode;
+    user.adminRoleName = adminAccess.primaryRoleName;
+    user.adminPermissions = adminAccess.permissions;
+    user.adminScopes = adminAccess.scopes;
+    user.isSuperAdmin = adminAccess.isSuperAdmin;
+  }
+  return user;
 }
 
 // users/profiles carry auth secrets (password_hash, otp_code) and role/approval
 // flags — never list them publicly, never let a non-admin write role/approval
 // on themselves, and never echo the secret columns back even to their owner.
 const SENSITIVE_TABLES = new Set(['users', 'profiles']);
-const SECRET_USER_FIELDS = ['password_hash', 'otp_code', 'otp_expires_at'];
+// Listés dans les deux graphies : stripSecretFields tourne aussi bien sur des
+// lignes brutes (snake_case) que sur des lignes déjà passées par fromSnake
+// (camelCase). Ne retirer qu'une graphie laissait fuiter otpCode/passwordHash.
+const SECRET_USER_FIELDS = ['password_hash', 'otp_code', 'otp_expires_at', 'passwordHash', 'otpCode', 'otpExpiresAt'];
 const ADMIN_ONLY_USER_FIELDS = ['role', 'is_approved', 'is_suspended', 'suspension_reason', 'password_hash'];
+const ADMIN_TABLE_PERMISSIONS = {
+  insert: {
+    users: 'admin.users.update',
+    profiles: 'admin.users.update',
+    restaurants: 'restaurants.create',
+    menu_items: 'restaurants.update_menu',
+    applications: 'applications.view',
+    media: 'media.manage',
+  },
+  update: {
+    users: 'admin.users.update',
+    profiles: 'admin.users.update',
+    restaurants: 'restaurants.update_profile',
+    menu_items: 'restaurants.update_menu',
+    applications: 'applications.approve',
+    orders: 'orders.update_status',
+    reviews: 'reviews.moderate',
+    point_recharges: 'points.manage',
+  },
+  delete: {
+    users: 'admin.delete',
+    profiles: 'admin.delete',
+    restaurants: 'admin.delete',
+    menu_items: 'restaurants.update_menu',
+    applications: 'admin.delete',
+    orders: 'admin.delete',
+    reviews: 'reviews.moderate',
+  },
+};
+
+async function requireAdminTablePermission(req, res, table, action) {
+  if (req.user?.role !== 'admin') return true;
+  const permission = ADMIN_TABLE_PERMISSIONS[action]?.[table];
+  if (!permission) return true;
+  req.adminAccess = req.adminAccess || await loadAdminAccess(pool, req.user.sub);
+  return requireAdminPermissionInRoute(req, res, permission);
+}
 
 function stripSecretFields(row) {
   if (!row || typeof row !== 'object') return row;
@@ -79,6 +191,23 @@ function buildWhere(filters) {
     else if (op === 'lte') { clauses.push(`${col} <= $${idx}`); values.push(val); idx++; }
   }
   return [clauses.length ? ' WHERE ' + clauses.join(' AND ') : '', values];
+}
+
+// Toutes les tables n'ont pas de colonne updated_at (deliveries, menu_items,
+// applications, order_items, restaurants…). Le PATCH générique ne doit l'ajouter
+// au UPDATE que si elle existe vraiment, sinon Postgres renvoie « column
+// "updated_at" does not exist » et l'écriture échoue en 500 (ex. le livreur ne
+// pouvait pas mettre à jour la ligne deliveries). Cache chargé une fois.
+let _updatedAtTables = null;
+async function tableHasUpdatedAt(table) {
+  if (!_updatedAtTables) {
+    const { rows } = await pool.query(
+      `SELECT table_name FROM information_schema.columns
+       WHERE table_schema = 'public' AND column_name = 'updated_at'`
+    );
+    _updatedAtTables = new Set(rows.map((r) => r.table_name));
+  }
+  return _updatedAtTables.has(table);
 }
 
 function buildOrder(sort) {
@@ -325,10 +454,524 @@ app.post('/api/orders/validate', async (req, res) => {
   }
 });
 
-// ─── Health check ──────────────────────────────────────────────
+// ─── Reviews / Avis ────────────────────────────────────────────
+registerReviewRoutes(app, { pool, authRequired, adminRequired, adminPermissionRequired, fromSnake });
+// Série PTS : routes /api/points/* — AVANT le /api/:table générique
+// (déclaré plus bas), sinon « points » serait traité comme une table.
+registerPointsRoutes(app, { pool, authRequired, adminRequired, adminPermissionRequired, fromSnake });
+
+// ─── Admin : comptes, clients et validation directe ─────────────
+const ADMIN_CREATABLE_ROLES = new Set(['restaurant', 'livreur']);
+const DEFAULT_ADMIN_CREATED_PASSWORD = '12345';
+
+function cleanPhone(phone) {
+  return String(phone || '').replace(/\s+/g, '').trim();
+}
+
+function cleanText(value, fallback = '') {
+  const text = String(value ?? '').trim();
+  return text || fallback;
+}
+
+function toPublicUser(row) {
+  return stripSecretFields(fromSnake(row));
+}
+
+async function upsertAdminCreatedUser({ role, phone, name, password, city, serviceNeighborhoods, approved }) {
+  const normalizedPhone = cleanPhone(phone);
+  if (!normalizedPhone) {
+    const err = new Error('Telephone requis');
+    err.status = 400;
+    throw err;
+  }
+  if (!ADMIN_CREATABLE_ROLES.has(role)) {
+    const err = new Error('Role invalide');
+    err.status = 400;
+    throw err;
+  }
+  const hash = await bcrypt.hash(password || DEFAULT_ADMIN_CREATED_PASSWORD, SALT_ROUNDS);
+  const { rows: [user] } = await pool.query(
+    `INSERT INTO users (
+       phone, password_hash, full_name, role, is_approved, city, service_neighborhoods,
+       is_suspended, is_online, updated_at
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, false, false, now())
+     ON CONFLICT (phone) DO UPDATE SET
+       password_hash = EXCLUDED.password_hash,
+       full_name = EXCLUDED.full_name,
+       role = EXCLUDED.role,
+       is_approved = EXCLUDED.is_approved,
+       city = EXCLUDED.city,
+       service_neighborhoods = EXCLUDED.service_neighborhoods,
+       is_suspended = false,
+       suspension_reason = null,
+       updated_at = now()
+     RETURNING *`,
+    [
+      normalizedPhone,
+      hash,
+      cleanText(name, normalizedPhone),
+      role,
+      approved !== false,
+      city || null,
+      Array.isArray(serviceNeighborhoods) && serviceNeighborhoods.length ? serviceNeighborhoods : null,
+    ]
+  );
+  return user;
+}
+
+async function createOrUpdateRestaurantForUser(user, input) {
+  const name = cleanText(input.restaurantName || input.name, 'Restaurant demo');
+  const city = cleanText(input.city, 'Douala');
+  const neighborhood = cleanText(input.neighborhood, 'Centre-ville');
+  const address = cleanText(input.address, `${neighborhood}, ${city}`);
+  const phone = cleanPhone(input.contactPhone || input.phone || user.phone);
+  const { rows: [existing] } = await pool.query(
+    `SELECT * FROM restaurants WHERE owner_id = $1 OR ($2::text <> '' AND phone = $2) ORDER BY created_at DESC LIMIT 1`,
+    [user.id, phone]
+  );
+
+  if (existing) {
+    const { rows: [restaurant] } = await pool.query(
+      `UPDATE restaurants SET
+         owner_id = $1,
+         name = $2,
+         address = $3,
+         phone = $4,
+         city = $5,
+         neighborhood = $6,
+         description = $7,
+         is_open = true
+       WHERE id = $8
+       RETURNING *`,
+      [user.id, name, address, phone || null, city, neighborhood, input.notes || 'Restaurant partenaire valide par admin.', existing.id]
+    );
+    return restaurant;
+  }
+
+  const { rows: [restaurant] } = await pool.query(
+    `INSERT INTO restaurants (
+       owner_id, name, image, category, rating, review_count, delivery_time,
+       delivery_fee, min_order, price_range, address, phone, hours, is_open,
+       is_premium, tags, description, city, neighborhood, commission_rate
+     )
+     VALUES ($1,$2,$3,$4,0,0,$5,$6,$7,$8,$9,$10,$11,true,false,$12,$13,$14,$15,$16)
+     RETURNING *`,
+    [
+      user.id,
+      name,
+      input.restaurantPhoto || '/partner-kitchen.jpg',
+      input.category || 'Camerounaise',
+      input.deliveryTime || '30-45 min',
+      Number(input.deliveryFee ?? 500),
+      Number(input.minOrder ?? 1000),
+      input.priceRange || '$$',
+      address,
+      phone || null,
+      input.hours || '08:00 - 22:00',
+      [city, neighborhood, 'Admin'],
+      input.notes || 'Restaurant partenaire valide directement par admin.',
+      city,
+      neighborhood,
+      Number(input.commissionRate ?? 0.12),
+    ]
+  );
+  return restaurant;
+}
+
+async function createOrUpdateApplicationForUser(user, input, restaurantId = null) {
+  const type = input.type;
+  const { rows: [existing] } = await pool.query(
+    `SELECT * FROM applications WHERE applicant_id = $1 AND type = $2 ORDER BY created_at DESC LIMIT 1`,
+    [user.id, type]
+  );
+
+  const values = [
+    user.id,
+    type,
+    'approved',
+    input.restaurantName || (type === 'restaurant' ? input.name : null),
+    input.city || null,
+    input.address || null,
+    cleanPhone(input.contactPhone || input.phone || user.phone) || null,
+    input.notes || (type === 'livreur' ? 'Livreur cree et valide directement par admin.' : 'Restaurant cree et valide directement par admin.'),
+    restaurantId,
+  ];
+
+  if (existing) {
+    const { rows: [application] } = await pool.query(
+      `UPDATE applications SET
+         status = $1,
+         restaurant_name = $2,
+         city = $3,
+         address = $4,
+         contact_phone = $5,
+         notes = $6,
+         restaurant_id = $7,
+         reviewed_at = now()
+       WHERE id = $8
+       RETURNING *`,
+      [...values.slice(2), existing.id]
+    );
+    return application;
+  }
+  const { rows: [application] } = await pool.query(
+    `INSERT INTO applications (
+       applicant_id, type, status, restaurant_name, city, address, contact_phone,
+       notes, restaurant_id, reviewed_at
+     )
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now())
+     RETURNING *`,
+    values
+  );
+  return application;
+}
+
+app.get('/api/admin/rbac/me', authRequired, adminRequired, async (req, res) => {
+  res.json({ data: req.adminAccess });
+});
+
+app.get('/api/admin/rbac/summary', authRequired, adminPermissionRequired('admin.roles.view'), async (req, res) => {
+  try {
+    const [admins, auditLogs] = await Promise.all([
+      listAdminUsers(pool),
+      canAdmin(req, 'audit.view') ? listAdminAuditLogs(pool, { limit: 40 }) : [],
+    ]);
+    res.json({
+      data: {
+        roles: adminRoleDefinitions(),
+        permissions: adminPermissionDefinitions(),
+        rolePermissions: rolePermissionMap(),
+        admins: admins.map(fromSnake),
+        auditLogs: auditLogs.map(fromSnake),
+      },
+    });
+  } catch (err) {
+    console.error('GET /api/admin/rbac/summary:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/admin/rbac/users/:userId/roles', authRequired, adminPermissionRequired('admin.roles.update'), async (req, res) => {
+  try {
+    if (String(req.params.userId) === String(req.user.sub) && !canAdmin(req, 'admin.delete')) {
+      return res.status(400).json({ error: 'Un admin ne peut pas modifier ses propres roles sans privilege Super Admin.' });
+    }
+    const before = await loadAdminAccess(pool, req.params.userId);
+    const access = await replaceAdminUserRoles(pool, {
+      adminUserId: req.params.userId,
+      assignments: req.body?.assignments || req.body?.roles || [],
+      changedBy: req.user.sub,
+    });
+    await writeAdminAuditLog(pool, req, {
+      action: 'admin.roles.update',
+      targetType: 'admin_user',
+      targetId: req.params.userId,
+      oldValue: before,
+      newValue: access,
+      reason: cleanText(req.body?.reason, 'Mise a jour des roles admin'),
+    });
+    res.json({ data: access });
+  } catch (err) {
+    console.error('PUT /api/admin/rbac/users/:userId/roles:', err.message);
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/audit-logs', authRequired, adminPermissionRequired('audit.view'), async (req, res) => {
+  try {
+    const rows = await listAdminAuditLogs(pool, { limit: req.query.limit || 100 });
+    res.json({ data: rows.map(fromSnake) });
+  } catch (err) {
+    console.error('GET /api/admin/audit-logs:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+app.post('/api/admin/applications/:id/approve', authRequired, adminRequired, async (req, res) => {
+  try {
+    const { rows: [application] } = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
+    if (!application) return res.status(404).json({ error: 'Candidature introuvable' });
+    const approvalPermission = application.type === 'restaurant' ? 'restaurants.approve' : 'couriers.approve';
+    if (!requireAdminPermissionInRoute(req, res, approvalPermission)) return;
+
+    const { rows: [user] } = await pool.query('SELECT * FROM users WHERE id = $1', [application.applicant_id]);
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+
+    let restaurant = null;
+    let restaurantId = req.body?.restaurantId || application.restaurant_id || null;
+    if (application.type === 'restaurant') {
+      if (restaurantId) {
+        const { rows: [linked] } = await pool.query(
+          `UPDATE restaurants SET owner_id = $1, is_open = true WHERE id = $2 RETURNING *`,
+          [user.id, restaurantId]
+        );
+        restaurant = linked || null;
+      } else {
+        restaurant = await createOrUpdateRestaurantForUser(user, {
+          type: 'restaurant',
+          restaurantName: application.restaurant_name,
+          city: application.city,
+          address: application.address,
+          contactPhone: application.contact_phone || user.phone,
+          notes: application.notes,
+        });
+        restaurantId = restaurant.id;
+      }
+    }
+
+    const { rows: [approvedUser] } = await pool.query(
+      `UPDATE users SET is_approved = true, city = COALESCE($2, city), updated_at = now()
+       WHERE id = $1 RETURNING *`,
+      [user.id, application.city || null]
+    );
+
+    try {
+      await pool.query(
+        `UPDATE profiles SET is_approved = true, city = COALESCE($2, city), updated_at = now() WHERE id = $1`,
+        [user.id, application.city || null]
+      );
+    } catch (profileErr) {
+      console.warn('Profil non synchronise pendant approbation:', profileErr.message);
+    }
+
+    const { rows: [approvedApplication] } = await pool.query(
+      `UPDATE applications
+       SET status = 'approved', restaurant_id = $2, reviewed_by = $3, reviewed_at = now()
+       WHERE id = $1
+       RETURNING *`,
+      [application.id, restaurantId, req.user.sub]
+    );
+
+    io.emit('realtime:users', { eventType: 'UPDATE', new: toPublicUser(approvedUser) });
+    io.emit('realtime:applications', { eventType: 'UPDATE', new: fromSnake(approvedApplication) });
+    if (restaurant) io.emit('realtime:restaurants', { eventType: 'UPSERT', new: fromSnake(restaurant) });
+    await writeAdminAuditLog(pool, req, {
+      action: application.type === 'restaurant' ? 'restaurants.approve' : 'couriers.approve',
+      targetType: 'application',
+      targetId: application.id,
+      oldValue: fromSnake(application),
+      newValue: fromSnake(approvedApplication),
+      reason: cleanText(req.body?.reason, 'Candidature approuvee'),
+    });
+
+    res.json({
+      user: toPublicUser(approvedUser),
+      application: fromSnake(approvedApplication),
+      restaurant: restaurant ? fromSnake(restaurant) : null,
+    });
+  } catch (err) {
+    console.error('POST /api/admin/applications/:id/approve:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/applications/:id/reject', authRequired, adminRequired, async (req, res) => {
+  try {
+    const reason = cleanText(req.body?.reason, '');
+    const { rows: [existingApplication] } = await pool.query('SELECT * FROM applications WHERE id = $1', [req.params.id]);
+    if (!existingApplication) return res.status(404).json({ error: 'Candidature introuvable' });
+    const rejectPermission = existingApplication.type === 'restaurant' ? 'restaurants.reject' : 'couriers.reject';
+    if (!requireAdminPermissionInRoute(req, res, rejectPermission)) return;
+    const { rows: [application] } = await pool.query(
+      `UPDATE applications
+       SET status = 'rejected',
+           notes = CASE
+             WHEN $2::text <> '' THEN concat_ws(E'\n', NULLIF(notes, ''), 'Motif de rejet: ' || $2::text)
+             ELSE notes
+           END,
+           reviewed_by = $3,
+           reviewed_at = now()
+       WHERE id = $1
+       RETURNING *`,
+      [req.params.id, reason, req.user.sub]
+    );
+    if (!application) return res.status(404).json({ error: 'Candidature introuvable' });
+    io.emit('realtime:applications', { eventType: 'UPDATE', new: fromSnake(application) });
+    await writeAdminAuditLog(pool, req, {
+      action: application.type === 'restaurant' ? 'restaurants.reject' : 'couriers.reject',
+      targetType: 'application',
+      targetId: application.id,
+      newValue: fromSnake(application),
+      reason: reason || 'Candidature rejetee',
+    });
+    res.json({ application: fromSnake(application) });
+  } catch (err) {
+    console.error('POST /api/admin/applications/:id/reject:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+app.get('/api/admin/customers', authRequired, adminPermissionRequired('customers.view'), async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+         u.*,
+         count(o.id)::int AS order_count,
+         COALESCE(sum(CASE WHEN o.status = 'delivered' THEN o.total ELSE 0 END), 0)::int AS total_spent,
+         max(o.created_at) AS last_order_at,
+         count(o.id) FILTER (WHERE o.status = 'cancelled')::int AS cancelled_count
+       FROM users u
+       LEFT JOIN orders o ON o.customer_id = u.id
+       WHERE u.role = 'client'
+       GROUP BY u.id
+       ORDER BY u.created_at DESC`
+    );
+
+    const ids = rows.map((row) => row.id);
+    let orderRows = [];
+    if (ids.length) {
+      const { rows: orders } = await pool.query(
+        `SELECT
+           o.*,
+           r.name AS restaurant_name,
+           COALESCE(
+             json_agg(json_build_object(
+               'id', oi.id,
+               'menuItemId', oi.menu_item_id,
+               'name', oi.name,
+               'price', oi.price,
+               'quantity', oi.quantity
+             )) FILTER (WHERE oi.id IS NOT NULL),
+             '[]'::json
+           ) AS items
+         FROM orders o
+         LEFT JOIN restaurants r ON r.id = o.restaurant_id
+         LEFT JOIN order_items oi ON oi.order_id = o.id
+         WHERE o.customer_id = ANY($1::uuid[])
+         GROUP BY o.id, r.name
+         ORDER BY o.created_at DESC`,
+        [ids]
+      );
+      orderRows = orders.map((order) => fromSnake(order));
+    }
+
+    const ordersByCustomer = new Map();
+    for (const order of orderRows) {
+      const key = String(order.customerId);
+      if (!ordersByCustomer.has(key)) ordersByCustomer.set(key, []);
+      ordersByCustomer.get(key).push(order);
+    }
+
+    const data = rows.map((row) => {
+      const user = toPublicUser(row);
+      return {
+        ...user,
+        name: user.fullName || null,
+        profilePhoto: user.photoUrl || '',
+        whatsapp: '',
+        savedAddresses: [],
+        orderCount: Number(row.order_count || 0),
+        totalSpent: Number(row.total_spent || 0),
+        lastOrderAt: row.last_order_at,
+        cancelledCount: Number(row.cancelled_count || 0),
+        orders: ordersByCustomer.get(String(row.id)) || [],
+      };
+    });
+
+    res.json({ data });
+  } catch (err) {
+    console.error('GET /api/admin/customers:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/accounts', authRequired, adminRequired, async (req, res) => {
+  try {
+    const input = req.body || {};
+    const type = input.type || input.role;
+    const createPermission = type === 'restaurant' ? 'restaurants.create_approved' : 'couriers.create_approved';
+    if (!requireAdminPermissionInRoute(req, res, createPermission)) return;
+    const user = await upsertAdminCreatedUser({
+      role: type,
+      phone: input.contactPhone || input.phone,
+      name: input.applicantName || input.name || input.restaurantName,
+      password: input.password,
+      city: input.city,
+      serviceNeighborhoods: input.serviceNeighborhoods,
+      approved: true,
+    });
+
+    let restaurant = null;
+    if (type === 'restaurant') {
+      restaurant = await createOrUpdateRestaurantForUser(user, { ...input, type });
+    }
+    const application = await createOrUpdateApplicationForUser(user, { ...input, type }, restaurant?.id ?? null);
+
+    io.emit('realtime:users', { eventType: 'UPSERT', new: toPublicUser(user) });
+    io.emit('realtime:applications', { eventType: 'UPSERT', new: fromSnake(application) });
+    if (restaurant) io.emit('realtime:restaurants', { eventType: 'UPSERT', new: fromSnake(restaurant) });
+    await writeAdminAuditLog(pool, req, {
+      action: type === 'restaurant' ? 'restaurants.create_approved' : 'couriers.create_approved',
+      targetType: type,
+      targetId: user.id,
+      newValue: { user: toPublicUser(user), application: fromSnake(application), restaurant: restaurant ? fromSnake(restaurant) : null },
+      reason: cleanText(input.notes, type === 'restaurant' ? 'Restaurant cree et valide par admin' : 'Livreur cree et valide par admin'),
+    });
+
+    res.status(201).json({
+      user: toPublicUser(user),
+      application: fromSnake(application),
+      restaurant: restaurant ? fromSnake(restaurant) : null,
+      defaultPassword: DEFAULT_ADMIN_CREATED_PASSWORD,
+    });
+  } catch (err) {
+    console.error('POST /api/admin/accounts:', err.message);
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/admin/customers/:id/suspension', authRequired, adminRequired, async (req, res) => {
+  try {
+    const suspended = Boolean(req.body?.isSuspended);
+    const permission = suspended ? 'customers.block' : 'customers.unblock';
+    if (!requireAdminPermissionInRoute(req, res, permission)) return;
+    const reason = suspended ? (req.body?.reason || 'Bloque par admin') : null;
+    const { rows: [user] } = await pool.query(
+      `UPDATE users SET is_suspended = $1, suspension_reason = $2, updated_at = now()
+       WHERE id = $3 AND role = 'client'
+       RETURNING *`,
+      [suspended, reason, req.params.id]
+    );
+    if (!user) return res.status(404).json({ error: 'Client introuvable' });
+    await writeAdminAuditLog(pool, req, {
+      action: suspended ? 'customers.block' : 'customers.unblock',
+      targetType: 'customer',
+      targetId: user.id,
+      newValue: toPublicUser(user),
+      reason: reason || 'Deblocage client',
+    });
+    res.json({ data: toPublicUser(user) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/admin/users/:id/password', authRequired, adminPermissionRequired('admin.users.password'), async (req, res) => {
+  try {
+    const password = String(req.body?.password || '');
+    if (password.length < 4) return res.status(400).json({ error: 'Mot de passe trop court' });
+    const hash = await bcrypt.hash(password, SALT_ROUNDS);
+    const { rows: [user] } = await pool.query(
+      `UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2 RETURNING *`,
+      [hash, req.params.id]
+    );
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    await writeAdminAuditLog(pool, req, {
+      action: 'admin.users.password',
+      targetType: 'user',
+      targetId: user.id,
+      newValue: { id: user.id, role: user.role, phone: user.phone },
+      reason: cleanText(req.body?.reason, 'Reinitialisation mot de passe'),
+    });
+    res.json({ data: toPublicUser(user) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Generic table API ─────────────────────────────────────────
 // GET /api/:table — list with filters (skips known non-table prefixes)
 app.get('/api/:table', (req, res, next) => {
-  const known = ['admin', 'auth', 'pay', 'rpc', 'delivery-fee', 'food-requests'];
+  const known = ['admin', 'auth', 'pay', 'rpc', 'delivery-fee', 'food-requests', 'points'];
   const prefix = req.params.table.split('/')[0];
   if (known.includes(prefix) || req.path.startsWith('/api/admin/') || req.path.startsWith('/api/delivery-fee/') || req.path.startsWith('/api/food-requests/')) return next();
   if (SENSITIVE_TABLES.has(prefix)) return authRequired(req, res, () => handleList(req, res));
@@ -374,7 +1017,7 @@ async function handleList(req, res) {
 
 // GET /api/:table/:id — single row (skip known non-table prefixes)
 app.get('/api/:table/:id', (req, res, next) => {
-  const known = ['admin', 'auth', 'pay', 'rpc', 'delivery-fee', 'food-requests'];
+  const known = ['admin', 'auth', 'pay', 'rpc', 'delivery-fee', 'food-requests', 'points'];
   if (known.includes(req.params.table) || req.path.startsWith('/api/admin/') || req.path.startsWith('/api/delivery-fee/') || req.path.startsWith('/api/food-requests/')) return next();
   if (SENSITIVE_TABLES.has(req.params.table)) return authRequired(req, res, () => handleSingle(req, res));
   handleSingle(req, res);
@@ -402,6 +1045,11 @@ app.post('/api/:table', authRequired, async (req, res) => {
     if (SENSITIVE_TABLES.has(table) && req.user?.role !== 'admin') {
       return res.status(403).json({ error: 'Utilisez /api/auth/signup pour créer un compte' });
     }
+    if (SENSITIVE_TABLES.has(table) && req.user?.role === 'admin') {
+      req.adminAccess = await loadAdminAccess(pool, req.user.sub);
+      if (!requireAdminPermissionInRoute(req, res, 'admin.users.update')) return;
+    }
+    if (!(await requireAdminTablePermission(req, res, table, 'insert'))) return;
     const tbl = quoteTable(table);
     const data = toSnake(req.body);
     if (!data.id) data.id = undefined;
@@ -414,6 +1062,15 @@ app.post('/api/:table', authRequired, async (req, res) => {
     );
     const clean = SENSITIVE_TABLES.has(table) ? stripSecretFields(fromSnake(row)) : fromSnake(row);
     io.emit(`realtime:${table}`, { eventType: 'INSERT', new: clean });
+    if (SENSITIVE_TABLES.has(table)) {
+      await writeAdminAuditLog(pool, req, {
+        action: 'admin.users.update',
+        targetType: table,
+        targetId: row.id,
+        newValue: clean,
+        reason: cleanText(req.body?.reason, 'Creation generique admin'),
+      });
+    }
     res.status(201).json(clean);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -432,7 +1089,12 @@ app.patch('/api/:table/:id', authRequired, async (req, res) => {
       if (!isAdmin && id !== req.user?.sub) {
         return res.status(403).json({ error: 'Non autorisé' });
       }
+      if (isAdmin) {
+        req.adminAccess = await loadAdminAccess(pool, req.user.sub);
+        if (!requireAdminPermissionInRoute(req, res, 'admin.users.update')) return;
+      }
     }
+    if (!(await requireAdminTablePermission(req, res, table, 'update'))) return;
     const tbl = quoteTable(table);
     const data = toSnake(req.body);
     let keys = Object.keys(data).filter(k => k !== 'id');
@@ -441,14 +1103,24 @@ app.patch('/api/:table/:id', authRequired, async (req, res) => {
     }
     if (!keys.length) return res.status(400).json({ error: 'Aucun champ à mettre à jour' });
     const sets = keys.map((k, i) => `${k} = $${i + 2}`);
+    if (await tableHasUpdatedAt(table)) sets.push('updated_at = now()');
     const values = [id, ...keys.map(k => data[k])];
     const { rows: [row] } = await pool.query(
-      `UPDATE ${tbl} SET ${sets.join(',')}, updated_at = now() WHERE id = $1 RETURNING *`,
+      `UPDATE ${tbl} SET ${sets.join(',')} WHERE id = $1 RETURNING *`,
       values
     );
     if (!row) return res.status(404).json({ error: 'Non trouvé' });
     const clean = SENSITIVE_TABLES.has(table) ? stripSecretFields(fromSnake(row)) : fromSnake(row);
     io.emit(`realtime:${table}`, { eventType: 'UPDATE', new: clean });
+    if (isAdmin && (SENSITIVE_TABLES.has(table) || ADMIN_TABLE_PERMISSIONS.update?.[table])) {
+      await writeAdminAuditLog(pool, req, {
+        action: ADMIN_TABLE_PERMISSIONS.update?.[table] || 'admin.users.update',
+        targetType: table,
+        targetId: row.id,
+        newValue: clean,
+        reason: cleanText(req.body?.reason, 'Modification generique admin'),
+      });
+    }
     res.json(clean);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -456,12 +1128,18 @@ app.patch('/api/:table/:id', authRequired, async (req, res) => {
 });
 
 // DELETE /api/:table/:id
-app.delete('/api/:table/:id', authRequired, adminRequired, async (req, res) => {
+app.delete('/api/:table/:id', authRequired, adminPermissionRequired('admin.delete'), async (req, res) => {
   try {
     const { table, id } = req.params;
     const tbl = quoteTable(table);
     await pool.query(`DELETE FROM ${tbl} WHERE id = $1`, [id]);
     io.emit(`realtime:${table}`, { eventType: 'DELETE', old: { id } });
+    await writeAdminAuditLog(pool, req, {
+      action: 'admin.delete',
+      targetType: table,
+      targetId: id,
+      reason: cleanText(req.body?.reason, 'Suppression definitive'),
+    });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -499,15 +1177,33 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     );
     if (!user) return res.status(401).json({ error: 'Code invalide ou expiré' });
 
-    const role = requestedRole || user.role || 'client';
+    // Le rôle ne doit JAMAIS être choisi par le client via requestedRole :
+    // - un compte déjà établi (restaurant/livreur/admin) garde son rôle ; un
+    //   requestedRole différent est un conflit (le front doit inviter à se
+    //   connecter avec le bon profil), jamais un changement silencieux ;
+    // - un compte client peut s'auto-attribuer un rôle applicant
+    //   (restaurant/livreur, soumis à approbation), mais JAMAIS 'admin'.
+    // Sans cette garde, requestedRole='admin' donnait un token admin (escalade)
+    // et une connexion cliente rétrogradait un admin existant.
+    const existingRole = user.role || 'client';
+    let role;
+    if (existingRole !== 'client') {
+      if (requestedRole && requestedRole !== existingRole) {
+        return res.status(409).json({ error: 'role-mismatch', existingRole });
+      }
+      role = existingRole;
+    } else {
+      role = (requestedRole && requestedRole !== 'admin') ? requestedRole : 'client';
+    }
     await pool.query(
       `UPDATE users SET otp_code = NULL, otp_expires_at = NULL, role = $2, updated_at = now() WHERE id = $1`,
       [user.id, role]
     );
 
-    const isApproved = role === 'client' || role === 'admin';
-    const token = jwt.sign({ sub: user.id, phone, role, isApproved }, JWT_SECRET, { expiresIn: '30d' });
-    const authUser = { id: user.id, phone, role, isApproved, fullName: user.full_name };
+    const updatedUser = { ...user, role };
+    const adminAccess = role === 'admin' ? await loadAdminAccess(pool, user.id) : null;
+    const authUser = buildAuthUser(updatedUser, adminAccess);
+    const token = jwt.sign({ sub: user.id, phone, role, isApproved: authUser.isApproved }, JWT_SECRET, { expiresIn: '30d' });
     res.json({ user: authUser, token, session: { access_token: token } });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -524,9 +1220,9 @@ app.post('/api/auth/signin', async (req, res) => {
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Identifiants invalides' });
 
-    const isApproved = user.role === 'client' || user.role === 'admin' || user.is_approved;
-    const token = jwt.sign({ sub: user.id, phone, role: user.role, isApproved }, JWT_SECRET, { expiresIn: '30d' });
-    const authUser = { id: user.id, phone, role: user.role, isApproved, fullName: user.full_name };
+    const adminAccess = user.role === 'admin' ? await loadAdminAccess(pool, user.id) : null;
+    const authUser = buildAuthUser(user, adminAccess);
+    const token = jwt.sign({ sub: user.id, phone, role: user.role, isApproved: authUser.isApproved }, JWT_SECRET, { expiresIn: '30d' });
     res.json({ user: authUser, token, session: { access_token: token } });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -541,16 +1237,23 @@ app.post('/api/auth/signup', async (req, res) => {
     const name = req.body.name || req.body.options?.data?.full_name || '';
     const password = req.body.password || '';
     const role = req.body.role || 'client';
+    if (role === 'admin') return res.status(403).json({ error: 'La creation admin publique est interdite.' });
+    if (!['client', 'restaurant', 'livreur'].includes(role)) return res.status(400).json({ error: 'Role invalide' });
     if (!phone) return res.status(400).json({ error: 'Numéro de téléphone requis' });
+    // NE JAMAIS authentifier un compte existant depuis signup : sans cette garde,
+    // un ON CONFLICT DO UPDATE renvoyait un JWT au rôle du compte existant sans
+    // vérifier le mot de passe (usurpation admin/resto/livreur via le seul numéro).
+    // Un numéro déjà inscrit doit passer par la connexion, pas par l'inscription.
+    const { rows: existing } = await pool.query('SELECT 1 FROM users WHERE phone = $1', [phone]);
+    if (existing.length) return res.status(409).json({ error: 'Ce numéro est déjà utilisé. Connectez-vous.' });
     const hash = password ? await bcrypt.hash(password, SALT_ROUNDS) : null;
     const { rows: [user] } = await pool.query(
-      `INSERT INTO users (phone, password_hash, full_name, role) VALUES ($1, $2, $3, $4) 
-       ON CONFLICT (phone) DO UPDATE SET full_name = $3, updated_at = now() RETURNING *`,
+      `INSERT INTO users (phone, password_hash, full_name, role) VALUES ($1, $2, $3, $4)
+       RETURNING *`,
       [phone, hash, name, role]
     );
-    const isApproved = user.role === 'client' || user.role === 'admin';
-    const token = jwt.sign({ sub: user.id, phone, role: user.role, isApproved }, JWT_SECRET, { expiresIn: '30d' });
-    const authUser = { id: user.id, phone, role: user.role, isApproved, fullName: user.full_name };
+    const authUser = buildAuthUser(user);
+    const token = jwt.sign({ sub: user.id, phone, role: user.role, isApproved: authUser.isApproved }, JWT_SECRET, { expiresIn: '30d' });
     res.status(201).json({ user: authUser, token, session: { access_token: token } });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -562,13 +1265,8 @@ app.get('/api/auth/me', authRequired, async (req, res) => {
   try {
     const { rows: [user] } = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.sub]);
     if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    const isApproved = user.role === 'client' || user.role === 'admin' || user.is_approved;
-    res.json({
-      id: user.id, phone: user.phone, role: user.role, isApproved,
-      isSuspended: user.is_suspended, suspensionReason: user.suspension_reason,
-      fullName: user.full_name, city: user.city, serviceNeighborhoods: user.service_neighborhoods,
-      isOnline: user.is_online, photoUrl: user.photo_url, language: user.language
-    });
+    const adminAccess = user.role === 'admin' ? await loadAdminAccess(pool, user.id) : null;
+    res.json(buildAuthUser(user, adminAccess));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -596,7 +1294,7 @@ app.get('/api/admin/delivery-fee', async (req, res) => {
 });
 
 // PUT /api/admin/delivery-fee — mettre à jour la config (admin only)
-app.put('/api/admin/delivery-fee', authRequired, adminRequired, async (req, res) => {
+app.put('/api/admin/delivery-fee', authRequired, adminPermissionRequired('delivery_fees.manage'), async (req, res) => {
   try {
     const { pricePerKm, minFee, maxFee } = req.body;
     const pkm = Math.max(50, Math.min(1000, parseInt(pricePerKm) || 200));
@@ -609,6 +1307,13 @@ app.put('/api/admin/delivery-fee', authRequired, adminRequired, async (req, res)
       [pkm, minf, maxf, req.user.sub]
     );
     io.emit('realtime:delivery_fee_config', { eventType: 'UPDATE', new: fromSnake(cfg) });
+    await writeAdminAuditLog(pool, req, {
+      action: 'delivery_fees.manage',
+      targetType: 'delivery_fee_config',
+      targetId: cfg.id || 'current',
+      newValue: fromSnake(cfg),
+      reason: cleanText(req.body?.reason, 'Mise a jour frais de livraison'),
+    });
     res.json(fromSnake(cfg));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -625,7 +1330,7 @@ app.get('/api/delivery-fee/calculate', async (req, res) => {
 
 // ─── Admin : Gestion des zones (villes/quartiers) ─────────────────
 // GET /api/admin/zones — liste les zones désactivées
-app.get('/api/admin/zones', authRequired, adminRequired, async (req, res) => {
+app.get('/api/admin/zones', authRequired, adminPermissionRequired('zones.manage'), async (req, res) => {
   try {
     const { rows } = await pool.query(
       'SELECT dz.*, u.full_name as disabled_by_name FROM disabled_zones dz LEFT JOIN users u ON dz.disabled_by = u.id ORDER BY dz.disabled_at DESC'
@@ -635,7 +1340,7 @@ app.get('/api/admin/zones', authRequired, adminRequired, async (req, res) => {
 });
 
 // POST /api/admin/zones — désactiver une ville ou un quartier
-app.post('/api/admin/zones', authRequired, adminRequired, async (req, res) => {
+app.post('/api/admin/zones', authRequired, adminPermissionRequired('zones.manage'), async (req, res) => {
   try {
     const { city, neighborhood, reason } = req.body;
     if (!city) return res.status(400).json({ error: 'Ville requise' });
@@ -646,12 +1351,19 @@ app.post('/api/admin/zones', authRequired, adminRequired, async (req, res) => {
     );
     if (!zone) return res.status(409).json({ error: 'Cette zone est déjà désactivée' });
     const affected = await pool.query('SELECT disable_restaurants_in_zone($1, $2) AS count', [city, neighborhood || null]);
+    await writeAdminAuditLog(pool, req, {
+      action: 'zones.manage',
+      targetType: 'disabled_zone',
+      targetId: zone.id,
+      newValue: fromSnake(zone),
+      reason: reason || 'Zone desactivee',
+    });
     res.status(201).json({ ...fromSnake(zone), affectedRestaurants: affected.rows[0].count });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // DELETE /api/admin/zones/:id — réactiver une zone
-app.delete('/api/admin/zones/:id', authRequired, adminRequired, async (req, res) => {
+app.delete('/api/admin/zones/:id', authRequired, adminPermissionRequired('zones.manage'), async (req, res) => {
   try {
     const { id } = req.params;
     const { rows: [zone] } = await pool.query('DELETE FROM disabled_zones WHERE id = $1 RETURNING *', [id]);
@@ -661,6 +1373,13 @@ app.delete('/api/admin/zones/:id', authRequired, adminRequired, async (req, res)
       'SELECT count(*) FROM restaurants WHERE city = $1 AND ($2::text IS NULL OR neighborhood = $2) AND is_open = true',
       [zone.city, zone.neighborhood]
     );
+    await writeAdminAuditLog(pool, req, {
+      action: 'zones.manage',
+      targetType: 'disabled_zone',
+      targetId: zone.id,
+      oldValue: fromSnake(zone),
+      reason: 'Zone reactivee',
+    });
     res.json({ success: true, reactivatedRestaurants: parseInt(affected.rows[0].count) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -674,7 +1393,7 @@ app.get('/api/admin/zones/check/:restaurantId', authRequired, async (req, res) =
 });
 
 // GET /api/admin/zones/affected — liste les restaurants affectés
-app.get('/api/admin/zones/affected', authRequired, adminRequired, async (req, res) => {
+app.get('/api/admin/zones/affected', authRequired, adminPermissionRequired('zones.manage'), async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM affected_restaurants ORDER BY city, neighborhood');
     res.json({ data: rows.map(fromSnake), count: rows.length });
@@ -811,3 +1530,8 @@ httpServer.listen(PORT, '127.0.0.1', () => {
 });
 
 export default app;
+
+
+
+
+

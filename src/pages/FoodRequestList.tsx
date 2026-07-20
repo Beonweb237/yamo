@@ -6,7 +6,7 @@ import PageHeader from '../components/PageHeader';
 import { UtensilsCrossed, MapPin, Clock, CheckCircle2, XCircle, Timer, MessageCircle, ChevronRight, Plus, Sparkles } from 'lucide-react';
 
 const STATUS_CONFIG: Record<FoodRequest['status'], { label: string; color: string; icon: typeof Timer }> = {
-  open: { label: 'En attente', color: 'bg-gold-light text-gold-accent border-gold-accent/30', icon: Timer },
+  open: { label: 'En attente', color: 'bg-gold-light text-amber-700 border-gold-accent/30', icon: Timer },
   accepted: { label: 'Acceptée', color: 'bg-green-light text-green-primary border-green-primary/30', icon: CheckCircle2 },
   expired: { label: 'Expirée', color: 'bg-bg-secondary text-text-muted border-border-custom', icon: XCircle },
   cancelled: { label: 'Annulée', color: 'bg-error/5 text-error border-error/30', icon: XCircle },

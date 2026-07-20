@@ -19,7 +19,7 @@ const benefits = [
   {
     icon: TrendingUp,
     title: 'Augmentez Vos Revenus',
-    description: 'Touchez une client\u00e8le plus large sans investissement initial. Nos partenaires constatent en moyenne une augmentation de 30% de leur chiffre d\'affaires d\u00e8s les premiers mois.',
+    description: 'Touchez une client\u00e8le plus large sans investissement initial : inscription gratuite, et un nouveau canal de vente qui travaille pour vous d\u00e8s les premi\u00e8res semaines.',
   },
   {
     icon: Truck,
@@ -29,7 +29,7 @@ const benefits = [
   {
     icon: Megaphone,
     title: 'Boostez Votre Visibilit\u00e9',
-    description: 'Profitez de notre audience de milliers d\'utilisateurs actifs. Votre restaurant appara\u00eet dans les recherches, les recommandations, et nos campagnes marketing.',
+    description: 'Profitez d\'une audience qui grandit chaque semaine. Votre restaurant appara\u00eet dans les recherches, les recommandations, et nos campagnes marketing.',
   },
 ];
 
@@ -138,7 +138,7 @@ export default function Partenaires() {
                 transition={{ delay: 0.8, duration: 0.5 }}
                 className="text-white/70 font-inter text-base leading-relaxed max-w-[500px] mb-8"
               >
-                Rejoignez le r&eacute;seau de livraison le plus dynamique du Cameroun. Touchez des milliers de nouveaux clients, augmentez votre chiffre d&apos;affaires, et laissez-nous g&eacute;rer la logistique.
+                Rejoignez le r&eacute;seau de livraison le plus dynamique du Cameroun. Touchez de nouveaux clients chaque jour, augmentez votre chiffre d&apos;affaires, et laissez-nous g&eacute;rer la logistique.
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -165,9 +165,9 @@ export default function Partenaires() {
                 className="flex gap-8 sm:gap-12"
               >
                 {[
-                  { num: '500+', label: 'Restaurants Partenaires' },
-                  { num: '50K+', label: 'Commandes par Mois' },
-                  { num: '27', label: 'Villes Couvertes' },
+                  { num: '0 FCFA', label: "Frais d'inscription" },
+                  { num: '48h', label: 'Pour être en ligne' },
+                  { num: '15%', label: 'Commission simple et unique' },
                 ].map((stat, i) => (
                   <div key={i}>
                     <div className="font-poppins font-bold text-gold-accent text-2xl sm:text-3xl">
@@ -220,7 +220,7 @@ export default function Partenaires() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: i * 0.12, ease: [0.16, 1, 0.3, 1] }}
-                className="bg-white border border-border-custom rounded-xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] hover:-translate-y-1 hover:shadow-lg hover:border-green-primary/30 transition-all duration-250"
+                className="bg-white border border-border-custom rounded-xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] hover:-translate-y-1 hover:shadow-lg hover:border-green-primary/30 transition-all duration-200"
               >
                 <div className="w-16 h-16 rounded-full bg-green-light flex items-center justify-center mb-4">
                   <b.icon className="w-8 h-8 text-green-primary" />
@@ -405,7 +405,7 @@ export default function Partenaires() {
             transition={{ delay: 0.15, duration: 0.5 }}
             className="text-white/80 font-inter text-base max-w-[560px] mx-auto mb-8"
           >
-            Rejoignez les 500+ restaurants qui font d&eacute;j&agrave; confiance &agrave; MiamExpress. Inscrivez-vous aujourd&apos;hui et recevez votre premi&egrave;re commande sous 48h.
+            Rejoignez les premiers restaurants partenaires de MiamExpress. Inscrivez-vous aujourd&apos;hui et recevez votre premi&egrave;re commande sous 48h.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}

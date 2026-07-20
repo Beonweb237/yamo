@@ -312,20 +312,20 @@ export default function FoodRequestCreate() {
                 Budget <span className="text-error">*</span> <span className="text-text-muted font-normal text-xs">(FCFA)</span>
               </label>
               <div className="flex items-center gap-3">
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <span className="text-xs font-inter text-text-muted mb-1 block">Minimum</span>
                   <div className="flex items-center gap-1">
                     <button type="button" onClick={() => update('budgetMin', Math.max(500, form.budgetMin - 500))} className="px-2 h-9 bg-bg-secondary rounded-lg text-xs font-bold hover:bg-border-light">−500</button>
-                    <input type="number" value={form.budgetMin} onChange={(e) => update('budgetMin', parseInt(e.target.value) || 0)} className="flex-1 h-10 rounded-xl border border-border-custom focus:border-green-primary outline-none text-sm font-inter text-center font-semibold" />
+                    <input type="number" value={form.budgetMin} onChange={(e) => update('budgetMin', parseInt(e.target.value) || 0)} className="flex-1 min-w-0 h-10 rounded-xl border border-border-custom focus:border-green-primary outline-none text-sm font-inter text-center font-semibold" />
                     <button type="button" onClick={() => update('budgetMin', form.budgetMin + 500)} className="px-2 h-9 bg-bg-secondary rounded-lg text-xs font-bold hover:bg-border-light">+500</button>
                   </div>
                 </div>
                 <span className="text-text-muted mt-5 text-lg">–</span>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <span className="text-xs font-inter text-text-muted mb-1 block">Maximum</span>
                   <div className="flex items-center gap-1">
                     <button type="button" onClick={() => update('budgetMax', Math.max(form.budgetMin, form.budgetMax - 500))} className="px-2 h-9 bg-bg-secondary rounded-lg text-xs font-bold hover:bg-border-light">−500</button>
-                    <input type="number" value={form.budgetMax} onChange={(e) => update('budgetMax', parseInt(e.target.value) || 0)} className="flex-1 h-10 rounded-xl border border-border-custom focus:border-green-primary outline-none text-sm font-inter text-center font-semibold" />
+                    <input type="number" value={form.budgetMax} onChange={(e) => update('budgetMax', parseInt(e.target.value) || 0)} className="flex-1 min-w-0 h-10 rounded-xl border border-border-custom focus:border-green-primary outline-none text-sm font-inter text-center font-semibold" />
                     <button type="button" onClick={() => update('budgetMax', form.budgetMax + 500)} className="px-2 h-9 bg-bg-secondary rounded-lg text-xs font-bold hover:bg-border-light">+500</button>
                   </div>
                 </div>

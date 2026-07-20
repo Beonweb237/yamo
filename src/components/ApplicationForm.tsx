@@ -66,6 +66,11 @@ function FileUploadField({
 
 export default function ApplicationForm({ type }: { type: ApplicationType }) {
   const { user, refreshUser } = useAuth();
+  // Nom complet du candidat livreur — propagé au registre à l'approbation,
+  // affiché ensuite au client pendant la livraison (« Paul K. »).
+  const [applicantName, setApplicantName] = useState(
+    () => (localStorage.getItem('yamo_profile_name') ?? '').trim()
+  );
   const [restaurantName, setRestaurantName] = useState('');
   // Slug auto-généré depuis le nom, éditable avant soumission (définitif après)
   const suggestedSlug = useMemo(() => slugify(restaurantName), [restaurantName]);
@@ -200,6 +205,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
     try {
       await submitApplication(user.id, {
         type,
+        applicantName: type === 'livreur' ? applicantName.trim() : undefined,
         restaurantName: type === 'restaurant' ? restaurantName : undefined,
         restaurantSlug: type === 'restaurant' ? (slug || suggestedSlug) : undefined,
         city,
@@ -241,6 +247,24 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
         </p>
       </div>
 
+      {type === 'livreur' && (
+        <div className="space-y-1.5">
+          <label className="block text-text-primary font-inter text-sm font-semibold">
+            Nom complet <span className="text-error">*</span>
+          </label>
+          <p className="text-text-muted text-xs font-inter">
+            Affiché aux clients pendant vos livraisons (prénom + initiale uniquement).
+          </p>
+          <input
+            type="text"
+            value={applicantName}
+            onChange={(e) => setApplicantName(e.target.value)}
+            placeholder="Ex: Paul Kamga"
+            className="w-full bg-white rounded-xl border border-border-custom px-4 h-12 text-text-primary font-inter text-sm placeholder:text-text-muted outline-none transition-all focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 hover:border-text-muted"
+            required
+          />
+        </div>
+      )}
       {type === 'restaurant' && (
         <div className="space-y-1.5">
           <label className="block text-text-primary font-inter text-sm font-semibold">

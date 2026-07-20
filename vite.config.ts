@@ -14,7 +14,9 @@ export default defineConfig({
     react(),
   ],
   server: {
-    port: 3000,
+    // PORT est injecté par l'outillage dev (autoPort) quand 3000 est occupé ;
+    // 3000 reste le défaut en usage direct (npm run dev).
+    port: Number(process.env.PORT) || 3000,
     // En dev, /api est proxifié vers le backend (par défaut la prod VPS) pour
     // tester le mode API (VITE_USE_VPS_API=true) sans problème de CORS —
     // même chemin relatif qu'en production derrière Nginx.

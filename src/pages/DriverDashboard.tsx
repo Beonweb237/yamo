@@ -273,7 +273,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
           </h1>
           <button
             onClick={loadAll}
-            className="flex items-center gap-1.5 text-text-secondary text-sm font-inter hover:text-text-primary"
+            className="flex items-center gap-1.5 text-text-secondary text-sm font-inter hover:text-text-primary min-h-11"
           >
             <RefreshCw className="w-4 h-4" />
             Actualiser
@@ -377,7 +377,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                 </div>
                 <div className="bg-white rounded-xl border border-border-custom p-3 text-center">
                   <p className="text-[11px] font-inter text-text-muted mb-0.5">En attente</p>
-                  <p className="font-poppins font-bold text-sm text-gold-accent">{available.length}</p>
+                  <p className="font-poppins font-bold text-sm text-amber-700">{available.length}</p>
                 </div>
               </div>
               <div className="space-y-4">
@@ -398,7 +398,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                         <span className="font-inter font-semibold text-text-primary text-sm">
                           Commande #{order.id.slice(0, 8)}
                         </span>
-                        <span className="text-xs font-inter font-medium px-2.5 py-1 rounded-full bg-gold-light text-gold-accent">
+                        <span className="text-xs font-inter font-medium px-2.5 py-1 rounded-full bg-gold-light text-amber-700">
                           Prête à récupérer
                         </span>
                         {preferredByRestaurants.has(order.restaurantId) && (
@@ -493,7 +493,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                       <span className="font-inter font-semibold text-text-primary text-sm">
                         Commande #{order.id.slice(0, 8)}
                       </span>
-                      <span className={`text-xs font-inter font-medium px-2.5 py-1 rounded-full ${order.status === 'ready' ? 'bg-gold-light text-gold-accent' : 'bg-green-light text-green-primary'}`}>
+                      <span className={`text-xs font-inter font-medium px-2.5 py-1 rounded-full ${order.status === 'ready' ? 'bg-gold-light text-amber-700' : 'bg-green-light text-green-primary'}`}>
                         {order.status === 'ready' ? 'Aller au restaurant' : 'En route vers le client'}
                       </span>
                     </div>
@@ -571,7 +571,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                               target="_blank"
                               rel="noopener noreferrer"
                               aria-label={`Envoyer sur WhatsApp : ${msg.label}`}
-                              className="text-[11px] bg-bg-secondary rounded-full px-3 py-1.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors"
+                              className="text-xs bg-bg-secondary rounded-full px-3.5 py-2.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors inline-flex items-center"
                             >
                               {msg.icon} {msg.label}
                             </a>
@@ -581,7 +581,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                     })()}
                     {/* Espèces à encaisser (CONF-16) */}
                     {order.paymentMethod === 'cash' && (
-                      <p className="flex items-center gap-1.5 bg-gold-light text-gold-accent font-inter font-semibold text-sm rounded-lg px-3 py-2 mb-4">
+                      <p className="flex items-center gap-1.5 bg-gold-light text-amber-700 font-inter font-semibold text-sm rounded-lg px-3 py-2 mb-4">
                         <Banknote className="w-4 h-4 shrink-0" />
                         À encaisser à la livraison : {order.total.toLocaleString()} FCFA
                       </p>
@@ -590,7 +590,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                     <button
                       type="button"
                       onClick={() => openIncidentDialog(order)}
-                      className="flex items-center gap-1.5 text-error font-inter text-xs font-medium mb-4 hover:opacity-80 transition-opacity"
+                      className="flex items-center gap-1.5 text-error font-inter text-xs font-medium mb-4 hover:opacity-80 transition-opacity min-h-11"
                     >
                       ⚠️ Signaler un problème (client injoignable, adresse introuvable...)
                     </button>
@@ -677,7 +677,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                 Solde disponible : {availableBalance.toLocaleString()} FCFA
               </p>
               {pendingPayout ? (
-                <p className="text-sm font-inter text-gold-accent font-medium">
+                <p className="text-sm font-inter text-amber-700 font-medium">
                   Virement de {pendingPayout.amount.toLocaleString()} FCFA en attente de traitement
                 </p>
               ) : (
@@ -716,7 +716,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                         ? 'bg-green-light text-green-primary'
                         : p.status === 'rejected'
                           ? 'bg-error/10 text-error'
-                          : 'bg-gold-light text-gold-accent'
+                          : 'bg-gold-light text-amber-700'
                         }`}>
                         {p.status === 'paid' ? 'Payé' : p.status === 'rejected' ? 'Refusé' : 'En attente'}
                       </span>
@@ -787,7 +787,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                 <button
                   type="button"
                   onClick={confirmDeliveryWithoutCode}
-                  className="mt-2 w-full border border-gold-accent text-gold-accent font-inter font-medium text-sm h-10 rounded-lg hover:bg-gold-light transition-colors"
+                  className="mt-2 w-full border border-amber-700 text-amber-700 font-inter font-medium text-sm h-10 rounded-lg hover:bg-gold-light transition-colors"
                 >
                   Le client n&apos;a pas son code — clôturer quand même (signalé)
                 </button>
@@ -829,9 +829,11 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                 className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none"
               >
                 <option value="" disabled>Sélectionnez le problème</option>
-                {(Object.keys(INCIDENT_LABELS) as IncidentType[]).map((t) => (
-                  <option key={t} value={t}>{INCIDENT_LABELS[t]}</option>
-                ))}
+                {(Object.keys(INCIDENT_LABELS) as IncidentType[])
+                  .filter((t) => t !== 'commande_non_conforme' /* motif réservé au client (série PTS) */)
+                  .map((t) => (
+                    <option key={t} value={t}>{INCIDENT_LABELS[t]}</option>
+                  ))}
               </select>
             </div>
             <textarea

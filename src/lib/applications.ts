@@ -5,6 +5,8 @@ export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
 
 export interface ApplicationInput {
   type: ApplicationType;
+  /** Nom complet du candidat (livreur) — propagé au registre utilisateurs à l'approbation. */
+  applicantName?: string;
   restaurantName?: string;
   /** Slug URL-friendly pour le restaurant (généré depuis le nom, éditable avant soumission). Définitif après soumission. */
   restaurantSlug?: string;
@@ -128,6 +130,33 @@ export async function fetchMyApplications(applicantId: string): Promise<Applicat
   return readLocalApplications().filter((a) => a.applicantId === applicantId);
 }
 
+async function enrichApplicationsWithUsers(apps: Application[]): Promise<Application[]> {
+  const applicantIds = [...new Set(apps.map((app) => app.applicantId).filter(Boolean))];
+  if (!applicantIds.length || !supabase) return apps;
+
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, full_name, phone, service_neighborhoods')
+      .in('id', applicantIds)
+      .limit(Math.max(applicantIds.length, 1));
+    if (error || !data) return apps;
+
+    const usersById = new Map((data as any[]).map((user) => [String(user.id), user]));
+    return apps.map((app) => {
+      const user = usersById.get(app.applicantId);
+      if (!user) return app;
+      return {
+        ...app,
+        applicantName: app.applicantName ?? user.full_name ?? undefined,
+        contactPhone: app.contactPhone ?? user.phone ?? undefined,
+        serviceNeighborhoods: app.serviceNeighborhoods ?? user.service_neighborhoods ?? undefined,
+      };
+    });
+  } catch {
+    return apps;
+  }
+}
 export async function fetchAllApplications(): Promise<Application[]> {
   if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const { data, error } = await supabase
@@ -135,12 +164,16 @@ export async function fetchAllApplications(): Promise<Application[]> {
       .select('*')
       .order('created_at', { ascending: false });
     if (error || !data) return [];
-    return data.map(mapApplicationRow);
+    return enrichApplicationsWithUsers(data.map(mapApplicationRow));
   }
   return readLocalApplications();
 }
 
-function markLocalUserApproved(applicantId: string, zone?: { city?: string; serviceNeighborhoods?: string[] }) {
+function markLocalUserApproved(
+  applicantId: string,
+  zone?: { city?: string; serviceNeighborhoods?: string[] },
+  applicantName?: string
+) {
   const raw = localStorage.getItem(LOCAL_USERS_KEY);
   const registry = raw ? JSON.parse(raw) : {};
   for (const phone of Object.keys(registry)) {
@@ -149,6 +182,11 @@ function markLocalUserApproved(applicantId: string, zone?: { city?: string; serv
       if (zone) {
         registry[phone].city = zone.city ?? null;
         registry[phone].serviceNeighborhoods = zone.serviceNeighborhoods?.length ? zone.serviceNeighborhoods : null;
+      }
+      // Le nom de la candidature complète le profil sans écraser un nom déjà
+      // renseigné à l'inscription.
+      if (applicantName?.trim() && !registry[phone].name) {
+        registry[phone].name = applicantName.trim();
       }
     }
   }
@@ -251,7 +289,8 @@ export async function approveApplication(id: string, restaurantId?: string): Pro
   if (!target) return;
   markLocalUserApproved(
     target.applicantId,
-    target.type === 'livreur' ? { city: target.city, serviceNeighborhoods: target.serviceNeighborhoods } : undefined
+    target.type === 'livreur' ? { city: target.city, serviceNeighborhoods: target.serviceNeighborhoods } : undefined,
+    target.applicantName
   );
   writeLocalApplications(
     apps.map((a) => (a.id === id ? { ...a, status: 'approved' as const, restaurantId: restaurantId ?? null } : a))

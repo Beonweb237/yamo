@@ -19,6 +19,7 @@ import DishDetail from './pages/DishDetail'
 import RestaurantDashboard from './pages/RestaurantDashboard'
 import DriverDashboard from './pages/DriverDashboard'
 import RoleGate from './components/RoleGate'
+import AdminPermissionGate from './components/AdminPermissionGate'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminApplications from './pages/admin/AdminApplications'
 import AdminOrders from './pages/admin/AdminOrders'
@@ -30,7 +31,11 @@ import AdminZones from './pages/admin/AdminZones'
 import AdminDeliveryFees from './pages/admin/AdminDeliveryFees'
 import AdminMedia from './pages/admin/AdminMedia'
 import AdminCustomers from './pages/admin/AdminCustomers'
+import AdminReviews from './pages/admin/AdminReviews'
+import AdminPoints from './pages/admin/AdminPoints'
 import AdminTrash from './pages/admin/AdminTrash'
+import AdminQuotas from './pages/admin/AdminQuotas'
+import AdminRoles from './pages/admin/AdminRoles'
 import FoodRequestCreate from './pages/FoodRequestCreate'
 import FoodRequestList from './pages/FoodRequestList'
 import NotFound from './pages/NotFound'
@@ -44,10 +49,21 @@ function ExplorerRedirect() {
   return <Navigate to={`/restaurants?${params.toString()}`} replace />
 }
 
+// Ancienne route fiche plat (/article/:slug) — les liens WhatsApp déjà
+// partagés doivent continuer de fonctionner après le renommage en /plat/.
+function ArticleRedirect() {
+  const { pathname } = useLocation()
+  return <Navigate to={pathname.replace(/^\/article\//, '/plat/')} replace />
+}
+
 export default function App() {
+  // mobileOffset : au-dessus de la MobileBottomNav (56px) ; sur les fiches
+  // resto/plat, aussi au-dessus de leur barre panier fixe (56 + 64px).
+  const { pathname } = useLocation()
+  const hasOwnCartBar = pathname.startsWith('/plat/') || pathname.startsWith('/restaurant/')
   return (
     <>
-      <Toaster position="bottom-center" richColors />
+      <Toaster position="bottom-center" richColors mobileOffset={{ bottom: hasOwnCartBar ? 132 : 72 }} />
       <Routes>
         <Route path="/" element={<Layout><Home /></Layout>} />
         <Route path="/restaurants" element={<Layout><Restaurants /></Layout>} />
@@ -68,7 +84,8 @@ export default function App() {
         <Route path="/candidature" element={<Layout><Candidature /></Layout>} />
         <Route path="/explorer" element={<ExplorerRedirect />} />
         <Route path="/favoris" element={<Layout><Favorites /></Layout>} />
-        <Route path="/article/:slug" element={<Layout><DishDetail /></Layout>} />
+        <Route path="/plat/:slug" element={<Layout><DishDetail /></Layout>} />
+        <Route path="/article/:slug" element={<ArticleRedirect />} />
         <Route path="/demandes/nouvelle" element={<Layout><FoodRequestCreate /></Layout>} />
         <Route path="/demandes/mes-demandes" element={<Layout><FoodRequestList /></Layout>} />
 
@@ -112,18 +129,22 @@ export default function App() {
           }
         >
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
-          <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="applications" element={<AdminApplications />} />
-          <Route path="orders" element={<AdminOrders />} />
-          <Route path="restaurants" element={<AdminRestaurants />} />
-          <Route path="drivers" element={<AdminDrivers />} />
-          <Route path="disputes" element={<AdminDisputes />} />
-          <Route path="dishes" element={<AdminDishCatalog />} />
-          <Route path="zones" element={<AdminZones />} />
-          <Route path="delivery-fees" element={<AdminDeliveryFees />} />
-          <Route path="media" element={<AdminMedia />} />
-          <Route path="customers" element={<AdminCustomers />} />
-          <Route path="trash" element={<AdminTrash />} />
+          <Route path="dashboard" element={<AdminPermissionGate permission="dashboard.view"><AdminDashboard /></AdminPermissionGate>} />
+          <Route path="applications" element={<AdminPermissionGate permission="applications.view"><AdminApplications /></AdminPermissionGate>} />
+          <Route path="orders" element={<AdminPermissionGate permission="orders.view"><AdminOrders /></AdminPermissionGate>} />
+          <Route path="restaurants" element={<AdminPermissionGate permission="restaurants.view"><AdminRestaurants /></AdminPermissionGate>} />
+          <Route path="drivers" element={<AdminPermissionGate permission="couriers.view"><AdminDrivers /></AdminPermissionGate>} />
+          <Route path="disputes" element={<AdminPermissionGate permission="orders.disputes.resolve"><AdminDisputes /></AdminPermissionGate>} />
+          <Route path="dishes" element={<AdminPermissionGate permission="dishes.manage"><AdminDishCatalog /></AdminPermissionGate>} />
+          <Route path="zones" element={<AdminPermissionGate permission="zones.manage"><AdminZones /></AdminPermissionGate>} />
+          <Route path="delivery-fees" element={<AdminPermissionGate permission="delivery_fees.manage"><AdminDeliveryFees /></AdminPermissionGate>} />
+          <Route path="media" element={<AdminPermissionGate permission="media.manage"><AdminMedia /></AdminPermissionGate>} />
+          <Route path="customers" element={<AdminPermissionGate permission="customers.view"><AdminCustomers /></AdminPermissionGate>} />
+          <Route path="reviews" element={<AdminPermissionGate permission="reviews.view"><AdminReviews /></AdminPermissionGate>} />
+          <Route path="points" element={<AdminPermissionGate permission="points.manage"><AdminPoints /></AdminPermissionGate>} />
+          <Route path="trash" element={<AdminPermissionGate permission="trash.manage"><AdminTrash /></AdminPermissionGate>} />
+          <Route path="quotas" element={<AdminPermissionGate permission="quotas.manage"><AdminQuotas /></AdminPermissionGate>} />
+          <Route path="roles" element={<AdminPermissionGate permission="admin.roles.view"><AdminRoles /></AdminPermissionGate>} />
         </Route>
 
         <Route path="*" element={<Layout><NotFound /></Layout>} />
@@ -131,3 +152,4 @@ export default function App() {
     </>
   )
 }
+

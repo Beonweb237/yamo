@@ -3,9 +3,10 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import {
   Bike, Home, LayoutDashboard, LogOut, ShoppingBag, Store, Menu, X,
   Package, Utensils, User, Wallet, AlertTriangle, UserCheck, UserCircle, ChevronDown, ChefHat,
-  MapPin, DollarSign, Image, Users, Trash2,
+  MapPin, DollarSign, Image, Users, MessageSquare, Trash2, Coins, Gauge, ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { hasAdminPermission, primaryAdminRoleLabel } from '../lib/adminRbac';
 import { fetchAllOrders } from '../lib/orders';
 import { fetchAllIncidents } from '../lib/incidents';
 import NetworkBanner from './NetworkBanner';
@@ -15,21 +16,26 @@ interface SidebarLink {
   name: string;
   path: string;
   icon: typeof LayoutDashboard;
+  permission?: string;
 }
 
 const adminSidebar: SidebarLink[] = [
-  { name: 'Tableau de bord', path: '/admin/dashboard', icon: LayoutDashboard },
-  { name: 'Candidatures', path: '/admin/applications', icon: UserCheck },
-  { name: 'Commandes', path: '/admin/orders', icon: ShoppingBag },
-  { name: 'Restaurants', path: '/admin/restaurants', icon: Store },
-  { name: 'Livreurs', path: '/admin/drivers', icon: Bike },
-  { name: 'Litiges', path: '/admin/disputes', icon: AlertTriangle },
-  { name: 'Catalogue plats', path: '/admin/dishes', icon: ChefHat },
-  { name: 'Zones', path: '/admin/zones', icon: MapPin },
-  { name: 'Frais livraison', path: '/admin/delivery-fees', icon: DollarSign },
-  { name: 'Médiathèque', path: '/admin/media', icon: Image },
-  { name: 'Clients', path: '/admin/customers', icon: Users },
-  { name: 'Corbeille', path: '/admin/trash', icon: Trash2 },
+  { name: 'Tableau de bord', path: '/admin/dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
+  { name: 'Candidatures', path: '/admin/applications', icon: UserCheck, permission: 'applications.view' },
+  { name: 'Commandes', path: '/admin/orders', icon: ShoppingBag, permission: 'orders.view' },
+  { name: 'Restaurants', path: '/admin/restaurants', icon: Store, permission: 'restaurants.view' },
+  { name: 'Livreurs', path: '/admin/drivers', icon: Bike, permission: 'couriers.view' },
+  { name: 'Litiges', path: '/admin/disputes', icon: AlertTriangle, permission: 'orders.disputes.resolve' },
+  { name: 'Catalogue plats', path: '/admin/dishes', icon: ChefHat, permission: 'dishes.manage' },
+  { name: 'Zones', path: '/admin/zones', icon: MapPin, permission: 'zones.manage' },
+  { name: 'Frais livraison', path: '/admin/delivery-fees', icon: DollarSign, permission: 'delivery_fees.manage' },
+  { name: 'Médiathèque', path: '/admin/media', icon: Image, permission: 'media.manage' },
+  { name: 'Clients', path: '/admin/customers', icon: Users, permission: 'customers.view' },
+  { name: 'Points', path: '/admin/points', icon: Coins, permission: 'points.manage' },
+  { name: 'Avis', path: '/admin/reviews', icon: MessageSquare, permission: 'reviews.view' },
+  { name: 'Rôles & accès', path: '/admin/roles', icon: ShieldCheck, permission: 'admin.roles.view' },
+  { name: 'Corbeille', path: '/admin/trash', icon: Trash2, permission: 'trash.manage' },
+  { name: 'Quotas', path: '/admin/quotas', icon: Gauge, permission: 'quotas.manage' },
 ];
 
 const restaurantSidebar: SidebarLink[] = [
@@ -68,7 +74,7 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
   // admin uniquement, rafraîchi toutes les 30 s (pas de polling agressif).
   const [openDisputesCount, setOpenDisputesCount] = useState(0);
   useEffect(() => {
-    if (user?.role !== 'admin') return;
+    if (user?.role !== 'admin' || !hasAdminPermission(user, 'orders.disputes.resolve')) return;
     const load = () => {
       Promise.all([fetchAllOrders(), fetchAllIncidents()]).then(([orders, incidents]) => {
         const cancellations = orders.filter((o) => o.status === 'cancelled' && !o.disputeResolved).length;
@@ -79,10 +85,10 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
     load();
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
-  }, [user?.role, location.pathname]);
+  }, [user, user?.role, location.pathname]);
 
   const roleLabels: Record<string, string> = {
-    client: 'Client', restaurant: 'Restaurateur', livreur: 'Livreur', admin: 'Administrateur',
+    client: 'Client', restaurant: 'Restaurateur', livreur: 'Livreur', admin: primaryAdminRoleLabel(user),
   };
 
   // Show sidebar based on current path context, not just role.
@@ -92,7 +98,10 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
     location.pathname.startsWith('/partenaires/dashboard') ? 'restaurant' :
       location.pathname.startsWith('/livreurs/dashboard') ? 'livreur' :
         user?.role ?? 'client';
-  const links = roleSidebars[contextualRole] ?? [];
+  const rawLinks = roleSidebars[contextualRole] ?? [];
+  const links = contextualRole === 'admin'
+    ? rawLinks.filter((link) => hasAdminPermission(user, link.permission))
+    : rawLinks;
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -125,9 +134,9 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
             </Link>
 
             {/* Admin quick-jump links (desktop only) */}
-            {user?.role === 'admin' && (
+            {user?.role === 'admin' && (hasAdminPermission(user, 'restaurants.view') || hasAdminPermission(user, 'couriers.view')) && (
               <nav className="hidden lg:flex items-center gap-1 ml-6">
-                {adminTopLinks.map((link) => (
+                {adminTopLinks.filter((link) => link.path.startsWith('/partenaires') ? hasAdminPermission(user, 'restaurants.view') : hasAdminPermission(user, 'couriers.view')).map((link) => (
                   <Link
                     key={link.path}
                     to={link.path}
@@ -223,7 +232,7 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
             <span className="font-poppins font-semibold text-text-primary text-sm">Navigation</span>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="w-8 h-8 rounded-lg text-text-secondary hover:bg-bg-secondary flex items-center justify-center"
+              className="w-11 h-11 rounded-lg text-text-secondary hover:bg-bg-secondary flex items-center justify-center"
             >
               <X className="w-4 h-4" />
             </button>
@@ -261,4 +270,6 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
     </div>
   );
 }
+
+
 

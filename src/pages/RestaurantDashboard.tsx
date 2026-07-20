@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Store, Clock, RefreshCw, Trash2, Plus, Upload, X, Volume2, VolumeX,
   Search, ImageOff, Pencil, TrendingUp,
   PackageCheck, AlertCircle, DollarSign, ChefHat, Star, ShoppingBag, Flame, ArrowDown, Eye, EyeOff, LayoutGrid, List, SlidersHorizontal, ArrowUpDown,
-  XCircle, Users, UserPlus, Phone, Bike, UserCheck,
+  XCircle, Users, UserPlus, Phone, Bike, UserCheck, Coins,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { CHART_PRIMARY, CHART_ACCENT, CHART_GRID, CHART_TICK, CHART_TOOLTIP_STYLE } from '../lib/chartTheme';
@@ -19,10 +20,30 @@ import { usePolling } from '../hooks/usePolling';
 import { useRestaurants } from '../hooks/useCatalog';
 import { restaurantMenuCategories, dishCatalog } from '../data/mockData';
 import type { MenuItem, Restaurant } from '../data/mockData';
-import { confirmOrderWithPreparation, fetchOrdersByRestaurant, getOrderPreparationMessage, updateOrderStatus, cancelOrder, getDriverPhone, type Order, type OrderStatus } from '../lib/orders';
+import { confirmOrderWithPreparation, fetchOrdersByRestaurant, getOrderPreparationMessage, updateOrderStatus, cancelOrder, getDriverPhone, getDriverName, confirmGuaranteeReceived, rejectGuaranteeDeclaration, type Order, type OrderStatus } from '../lib/orders';
 import { getPreferredDrivers, addPreferredDriver, removePreferredDriver, fetchDriversStats, getOwnDriverIds, addOwnDriver, removeOwnDriver, type DriverStats } from '../lib/drivers';
 import { processFormImage } from '../lib/media';
 import { parseHours, formatHours, isWithinHours } from '../lib/hours';
+import { getBalance, canAcceptOrder, grantWelcomeBonus, requestRecharge, fetchLedger, listRecharges, InsufficientPointsError, type PointsBalance, type PointsLedgerEntry, type RechargeRequest, type RechargeMethod } from '../lib/points';
+import { POINTS_CONFIG } from '../data/launchConfig';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog';
+import {
+  fetchRestaurantRatingSummary,
+  fetchRestaurantReviews,
+  submitOwnerReply,
+  deleteOwnerReply,
+  reportReview,
+  countUnseenReviews,
+  markRestaurantReviewsSeen,
+  type Review,
+  type ReviewSummary,
+} from '../lib/reviews';
 import { Skeleton } from '../components/ui/skeleton';
 import {
   AlertDialog,
@@ -106,6 +127,28 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
     localStorage.setItem('yamo_resto_sound', String(soundEnabled));
   }, [soundEnabled]);
 
+  // Notification in-app « nouveaux avis » : au chargement du dashboard, on
+  // compare les avis publiés à la date du dernier passage sur la section Avis
+  // (yamo_resto_reviews_seen). Un toast par restaurant et par session ; la
+  // section (onglet Profil) marque les avis comme vus.
+  const notifiedReviewsFor = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!restaurantId || tab === 'profile' || notifiedReviewsFor.current.has(restaurantId)) return;
+    notifiedReviewsFor.current.add(restaurantId);
+    fetchRestaurantReviews(restaurantId, { limit: 20 })
+      .then((reviews) => {
+        const unseen = countUnseenReviews(restaurantId, reviews);
+        if (unseen > 0) {
+          toast.info(
+            unseen === 1
+              ? 'Nouvel avis client reçu — consultez-le dans l\'onglet Profil.'
+              : `${unseen} nouveaux avis clients — consultez-les dans l'onglet Profil.`
+          );
+        }
+      })
+      .catch(() => { /* silencieux : simple notification de confort */ });
+  }, [restaurantId, tab]);
+
   // Patch local des champs restaurant modifiés (statut ouvert/fermé, profil) :
   // remplace le window.location.reload() historique et couvre le cas admin
   // (la liste useRestaurants n'est pas re-fetchable à la demande).
@@ -117,6 +160,49 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
   const activeRestaurant = baseActiveRestaurant
     ? { ...baseActiveRestaurant, ...restaurantPatch[baseActiveRestaurant.id] }
     : undefined;
+
+  // ── Série PTS : solde de points du resto ──────────────────────────────
+  // Bonus de bienvenue idempotent à la 1re ouverture, puis solde re-dérivé du
+  // ledger à chaque rafraîchissement des commandes (hold/settle le modifient).
+  const navigate = useNavigate();
+  const [pointsBalance, setPointsBalance] = useState<PointsBalance | null>(null);
+  const [canAccept, setCanAccept] = useState(true);
+  const lowBalanceToastShown = useRef(false);
+
+  const refreshPoints = useCallback(async (restaurantId: string) => {
+    const balance = await getBalance(restaurantId);
+    setPointsBalance(balance);
+    setCanAccept(await canAcceptOrder(restaurantId));
+    if (
+      balance.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_POINTS &&
+      !lowBalanceToastShown.current
+    ) {
+      lowBalanceToastShown.current = true;
+      toast.warning(`Solde de points faible : ${balance.available} pt${balance.available > 1 ? 's' : ''}`, {
+        description: 'Rechargez pour continuer à accepter des commandes.',
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activeRestaurant) return;
+    void (async () => {
+      await grantWelcomeBonus(activeRestaurant.id);
+      await refreshPoints(activeRestaurant.id);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRestaurant?.id]);
+
+  // Chaque rafraîchissement des commandes peut refléter un hold/settle :
+  // re-dériver le solde (lecture localStorage, coût négligeable en mock).
+  // Différé d'un tick — même motif que la géoloc de DishResults : pas de
+  // setState synchrone dans le corps de l'effet.
+  useEffect(() => {
+    if (!activeRestaurant) return;
+    const t = setTimeout(() => void refreshPoints(activeRestaurant.id), 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders]);
 
   // Toggle Ouvert/Fermé accessible depuis le header (CONF-13) — la fermeture
   // demande confirmation (elle coupe la prise de commandes immédiatement).
@@ -178,8 +264,12 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
     });
   }, [user, restaurantId]);
 
+  // Resync quand la liste change (useRestaurants rend le mock puis swap vers
+  // l'API) : un id figé sur l'ancienne liste laisserait activeRestaurant
+  // undefined et aucun contenu d'onglet ne se rendrait.
   useEffect(() => {
-    if (!restaurantId && restaurants.length > 0) {
+    if (restaurants.length === 0) return;
+    if (!restaurantId || !restaurants.some((r) => r.id === restaurantId)) {
       setRestaurantId(restaurants[0].id);
     }
   }, [restaurants, restaurantId]);
@@ -244,8 +334,18 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
     try {
       await confirmOrderWithPreparation(order.id, minutes);
       await loadOrders();
+    } catch (err) {
+      // Série PTS : solde épuisé entre l'affichage et le clic (cas limite).
+      if (err instanceof InsufficientPointsError) {
+        toast.error(err.message, {
+          action: { label: 'Recharger', onClick: () => navigate('/partenaires/dashboard/finances') },
+        });
+      } else {
+        toast.error("Impossible d'accepter la commande. Réessayez.");
+      }
     } finally {
       setProcessingOrderId(null);
+      if (activeRestaurant) void refreshPoints(activeRestaurant.id);
     }
   };
 
@@ -258,6 +358,9 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
       // l'ignore pour les autres statuts.
       await updateOrderStatus(order.id, next, deliveryModes[order.id]);
       await loadOrders();
+    } catch (err) {
+      // Série PTS : garde « garantie non confirmée » (et toute autre erreur de transition)
+      toast.error((err as Error).message || 'Impossible de mettre à jour la commande.');
     } finally {
       setProcessingOrderId(null);
     }
@@ -320,6 +423,19 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
           )}
           action={
             <div className="flex items-center gap-2">
+              {pointsBalance !== null && (
+                <button
+                  onClick={() => navigate('/partenaires/dashboard/finances')}
+                  title={`${pointsBalance.available} point${pointsBalance.available > 1 ? 's' : ''} disponible${pointsBalance.available > 1 ? 's' : ''}${pointsBalance.held > 0 ? ` · ${pointsBalance.held} réservés` : ''} — voir / recharger`}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-inter font-semibold backdrop-blur-sm transition-colors ${pointsBalance.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_POINTS
+                    ? 'bg-error/80 hover:bg-error text-white'
+                    : 'bg-white/15 hover:bg-white/25 text-white'
+                    }`}
+                >
+                  <Coins className="w-4 h-4" />
+                  {pointsBalance.available} pts
+                </button>
+              )}
               <button onClick={() => setSoundEnabled(!soundEnabled)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-inter font-medium bg-white/15 hover:bg-white/25 text-white backdrop-blur-sm transition-colors"
                 title={soundEnabled ? 'Son activé' : 'Son désactivé'}>
@@ -393,7 +509,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                   {/* LOT-14 : le badge client combine toggle ET horaires — prévenir
                       le restaurateur quand le toggle dit « Ouvert » hors plage. */}
                   {activeRestaurant.isOpen && isWithinHours(activeRestaurant.hours) === false && (
-                    <span className="text-[11px] font-inter bg-gold-light text-gold-accent px-2 py-0.5 rounded-full">
+                    <span className="text-[11px] font-inter bg-gold-light text-amber-700 px-2 py-0.5 rounded-full">
                       Hors horaires ({activeRestaurant.hours}) — affiché « Fermé » aux clients
                     </span>
                   )}
@@ -413,6 +529,21 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
 
             {tab === 'orders' ? (
               <>
+                {/* Série PTS : alerte solde faible — le resto doit anticiper la recharge */}
+                {pointsBalance !== null && pointsBalance.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_POINTS && (
+                  <div className="flex items-center justify-between gap-3 bg-gold-light border border-gold-accent/40 rounded-xl px-4 py-3 mb-4">
+                    <span className="text-amber-700 text-sm font-inter">
+                      <span className="font-semibold">Solde faible : {pointsBalance.available} pt{pointsBalance.available > 1 ? 's' : ''}.</span>{' '}
+                      Accepter une commande réserve {POINTS_CONFIG.ORDER_COST_POINTS} points.
+                    </span>
+                    <button
+                      onClick={() => navigate('/partenaires/dashboard/finances')}
+                      className="shrink-0 bg-green-primary hover:bg-green-dark text-white text-sm font-inter font-semibold px-4 min-h-11 rounded-lg transition-colors"
+                    >
+                      Recharger
+                    </button>
+                  </div>
+                )}
                 {loading ? (
                   <div className="space-y-4">
                     {[0, 1, 2].map((i) => (
@@ -445,7 +576,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                       const urgencyColor =
                         ageMin > 15 ? 'border-l-red-500' : ageMin > 5 ? 'border-l-amber-500' : 'border-l-green-500';
                       const ageColor =
-                        ageMin > 15 ? 'text-error' : ageMin > 5 ? 'text-gold-accent' : 'text-green-primary';
+                        ageMin > 15 ? 'text-error' : ageMin > 5 ? 'text-amber-700' : 'text-green-primary';
                       const prepMessage = getOrderPreparationMessage(order);
                       const selectedPrepTime = prepTimes[order.id] ?? defaultPrepTime;
                       const isProcessing = processingOrderId === order.id;
@@ -544,8 +675,9 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                   <div className="flex gap-2">
                                     <button
                                       onClick={() => handleConfirm(order)}
-                                      disabled={isProcessing}
-                                      className="flex-1 bg-green-primary text-white font-inter font-medium text-sm h-10 rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60"
+                                      disabled={isProcessing || !canAccept}
+                                      title={!canAccept ? 'Solde de points insuffisant pour accepter' : undefined}
+                                      className="flex-1 bg-green-primary text-white font-inter font-medium text-sm h-10 rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                                     >
                                       {isProcessing ? 'Confirmation...' : `Accepter — prêt dans ${selectedPrepTime} min`}
                                     </button>
@@ -557,6 +689,21 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                       Refuser
                                     </button>
                                   </div>
+                                  {/* Série PTS : solde épuisé — le resto VOIT la commande mais ne peut
+                                      pas l'accepter tant qu'il n'a pas rechargé. */}
+                                  {!canAccept && (
+                                    <div className="flex items-center justify-between gap-2 bg-error/5 border border-error/20 rounded-lg px-3 py-2">
+                                      <span className="text-error text-xs font-inter">
+                                        Solde insuffisant ({pointsBalance?.available ?? 0} pts) — accepter réserve {POINTS_CONFIG.ORDER_COST_POINTS} points.
+                                      </span>
+                                      <button
+                                        onClick={() => navigate('/partenaires/dashboard/finances')}
+                                        className="shrink-0 text-xs font-inter font-semibold text-white bg-green-primary hover:bg-green-dark px-3 py-1.5 rounded-lg transition-colors"
+                                      >
+                                        Recharger
+                                      </button>
+                                    </div>
+                                  )}
                                 </>
                               ) : (
                                 <>
@@ -589,7 +736,37 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                     </div>
                                   )}
                                   <div className="flex gap-2 items-center">
-                                    {next ? (
+                                    {/* Série PTS — garantie client : le resto confirme la réception
+                                        du paiement sur SON compte marchand avant de préparer. */}
+                                    {order.status === 'confirmed' && order.guarantee && order.guarantee.status === 'awaiting_payment' && (
+                                      <p className="flex-1 flex items-center gap-1.5 bg-bg-secondary text-text-secondary font-inter text-xs px-3 py-2.5 rounded-lg">
+                                        <Clock className="w-4 h-4 text-amber-700 shrink-0" />
+                                        En attente du paiement de la garantie ({order.guarantee.amountFcfa.toLocaleString()} FCFA) par le client.
+                                      </p>
+                                    )}
+                                    {order.status === 'confirmed' && order.guarantee && order.guarantee.status === 'declared' && (
+                                      <div className="flex-1 bg-gold-light border border-gold-accent/40 rounded-lg px-3 py-2.5">
+                                        <p className="text-amber-700 text-xs font-inter font-semibold mb-2">
+                                          Garantie déclarée payée{order.guarantee.proofNote ? ` — réf. ${order.guarantee.proofNote}` : ''}.
+                                          Vérifiez votre compte marchand.
+                                        </p>
+                                        <div className="flex gap-2">
+                                          <button
+                                            onClick={async () => { await confirmGuaranteeReceived(order.id); toast.success('Garantie confirmée — vous pouvez lancer la préparation.'); await loadOrders(); }}
+                                            className="flex-1 bg-green-primary hover:bg-green-dark text-white font-inter font-semibold text-xs h-10 rounded-lg transition-colors"
+                                          >
+                                            Paiement reçu
+                                          </button>
+                                          <button
+                                            onClick={async () => { await rejectGuaranteeDeclaration(order.id); toast.info('Déclaration annulée — le client est invité à payer.'); await loadOrders(); }}
+                                            className="px-3 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-xs hover:bg-bg-secondary transition-colors"
+                                          >
+                                            Non reçu
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {next && !(order.status === 'confirmed' && order.guarantee && order.guarantee.status !== 'confirmed') ? (
                                       <button
                                         onClick={() => handleAdvance(order)}
                                         disabled={isProcessing}
@@ -597,10 +774,10 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                       >
                                         {isProcessing ? 'Mise à jour...' : `Marquer : ${statusLabels[next]}`}
                                       </button>
-                                    ) : (
+                                    ) : next ? null : (
                                       // Borne restaurant atteinte : la suite du cycle
                                       // (récupération, livraison) appartient au livreur.
-                                      <span className="flex-1 inline-flex items-center gap-1.5 bg-gold-light text-gold-accent font-inter font-medium text-sm h-10 px-3 rounded-lg">
+                                      <span className="flex-1 inline-flex items-center gap-1.5 bg-gold-light text-amber-700 font-inter font-medium text-sm h-10 px-3 rounded-lg">
                                         <Clock className="w-4 h-4 shrink-0" />
                                         {order.status === 'ready' ? 'En attente du livreur' : 'Prise en charge par le livreur'}
                                       </span>
@@ -710,12 +887,21 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                 onCreated={loadMenu}
               />
             ) : tab === 'profile' && activeRestaurant ? (
-              <ProfileTab
-                restaurant={activeRestaurant}
-                onUpdate={(patch) => applyRestaurantPatch(activeRestaurant.id, patch)}
-              />
+              <div className="space-y-6">
+                <ProfileTab
+                  restaurant={activeRestaurant}
+                  onUpdate={(patch) => applyRestaurantPatch(activeRestaurant.id, patch)}
+                />
+                <RestaurantReviewsSection restaurantId={activeRestaurant.id} />
+              </div>
             ) : tab === 'finances' ? (
-              <FinancesTab orders={orders} commissionRate={activeRestaurant?.commissionRate ?? 0.15} />
+              <div className="space-y-6">
+                <PointsSection
+                  restaurantId={restaurantId}
+                  onBalanceChange={() => { if (activeRestaurant) void refreshPoints(activeRestaurant.id); }}
+                />
+                <FinancesTab orders={orders} commissionRate={activeRestaurant?.commissionRate ?? 0.15} />
+              </div>
             ) : tab === 'drivers' ? (
               <div className="space-y-6">
                 <PreferredDriversTab restaurantId={restaurantId} orders={orders} />
@@ -752,12 +938,285 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// Série PTS — Section « Mes points » (onglet finances)
+// ─────────────────────────────────────────────────────────────
+const RECHARGE_PRESETS = [10, 20, 50];
+
+function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string; onBalanceChange: () => void }) {
+  const [balance, setBalance] = useState<PointsBalance | null>(null);
+  const [ledger, setLedger] = useState<PointsLedgerEntry[]>([]);
+  const [recharges, setRecharges] = useState<RechargeRequest[]>([]);
+  const [loadError, setLoadError] = useState(false);
+  const [historyLimit, setHistoryLimit] = useState(8);
+
+  // Dialog de recharge
+  const [rechargeOpen, setRechargeOpen] = useState(false);
+  const [rechargePoints, setRechargePoints] = useState<number>(POINTS_CONFIG.MIN_RECHARGE_POINTS);
+  const [rechargeMethod, setRechargeMethod] = useState<RechargeMethod>('momo');
+  const [submitting, setSubmitting] = useState(false);
+  const [createdRequest, setCreatedRequest] = useState<RechargeRequest | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setLoadError(false);
+      const [bal, entries, reqs] = await Promise.all([
+        getBalance(restaurantId),
+        fetchLedger(restaurantId, { limit: 100 }),
+        listRecharges({ restaurantId }),
+      ]);
+      setBalance(bal);
+      setLedger(entries);
+      setRecharges(reqs);
+    } catch {
+      setLoadError(true);
+    }
+  }, [restaurantId]);
+
+  useEffect(() => {
+    const t = setTimeout(() => void load(), 0);
+    return () => clearTimeout(t);
+  }, [load]);
+
+  const handleRecharge = async () => {
+    setSubmitting(true);
+    try {
+      const request = await requestRecharge(restaurantId, rechargePoints, rechargeMethod);
+      setCreatedRequest(request);
+      await load();
+      onBalanceChange();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const closeRechargeDialog = () => {
+    setRechargeOpen(false);
+    setCreatedRequest(null);
+    setRechargePoints(POINTS_CONFIG.MIN_RECHARGE_POINTS);
+  };
+
+  // Historique fusionné : écritures du ledger + demandes non validées (une
+  // recharge validée apparaît déjà comme écriture — éviter le doublon).
+  const history: { id: string; date: string; label: string; points: number | null; pending?: boolean; rejected?: boolean }[] = [
+    ...ledger.map((e) => ({
+      id: e.id,
+      date: e.createdAt,
+      label: e.note ?? e.kind,
+      points: e.points,
+    })),
+    ...recharges
+      .filter((r) => r.status !== 'validated')
+      .map((r) => ({
+        id: r.id,
+        date: r.requestedAt,
+        label: `Recharge ${r.method === 'momo' ? 'Mobile Money' : 'cash partenaire'} — réf. ${r.paymentRef}${r.status === 'rejected' ? ` (rejetée : ${r.rejectionReason ?? 'sans motif'})` : ''}`,
+        points: r.points,
+        pending: r.status === 'pending',
+        rejected: r.status === 'rejected',
+      })),
+  ].sort((a, b) => b.date.localeCompare(a.date));
+
+  const fmtPts = (n: number) => `${n > 0 ? '+' : ''}${n} pt${Math.abs(n) > 1 ? 's' : ''}`;
+
+  return (
+    <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 rounded-lg bg-green-light flex items-center justify-center">
+          <Coins className="w-4 h-4 text-green-primary" />
+        </div>
+        <h2 className="font-poppins font-semibold text-text-primary text-lg">Mes points</h2>
+      </div>
+
+      {loadError ? (
+        <div className="text-center py-6">
+          <p className="text-text-secondary font-inter text-sm mb-2">Impossible de charger votre solde.</p>
+          <button onClick={() => void load()} className="text-green-primary font-inter text-sm font-medium hover:underline min-h-11">
+            Réessayer
+          </button>
+        </div>
+      ) : balance === null ? (
+        <div className="space-y-3">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-bg-secondary rounded-xl p-4 mb-4">
+            <div>
+              <p className="font-poppins font-bold text-text-primary text-3xl leading-none">
+                {balance.available} <span className="text-base font-semibold">pts</span>
+              </p>
+              <p className="text-text-muted text-xs font-inter mt-1">
+                ≈ {(balance.available * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} FCFA
+                {balance.held > 0 && ` · ${balance.held} pts réservés (commandes en cours)`}
+              </p>
+            </div>
+            <button
+              onClick={() => setRechargeOpen(true)}
+              className="bg-green-primary hover:bg-green-dark text-white font-inter font-semibold text-sm px-5 min-h-11 rounded-lg transition-colors active:scale-95"
+            >
+              Recharger
+            </button>
+          </div>
+          <p className="text-text-muted text-xs font-inter mb-4">
+            Une commande livrée coûte {POINTS_CONFIG.ORDER_COST_POINTS} points ({(POINTS_CONFIG.ORDER_COST_POINTS * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} FCFA).
+            En dessous de {POINTS_CONFIG.MIN_BALANCE_TO_ACCEPT_POINTS} points disponibles, vous ne pouvez plus accepter de nouvelles commandes.
+          </p>
+
+          <h3 className="font-inter font-semibold text-text-primary text-sm mb-2">Historique</h3>
+          {history.length === 0 ? (
+            <p className="text-text-muted font-inter text-sm py-4 text-center">
+              Aucun mouvement pour le moment.
+            </p>
+          ) : (
+            <>
+              <ul className="divide-y divide-border-light">
+                {history.slice(0, historyLimit).map((h) => (
+                  <li key={h.id} className="flex items-start justify-between gap-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className={`text-sm font-inter ${h.rejected ? 'text-text-muted line-through' : 'text-text-primary'}`}>{h.label}</p>
+                      <p className="text-text-muted text-[11px] font-inter">
+                        {new Date(h.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        {h.pending && ' · en attente de validation'}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 text-sm font-inter font-semibold ${h.pending ? 'text-amber-700' : h.rejected ? 'text-text-muted' : (h.points ?? 0) < 0 ? 'text-error' : 'text-green-primary'}`}>
+                      {h.points !== null ? fmtPts(h.points) : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {history.length > historyLimit && (
+                <button
+                  onClick={() => setHistoryLimit((n) => n + 10)}
+                  className="w-full text-green-primary font-inter text-sm font-medium hover:underline min-h-11"
+                >
+                  Voir plus ({history.length - historyLimit} restants)
+                </button>
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      {/* Dialog de recharge — phase 1 : dépôt manuel, validation admin sous 24 h */}
+      <Dialog open={rechargeOpen} onOpenChange={(open) => { if (!open) closeRechargeDialog(); }}>
+        <DialogContent className="sm:max-w-[420px] max-h-[85dvh] overflow-y-auto">
+          {createdRequest ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-poppins">Demande enregistrée</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="bg-green-light rounded-xl p-4 text-center">
+                  <p className="text-text-secondary text-xs font-inter mb-1">Référence à rappeler lors du dépôt</p>
+                  <p className="font-poppins font-bold text-green-primary text-2xl tracking-wider">{createdRequest.paymentRef}</p>
+                </div>
+                <p className="text-text-secondary text-sm font-inter">
+                  {createdRequest.points} points · {createdRequest.amountFcfa.toLocaleString()} FCFA ·{' '}
+                  {createdRequest.method === 'momo' ? 'Mobile Money' : 'cash chez un partenaire MiamExpress'}.
+                </p>
+                {createdRequest.method === 'momo' && (
+                  <p className="text-text-secondary text-sm font-inter bg-bg-secondary rounded-lg p-3">
+                    {POINTS_CONFIG.RECHARGE_MOMO_NUMBER
+                      ? <>Déposez {createdRequest.amountFcfa.toLocaleString()} FCFA au {POINTS_CONFIG.RECHARGE_MOMO_NUMBER} en indiquant la référence {createdRequest.paymentRef}.</>
+                      : <>Le numéro de dépôt vous sera communiqué par l'assistance MiamExpress (bientôt affiché ici).</>}
+                  </p>
+                )}
+                <p className="text-text-muted text-xs font-inter">
+                  Vos points seront crédités après validation par MiamExpress (sous 24 h ouvrées).
+                </p>
+              </div>
+              <DialogFooter>
+                <button onClick={closeRechargeDialog} className="w-full bg-green-primary text-white font-inter font-semibold h-11 rounded-lg hover:bg-green-dark transition-colors">
+                  Compris
+                </button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-poppins">Recharger mes points</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm font-inter font-medium text-text-primary mb-2">
+                    Nombre de points (minimum {POINTS_CONFIG.MIN_RECHARGE_POINTS})
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {RECHARGE_PRESETS.map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setRechargePoints(n)}
+                        className={`px-4 min-h-11 rounded-lg text-sm font-inter font-semibold transition-colors ${rechargePoints === n ? 'bg-green-primary text-white' : 'bg-bg-secondary text-text-secondary hover:text-text-primary'}`}
+                      >
+                        {n} pts
+                      </button>
+                    ))}
+                    <input
+                      type="number"
+                      min={POINTS_CONFIG.MIN_RECHARGE_POINTS}
+                      value={rechargePoints}
+                      onChange={(e) => setRechargePoints(parseInt(e.target.value) || 0)}
+                      aria-label="Nombre de points personnalisé"
+                      className="w-24 min-w-0 h-11 rounded-lg border border-border-custom bg-white px-3 text-sm font-inter text-center font-semibold outline-none focus:border-green-primary focus:ring-2 focus:ring-green-primary/10"
+                    />
+                  </div>
+                  <p className="text-text-muted text-xs font-inter mt-2">
+                    Total : <span className="font-semibold text-text-primary">{(Math.max(0, rechargePoints) * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} FCFA</span>
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-inter font-medium text-text-primary mb-2">Méthode de paiement</p>
+                  <div className="space-y-2">
+                    {([
+                      { id: 'momo' as RechargeMethod, label: 'Mobile Money (MTN MoMo / Orange Money)' },
+                      { id: 'cash_partner' as RechargeMethod, label: 'Cash chez un partenaire MiamExpress' },
+                    ]).map((m) => (
+                      <label key={m.id} className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${rechargeMethod === m.id ? 'border-green-primary bg-green-light' : 'border-border-custom hover:bg-bg-secondary'}`}>
+                        <input type="radio" name="recharge-method" checked={rechargeMethod === m.id} onChange={() => setRechargeMethod(m.id)} className="accent-green-primary" />
+                        <span className="text-sm font-inter text-text-primary">{m.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <button onClick={closeRechargeDialog} className="px-4 h-11 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">
+                  Annuler
+                </button>
+                <button
+                  onClick={handleRecharge}
+                  disabled={submitting || rechargePoints < POINTS_CONFIG.MIN_RECHARGE_POINTS}
+                  className="px-5 h-11 rounded-lg bg-green-primary text-white font-inter font-medium text-sm hover:bg-green-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {submitting ? 'Enregistrement...' : `Demander ${Math.max(0, rechargePoints)} pts`}
+                </button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
 // Téléphone masqué pour l'affichage (privacy) : indicatif + 2 derniers chiffres.
 function maskDriverPhone(phone: string | null): string {
   if (!phone) return 'Livreur';
   const digits = phone.replace(/\D/g, '');
   if (digits.length < 5) return 'Livreur';
   return `+${digits.slice(0, 3)} ••• ••• ${digits.slice(-2)}`;
+}
+
+// Libellé livreur côté restaurateur : nom complet quand il est connu
+// (candidature approuvée ou inscription), sinon téléphone masqué.
+function driverLabel(driverId: string): string {
+  return getDriverName(driverId) ?? maskDriverPhone(getDriverPhone(driverId));
 }
 
 function PreferredDriversTab({ restaurantId, orders }: { restaurantId: string; orders: Order[] }) {
@@ -818,9 +1277,9 @@ function PreferredDriversTab({ restaurantId, orders }: { restaurantId: string; o
             <div className="flex items-center gap-2">
               <div className="w-9 h-9 rounded-full bg-green-light flex items-center justify-center"><Bike className="w-4 h-4 text-green-primary" /></div>
               <div>
-                <span className="font-inter font-medium text-text-primary text-sm">{maskDriverPhone(getDriverPhone(id))}</span>
+                <span className="font-inter font-medium text-text-primary text-sm">{driverLabel(id)}</span>
                 {driverStats[id]?.averageRating != null && (
-                  <span className="ml-2 inline-flex items-center gap-0.5 text-xs font-inter text-gold-accent">
+                  <span className="ml-2 inline-flex items-center gap-0.5 text-xs font-inter text-amber-700">
                     <Star className="w-3 h-3 fill-gold-accent" />{driverStats[id].averageRating?.toFixed(1)}
                   </span>
                 )}
@@ -854,11 +1313,11 @@ function PreferredDriversTab({ restaurantId, orders }: { restaurantId: string; o
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-9 h-9 rounded-full bg-white border border-border-custom flex items-center justify-center shrink-0"><Bike className="w-4 h-4 text-text-secondary" /></div>
                     <div className="min-w-0">
-                      <span className="font-inter font-medium text-text-primary text-sm">{maskDriverPhone(getDriverPhone(id))}</span>
+                      <span className="font-inter font-medium text-text-primary text-sm">{driverLabel(id)}</span>
                       <span className="block text-[11px] font-inter text-text-muted">
                         {driverStats[id]?.completedDeliveries ?? 0} livraison{(driverStats[id]?.completedDeliveries ?? 0) > 1 ? 's' : ''}
                         {driverStats[id]?.averageRating != null && (
-                          <span className="ml-1.5 inline-flex items-center gap-0.5 text-gold-accent">
+                          <span className="ml-1.5 inline-flex items-center gap-0.5 text-amber-700">
                             <Star className="w-3 h-3 fill-gold-accent" />{driverStats[id].averageRating?.toFixed(1)}
                           </span>
                         )}
@@ -927,7 +1386,7 @@ function OwnCourierSection({
           <div key={id} className="flex items-center justify-between p-3 bg-bg-secondary rounded-xl">
             <div className="flex items-center gap-2">
               <div className="w-9 h-9 rounded-full bg-green-light flex items-center justify-center"><Bike className="w-4 h-4 text-green-primary" /></div>
-              <span className="font-inter font-medium text-text-primary text-sm">{maskDriverPhone(getDriverPhone(id))}</span>
+              <span className="font-inter font-medium text-text-primary text-sm">{driverLabel(id)}</span>
             </div>
             <button onClick={() => handleRemove(id)} className="text-xs font-inter font-medium text-error hover:underline">Retirer</button>
           </div>
@@ -1242,7 +1701,7 @@ function MenuTab({
         <button
           type="button"
           onClick={() => handleEdit(item)}
-          className="w-8 h-8 rounded-lg bg-bg-secondary flex items-center justify-center text-text-secondary hover:text-green-primary hover:bg-green-light transition-colors"
+          className="w-10 h-10 rounded-lg bg-bg-secondary flex items-center justify-center text-text-secondary hover:text-green-primary hover:bg-green-light transition-colors"
           title="Modifier"
         >
           <Pencil className="w-4 h-4" />
@@ -1251,7 +1710,7 @@ function MenuTab({
           type="button"
           onClick={() => handleTogglePopular(item)}
           disabled={busy}
-          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50 ${item.isPopular ? 'bg-gold-light text-gold-accent' : 'bg-bg-secondary text-text-secondary hover:text-gold-accent'}`}
+          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50 ${item.isPopular ? 'bg-gold-light text-gold-accent' : 'bg-bg-secondary text-text-secondary hover:text-gold-accent'}`}
           title={item.isPopular ? 'Retirer des populaires' : 'Marquer populaire'}
         >
           <Star className={`w-4 h-4 ${item.isPopular ? 'fill-current' : ''}`} />
@@ -1260,7 +1719,7 @@ function MenuTab({
           type="button"
           onClick={() => handleToggleAvailable(item)}
           disabled={busy}
-          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50 ${available ? 'bg-green-light text-green-primary' : 'bg-error/10 text-error'}`}
+          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50 ${available ? 'bg-green-light text-green-primary' : 'bg-error/10 text-error'}`}
           title={available ? 'Rendre indisponible' : 'Remettre disponible'}
         >
           {available ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
@@ -1269,7 +1728,7 @@ function MenuTab({
           type="button"
           onClick={() => handleDelete(item)}
           disabled={busy}
-          className="w-8 h-8 rounded-lg bg-bg-secondary flex items-center justify-center text-error hover:bg-error/10 transition-colors disabled:opacity-50"
+          className="w-10 h-10 rounded-lg bg-bg-secondary flex items-center justify-center text-error hover:bg-error/10 transition-colors disabled:opacity-50"
           title="Supprimer"
         >
           <Trash2 className="w-4 h-4" />
@@ -1328,7 +1787,7 @@ function MenuTab({
           </div>
           <div>
             <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide">À vérifier</p>
-            <p className="font-poppins font-bold text-gold-accent text-xl">{unavailableCount + missingImageCount}</p>
+            <p className="font-poppins font-bold text-amber-700 text-xl">{unavailableCount + missingImageCount}</p>
           </div>
         </div>
         <button
@@ -1466,7 +1925,7 @@ function MenuTab({
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-inter font-semibold text-text-primary text-sm truncate max-w-full">{item.name}</p>
                         {!available && <span className="text-[10px] font-inter font-bold text-error bg-error/10 px-2 py-0.5 rounded-full">Indisponible</span>}
-                        {item.isPopular && <span className="text-[10px] font-inter font-bold text-gold-accent bg-gold-light px-2 py-0.5 rounded-full">Populaire</span>}
+                        {item.isPopular && <span className="text-[10px] font-inter font-bold text-amber-700 bg-gold-light px-2 py-0.5 rounded-full">Populaire</span>}
                       </div>
                       <p className="text-text-muted text-xs font-inter truncate">{item.category} · {item.description}</p>
                     </div>
@@ -1517,7 +1976,7 @@ function MenuTab({
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-poppins font-bold text-text-primary text-lg">{editingId ? 'Modifier le plat' : 'Ajouter un plat'}</h3>
-                <button type="button" onClick={handleCancel} className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted hover:bg-bg-secondary transition-colors">
+                <button type="button" onClick={handleCancel} className="w-10 h-10 rounded-full flex items-center justify-center text-text-muted hover:bg-bg-secondary transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -1580,7 +2039,7 @@ function MenuTab({
                   ))}
                 </select>
                 {!formCatalogDishId && (
-                  <p className="text-gold-accent text-[11px] font-inter mt-1">
+                  <p className="text-amber-700 text-[11px] font-inter mt-1">
                     Ce plat sera soumis à validation par l'admin avant d'apparaître dans la recherche globale.
                   </p>
                 )}
@@ -1703,7 +2162,7 @@ function MenuTab({
                               type="button"
                               onClick={() => setFormVariants((prev) => prev.filter((_, j) => j !== i))}
                               aria-label={`Supprimer la variante ${i + 1}`}
-                              className="w-8 h-8 rounded-lg bg-bg-secondary flex items-center justify-center text-error hover:bg-error/10 transition-colors shrink-0"
+                              className="w-10 h-10 rounded-lg bg-bg-secondary flex items-center justify-center text-error hover:bg-error/10 transition-colors shrink-0"
                             >
                               <X className="w-4 h-4" />
                             </button>
@@ -1744,7 +2203,7 @@ function MenuTab({
                               type="button"
                               onClick={() => setFormSupplements((prev) => prev.filter((_, j) => j !== i))}
                               aria-label={`Supprimer le supplément ${i + 1}`}
-                              className="w-8 h-8 rounded-lg bg-bg-secondary flex items-center justify-center text-error hover:bg-error/10 transition-colors shrink-0"
+                              className="w-10 h-10 rounded-lg bg-bg-secondary flex items-center justify-center text-error hover:bg-error/10 transition-colors shrink-0"
                             >
                               <X className="w-4 h-4" />
                             </button>
@@ -1824,6 +2283,10 @@ function ProfileTab({
   const [closeTime, setCloseTime] = useState(initialHours?.close ?? '22:00');
   const [deliveryTime, setDeliveryTime] = useState(restaurant.deliveryTime);
   const [minOrder, setMinOrder] = useState(restaurant.minOrder.toString());
+  // Série PTS : données du parcours garantie (facultatives — sans code marchand,
+  // les commandes se déroulent sans étape garantie, comme avant).
+  const [merchantCode, setMerchantCode] = useState(restaurant.merchantCode ?? '');
+  const [assistanceWhatsapp, setAssistanceWhatsapp] = useState(restaurant.assistanceWhatsapp ?? '');
 
   const deliveryTimeOptions = ['10-20 min', '20-30 min', '30-45 min', '45-60 min', '60-90 min'];
   // Tolérance : une valeur historique hors liste reste sélectionnable.
@@ -1843,6 +2306,8 @@ function ProfileTab({
         hours: formatHours(openTime, closeTime),
         deliveryTime,
         minOrder: Number(minOrder),
+        merchantCode: merchantCode.trim() || undefined,
+        assistanceWhatsapp: assistanceWhatsapp.trim() || undefined,
       };
       await updateRestaurantProfile(restaurant.id, patch);
       onUpdate(patch);
@@ -1896,6 +2361,42 @@ function ProfileTab({
           </div>
           <p className="text-[11px] text-text-muted font-inter mt-1">
             Une fermeture après minuit est possible (ex. 10:00 → 02:00). Hors de ces horaires, votre restaurant apparaît « Fermé » aux clients.
+          </p>
+        </div>
+
+        {/* Série PTS — paiement de la garantie client */}
+        <div>
+          <label htmlFor="profile-merchant-code" className="block text-sm font-inter font-medium text-text-primary mb-1">
+            Code marchand Mobile Money
+          </label>
+          <input
+            id="profile-merchant-code"
+            type="text"
+            inputMode="numeric"
+            value={merchantCode}
+            onChange={(e) => setMerchantCode(e.target.value)}
+            placeholder="Ex. 057575"
+            className="w-full bg-white border border-border-custom rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
+          />
+          <p className="text-[11px] text-text-muted font-inter mt-1">
+            Affiché au client pour payer la garantie de commande ({POINTS_CONFIG.GUARANTEE_AMOUNT_FCFA.toLocaleString()} FCFA, déduite du total).
+            Laissez vide pour désactiver l&apos;étape garantie.
+          </p>
+        </div>
+        <div>
+          <label htmlFor="profile-assistance-whatsapp" className="block text-sm font-inter font-medium text-text-primary mb-1">
+            WhatsApp assistance
+          </label>
+          <input
+            id="profile-assistance-whatsapp"
+            type="tel"
+            value={assistanceWhatsapp}
+            onChange={(e) => setAssistanceWhatsapp(e.target.value)}
+            placeholder="Ex. +237 6XX XX XX XX"
+            className="w-full bg-white border border-border-custom rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
+          />
+          <p className="text-[11px] text-text-muted font-inter mt-1">
+            Affiché au client à l&apos;étape garantie pour joindre votre assistance.
           </p>
         </div>
 
@@ -2123,7 +2624,7 @@ function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRa
             {dishStats.slice(0, 8).map((dish, i) => (
               <div key={dish.name} className="py-2.5 flex items-center gap-3">
                 {i < 3 ? (
-                  <span className="w-6 h-6 rounded-full bg-gold-light text-gold-accent text-xs font-inter font-bold flex items-center justify-center shrink-0">
+                  <span className="w-6 h-6 rounded-full bg-gold-light text-amber-700 text-xs font-inter font-bold flex items-center justify-center shrink-0">
                     {i + 1}
                   </span>
                 ) : (
@@ -2203,6 +2704,319 @@ function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRa
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Avis clients du restaurant (lecture seule) — le restaurateur voit ce que ses
+// clients publient (la modération reste côté admin, /admin/reviews).
+function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [summary, setSummary] = useState<ReviewSummary | null>(null);
+  // Loading dérivé (pas de setState synchrone dans l'effet) : la section
+  // charge tant que le dernier restaurant résolu n'est pas celui affiché.
+  const [loadedForId, setLoadedForId] = useState<string | null>(null);
+  const reviewsLoading = loadedForId !== restaurantId;
+
+  // Réponse officielle du restaurant (une par avis, éditable).
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [replySubmittingId, setReplySubmittingId] = useState<string | null>(null);
+
+  // Signalement d'avis (motif obligatoire) + compteur « nouveaux depuis mon
+  // dernier passage » calculé avant de marquer la section comme vue.
+  const [reportTarget, setReportTarget] = useState<Review | null>(null);
+  const [reportReason, setReportReason] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [unseenCount, setUnseenCount] = useState(0);
+
+  const handleReport = async () => {
+    if (!reportTarget) return;
+    setReportSubmitting(true);
+    try {
+      const updated = await reportReview(reportTarget.id, reportReason);
+      applyUpdatedReview(updated);
+      setReportTarget(null);
+      setReportReason('');
+      toast.success('Avis signalé — la modération va le traiter.');
+    } catch (err) {
+      toast.error((err as Error).message || "Impossible de signaler l'avis.");
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
+
+  const applyUpdatedReview = (updated: Review) => {
+    setReviews((prev) => prev.map((review) => (review.id === updated.id ? updated : review)));
+  };
+
+  const handleSubmitReply = async (reviewId: string) => {
+    setReplySubmittingId(reviewId);
+    try {
+      const updated = await submitOwnerReply(reviewId, replyText);
+      applyUpdatedReview(updated);
+      setReplyingId(null);
+      setReplyText('');
+      toast.success('Réponse publiée.');
+    } catch (err) {
+      toast.error((err as Error).message || "Impossible de publier la réponse.");
+    } finally {
+      setReplySubmittingId(null);
+    }
+  };
+
+  const handleDeleteReply = async (reviewId: string) => {
+    setReplySubmittingId(reviewId);
+    try {
+      const updated = await deleteOwnerReply(reviewId);
+      applyUpdatedReview(updated);
+      toast.success('Réponse supprimée.');
+    } catch (err) {
+      toast.error((err as Error).message || 'Impossible de supprimer la réponse.');
+    } finally {
+      setReplySubmittingId(null);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      fetchRestaurantReviews(restaurantId, { limit: 20 }),
+      fetchRestaurantRatingSummary(restaurantId),
+    ])
+      .then(([reviewData, summaryData]) => {
+        if (cancelled) return;
+        setReviews(reviewData);
+        setSummary(summaryData);
+        // Badge « n nouveaux » calculé avant de marquer le passage : la
+        // prochaine visite ne re-signalera que les avis postérieurs.
+        setUnseenCount(countUnseenReviews(restaurantId, reviewData));
+        markRestaurantReviewsSeen(restaurantId);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setReviews([]);
+        setSummary(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadedForId(restaurantId);
+      });
+    return () => { cancelled = true; };
+  }, [restaurantId]);
+
+  return (
+    <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 sm:p-6 max-w-2xl">
+      <h2 className="font-poppins font-semibold text-text-primary text-lg flex items-center gap-2 mb-1">
+        <div className="w-8 h-8 rounded-lg bg-gold-light flex items-center justify-center">
+          <Star className="w-4 h-4 text-gold-accent" />
+        </div>
+        Avis clients
+        {unseenCount > 0 && (
+          <span className="bg-green-primary text-white text-[11px] font-inter font-semibold px-2 py-0.5 rounded-full">
+            {unseenCount} nouveau{unseenCount > 1 ? 'x' : ''}
+          </span>
+        )}
+      </h2>
+      <p className="text-text-secondary text-xs font-inter mb-4">
+        Avis vérifiés issus des commandes livrées. La modération est gérée par l&apos;équipe Yamo.
+      </p>
+
+      {reviewsLoading ? (
+        <div className="space-y-3">
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
+        </div>
+      ) : reviews.length === 0 ? (
+        <p className="bg-bg-secondary rounded-lg px-3 py-4 text-sm font-inter text-text-secondary text-center">
+          Aucun avis pour le moment. Les clients peuvent noter le restaurant après une commande livrée.
+        </p>
+      ) : (
+        <>
+          {summary && summary.reviewCount > 0 && (
+            <div className="flex items-center gap-3 bg-bg-secondary rounded-lg px-4 py-3 mb-4">
+              <p className="font-poppins font-bold text-2xl text-text-primary">{summary.ratingAvg.toFixed(1)}</p>
+              <div>
+                <div className="flex gap-0.5" aria-label={`${summary.ratingAvg.toFixed(1)} sur 5`}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-4 h-4 ${i < Math.round(summary.ratingAvg) ? 'fill-gold-accent text-gold-accent' : 'text-border-custom'}`}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-text-muted font-inter">
+                  {summary.reviewCount} avis · {summary.verifiedCount} vérifiés
+                </p>
+              </div>
+            </div>
+          )}
+          <div className="divide-y divide-border-light">
+            {reviews.map((review) => (
+              <div key={review.id} className="py-3">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className="font-inter font-semibold text-sm text-text-primary">
+                    {review.authorName || 'Client vérifié'}
+                  </span>
+                  <div className="flex gap-0.5" aria-label={`${review.rating} sur 5`}>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`w-3.5 h-3.5 ${i < review.rating ? 'fill-gold-accent text-gold-accent' : 'text-border-custom'}`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[11px] text-text-muted font-inter">
+                    {formatDistanceToNow(new Date(review.createdAt), { addSuffix: true, locale: fr })}
+                  </span>
+                </div>
+                {review.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-1">
+                    {review.tags.map((tag) => (
+                      <span key={tag} className="bg-bg-secondary text-text-secondary text-[11px] font-inter px-2 py-0.5 rounded-full">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {review.comment && (
+                  <p className="text-text-primary text-sm font-inter leading-relaxed">{review.comment}</p>
+                )}
+
+                {/* Réponse officielle : formulaire inline, une seule réponse par avis */}
+                {replyingId === review.id ? (
+                  <div className="mt-2 bg-bg-secondary rounded-lg p-3">
+                    <textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      maxLength={500}
+                      rows={3}
+                      autoFocus
+                      placeholder="Merci pour votre retour… (visible publiquement sous l'avis)"
+                      disabled={replySubmittingId === review.id}
+                      className="w-full bg-white rounded-lg border border-border-custom px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted focus:border-green-primary"
+                    />
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-[11px] text-text-muted font-inter">{replyText.length}/500</span>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSubmitReply(review.id)}
+                          disabled={replySubmittingId === review.id || !replyText.trim()}
+                          className="bg-green-primary text-white font-inter font-medium text-xs px-3 h-8 rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60"
+                        >
+                          {replySubmittingId === review.id ? 'Publication…' : 'Publier la réponse'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setReplyingId(null); setReplyText(''); }}
+                          disabled={replySubmittingId === review.id}
+                          className="text-text-secondary font-inter text-xs hover:underline"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : review.ownerReply ? (
+                  <div className={`mt-2 rounded-lg p-3 ${review.ownerReply.status === 'hidden' ? 'bg-error/5 border border-error/20' : 'bg-bg-secondary'}`}>
+                    <p className="text-[11px] font-inter font-semibold text-text-muted uppercase tracking-wide mb-1">
+                      Votre réponse
+                      {review.ownerReply.updatedAt && <span className="normal-case font-normal"> · modifiée</span>}
+                      {review.ownerReply.status === 'hidden' && (
+                        <span className="normal-case font-semibold text-error"> · masquée par la modération</span>
+                      )}
+                    </p>
+                    <p className="text-text-primary text-sm font-inter leading-relaxed">{review.ownerReply.text}</p>
+                    {review.ownerReply.status === 'hidden' && review.ownerReply.moderationReason && (
+                      <p className="text-error text-xs font-inter mt-1">Motif : {review.ownerReply.moderationReason}</p>
+                    )}
+                    <div className="flex gap-3 mt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => { setReplyingId(review.id); setReplyText(review.ownerReply?.text ?? ''); }}
+                        disabled={replySubmittingId === review.id}
+                        className="text-green-primary font-inter text-xs font-medium hover:underline"
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteReply(review.id)}
+                        disabled={replySubmittingId === review.id}
+                        className="text-error font-inter text-xs font-medium hover:underline"
+                      >
+                        {replySubmittingId === review.id ? 'Suppression…' : 'Supprimer'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setReplyingId(review.id); setReplyText(''); }}
+                    className="mt-2 text-green-primary font-inter text-xs font-medium hover:underline"
+                  >
+                    Répondre à cet avis
+                  </button>
+                )}
+
+                {/* Signalement : demande de modération avec motif obligatoire */}
+                <div className="mt-1.5">
+                  {review.ownerReport?.status === 'open' ? (
+                    <span className="inline-flex items-center gap-1 bg-gold-light text-amber-700 text-[11px] font-inter font-semibold px-2 py-0.5 rounded-full">
+                      Signalé — en attente de modération
+                    </span>
+                  ) : review.ownerReport?.status === 'resolved' ? (
+                    <span className="inline-flex items-center gap-1 bg-bg-secondary text-text-muted text-[11px] font-inter px-2 py-0.5 rounded-full">
+                      Signalement traité par la modération
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { setReportTarget(review); setReportReason(''); }}
+                      className="text-text-muted font-inter text-[11px] hover:text-error hover:underline"
+                    >
+                      Signaler cet avis à la modération
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Dialog de signalement — motif obligatoire (pas de window.prompt) */}
+      <AlertDialog open={!!reportTarget} onOpenChange={(open) => { if (!open) setReportTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Signaler cet avis à la modération ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              L&apos;avis reste visible pendant l&apos;examen. L&apos;équipe Yamo décidera de le
+              maintenir ou de le masquer. Expliquez précisément le problème
+              (propos injurieux, avis mensonger, hors sujet…).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <textarea
+            value={reportReason}
+            onChange={(e) => setReportReason(e.target.value)}
+            maxLength={500}
+            rows={3}
+            autoFocus
+            placeholder="Motif du signalement (obligatoire)…"
+            disabled={reportSubmitting}
+            className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reportSubmitting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleReport(); }}
+              disabled={reportSubmitting || !reportReason.trim()}
+              className="bg-error text-white hover:bg-error/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {reportSubmitting ? 'Envoi…' : 'Envoyer le signalement'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

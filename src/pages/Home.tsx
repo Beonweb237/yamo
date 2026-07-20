@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -14,6 +14,7 @@ import { cuisineCategories, customerReviews } from '../data/mockData';
 import { matchLocationQuery } from '../data/locations';
 import { useRestaurants } from '../hooks/useCatalog';
 import AppImage from '../components/AppImage';
+import { APP_STORE_URL, PLAY_STORE_URL } from '../data/launchConfig';
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 30 },
@@ -29,6 +30,12 @@ export default function Home() {
   const { restaurants } = useRestaurants();
   const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState('');
+  const topRestaurants = useMemo(
+    () => [...restaurants]
+      .sort((a, b) => (b.ratingWeighted ?? b.rating) - (a.ratingWeighted ?? a.rating) || b.reviewCount - a.reviewCount)
+      .slice(0, 4),
+    [restaurants]
+  );
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -130,9 +137,9 @@ export default function Home() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.4, delay: 1.3 }}
-              className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-6 text-white/60 text-[13px] font-inter"
+              className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-6 text-white/80 text-[13px] font-inter"
             >
-              <span>Plus de 500 restaurants partenaires</span>
+              <span>Les meilleurs restaurants de Douala et Yaoundé</span>
               <span>&bull;</span>
               <span>Livraison en 30 min</span>
               <span>&bull;</span>
@@ -230,7 +237,7 @@ export default function Home() {
             viewport={{ once: true, amount: 0.15 }}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
           >
-            {restaurants.slice(0, 4).map((resto) => (
+            {topRestaurants.map((resto) => (
               <motion.div
                 key={resto.id}
                 variants={{
@@ -241,14 +248,14 @@ export default function Home() {
               >
                 <Link
                   to={`/restaurant/${resto.slug || resto.id}`}
-                  className="block bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden hover:shadow-[0_12px_32px_rgba(0,0,0,0.10)] hover:-translate-y-1 transition-all duration-250"
+                  className="block bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden hover:shadow-[0_12px_32px_rgba(0,0,0,0.10)] hover:-translate-y-1 transition-all duration-200"
                 >
                   <div className="aspect-[16/10] overflow-hidden relative">
                     <AppImage
                       src={resto.image}
                       alt={resto.name}
                       fallbackLabel={resto.name}
-                      className="w-full h-full object-cover hover:scale-[1.05] transition-transform duration-400"
+                      className="w-full h-full object-cover hover:scale-[1.05] transition-transform duration-300"
                     />
                     {resto.isPremium && (
                       <span className="absolute top-0 left-0 bg-green-primary text-white text-xs font-inter font-semibold px-3 py-1.5 rounded-br-lg">
@@ -257,16 +264,17 @@ export default function Home() {
                     )}
                   </div>
                   <div className="p-4">
-                    <h3 className="font-inter font-semibold text-text-primary text-base mb-1">
+                    <h3 className="font-inter font-semibold text-text-primary text-base mb-1 truncate">
                       {resto.name}
                     </h3>
-                    <p className="text-text-secondary text-xs font-inter mb-3">
+                    <p className="text-text-secondary text-xs font-inter mb-3 truncate">
                       {resto.tags.join(' \u2022 ')}
                     </p>
                     <div className="flex items-center gap-3 flex-wrap">
-                      <span className="inline-flex items-center gap-1 bg-gold-light text-gold-accent text-xs font-inter font-medium px-2 py-0.5 rounded-full">
+                      {/* amber-700 : gold-accent sur gold-light est à ~1.9:1, illisible (précédent : badge Premium navbar) */}
+                      <span className="inline-flex items-center gap-1 bg-gold-light text-amber-700 text-xs font-inter font-medium px-2 py-0.5 rounded-full">
                         <Star className="w-3 h-3 fill-gold-accent" />
-                        {resto.rating}
+                        {resto.rating.toFixed(1)}
                       </span>
                       <span className="inline-flex items-center gap-1 bg-bg-secondary text-text-secondary text-xs font-inter px-2 py-0.5 rounded-full">
                         <Clock className="w-3 h-3" />
@@ -318,12 +326,12 @@ export default function Home() {
                 num: '2',
                 icon: ShoppingCart2,
                 title: 'Passez Votre Commande',
-                desc: 'Ajoutez vos plats pr&eacute;f&eacute;r&eacute;s au panier, personnalisez vos options, et payez en toute s&eacute;curit&eacute; par Mobile Money ou carte.',
+                desc: 'Ajoutez vos plats préférés au panier, personnalisez vos options, et payez par Mobile Money (MTN MoMo, Orange Money) ou en espèces à la livraison.',
               },
               {
                 num: '3',
                 icon: MapPin,
-                title: 'Suivez en Temps R&eacute;el',
+                title: 'Suivez en Temps Réel',
                 desc: 'Suivez votre livraison du restaurant &agrave; votre porte. D&eacute;gustez vos saveurs pr&eacute;f&eacute;r&eacute;es au chaud et &agrave; temps.',
               },
             ].map((step, i) => (
@@ -383,25 +391,42 @@ export default function Home() {
                 T&eacute;l&eacute;chargez l&apos;application MiamExpress pour une exp&eacute;rience encore plus rapide. Recevez des notifications en temps r&eacute;el, sauvegardez vos adresses favorites, et profitez d&apos;offres exclusives.
               </p>
 
+              {/* Badges stores : emplacements conservés — pilotés par launchConfig,
+                  non cliquables (« Bientôt ») tant que les liens ne sont pas fournis. */}
               <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-6">
-                <button className="flex items-center justify-center gap-2 bg-white text-text-primary font-inter font-medium text-sm px-6 h-12 rounded-lg hover:bg-green-light transition-colors">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
-                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
-                  </svg>
-                  App Store
-                </button>
-                <button className="flex items-center justify-center gap-2 bg-white text-text-primary font-inter font-medium text-sm px-6 h-12 rounded-lg hover:bg-green-light transition-colors">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
-                    <path d="M3 20.5v-17c0-.83.67-1.5 1.5-1.5.28 0 .55.08.78.23l15 8.5c.46.26.74.75.74 1.27s-.28 1.01-.74 1.27l-15 8.5c-.23.15-.5.23-.78.23-.83 0-1.5-.67-1.5-1.5z" />
-                  </svg>
-                  Google Play
-                </button>
+                {[
+                  { label: 'App Store', href: APP_STORE_URL, iconPath: 'M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z' },
+                  { label: 'Google Play', href: PLAY_STORE_URL, iconPath: 'M3 20.5v-17c0-.83.67-1.5 1.5-1.5.28 0 .55.08.78.23l15 8.5c.46.26.74.75.74 1.27s-.28 1.01-.74 1.27l-15 8.5c-.23.15-.5.23-.78.23-.83 0-1.5-.67-1.5-1.5z' },
+                ].map((store) => store.href ? (
+                  <a
+                    key={store.label}
+                    href={store.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 bg-white text-text-primary font-inter font-medium text-sm px-6 h-12 rounded-lg hover:bg-green-light transition-colors"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor"><path d={store.iconPath} /></svg>
+                    {store.label}
+                  </a>
+                ) : (
+                  <div
+                    key={store.label}
+                    aria-disabled="true"
+                    className="relative flex items-center justify-center gap-2 bg-white/85 text-text-primary font-inter font-medium text-sm px-6 h-12 rounded-lg cursor-default select-none"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor"><path d={store.iconPath} /></svg>
+                    {store.label}
+                    <span className="absolute -top-2 -right-2 bg-gold-accent text-white text-[10px] font-inter font-semibold px-2 py-0.5 rounded-full shadow-sm">
+                      Bientôt
+                    </span>
+                  </div>
+                ))}
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 {[
-                  { icon: Check, text: 'Commandes illimit&eacute;es' },
-                  { icon: MapPin, text: 'Suivi GPS en temps r&eacute;el' },
+                  { icon: Check, text: 'Commandes illimitées' },
+                  { icon: MapPin, text: 'Suivi de commande en direct' },
                   { icon: Star, text: 'Offres exclusives' },
                 ].map((feat, i) => (
                   <span key={i} className="inline-flex items-center gap-2 text-white/70 font-inter text-sm">
@@ -446,7 +471,7 @@ export default function Home() {
               Ils Nous Font Confiance
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              Des milliers de clients satisfaits &agrave; travers le Cameroun
+              Ce que nos premiers clients disent de nous &agrave; Douala et Yaound&eacute;
             </p>
           </motion.div>
 
@@ -469,11 +494,14 @@ export default function Home() {
               >
                 <Quote className="absolute top-4 right-4 w-12 h-12 text-green-light -z-0" />
                 <div className="flex items-center gap-3 mb-4 relative z-10">
-                  <img
-                    src={review.avatar}
-                    alt={review.name}
-                    className="w-14 h-14 rounded-full object-cover border-2 border-green-primary"
-                  />
+                  <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-green-primary shrink-0">
+                    <AppImage
+                      src={review.avatar}
+                      alt={review.name}
+                      fallbackLabel={review.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                   <div>
                     <h4 className="font-inter font-semibold text-text-primary text-sm">
                       {review.name}

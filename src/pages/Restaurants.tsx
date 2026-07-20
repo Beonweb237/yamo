@@ -13,6 +13,7 @@ import {
   Minimize2,
   Store,
   UtensilsCrossed,
+  BadgeCheck,
 } from 'lucide-react';
 import { cuisineCategories } from '../data/mockData';
 import type { Restaurant } from '../data/mockData';
@@ -55,6 +56,10 @@ function stableDistance(id: string): string {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash + id.charCodeAt(i) * (i + 1)) % 100;
   return (1 + (hash % 30) / 10).toFixed(1);
+}
+
+function ratingForRanking(restaurant: Restaurant): number {
+  return restaurant.ratingWeighted ?? restaurant.rating;
 }
 
 export default function Restaurants() {
@@ -185,7 +190,7 @@ export default function Restaurants() {
 
     switch (sortBy) {
       case 'rating':
-        result.sort((a, b) => b.rating - a.rating);
+        result.sort((a, b) => ratingForRanking(b) - ratingForRanking(a) || b.reviewCount - a.reviewCount);
         break;
       case 'time':
         result.sort((a, b) => {
@@ -232,13 +237,15 @@ export default function Restaurants() {
 
   return (
     <div className="pt-[72px] min-h-screen bg-bg-secondary">
-      <section className="bg-green-primary pt-12 pb-20 sm:pt-16 sm:pb-24 relative">
+      {/* Héro volontairement compact sur mobile : page utilitaire, les résultats
+          doivent apparaître dès le premier écran (le marketing reste sur ≥sm). */}
+      <section className="bg-green-primary pt-5 pb-14 sm:pt-16 sm:pb-24 relative">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="text-white/60 text-xs font-inter mb-4"
+            className="hidden sm:block text-white/60 text-xs font-inter mb-4"
           >
             <Link to="/" className="hover:text-white transition-colors">Accueil</Link>
             <span className="mx-2">/</span>
@@ -249,7 +256,7 @@ export default function Restaurants() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="font-poppins font-semibold text-white text-3xl sm:text-4xl lg:text-[38px]/[1.18] tracking-normal mb-3"
+            className="font-poppins font-semibold text-white text-2xl sm:text-4xl lg:text-[38px]/[1.18] tracking-normal mb-1 sm:mb-3"
           >
             {mode === 'plats' ? 'Trouvez le Plat Parfait' : 'Trouvez Votre Restaurant Idéal'}
           </motion.h1>
@@ -258,16 +265,17 @@ export default function Restaurants() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.2 }}
-            className="text-white/75 font-inter text-base max-w-[600px]"
+            className="hidden sm:block text-white/75 font-inter text-base max-w-[600px]"
           >
             {mode === 'plats'
               ? 'Recherchez par plat, ingrédient ou boisson — et commandez au meilleur prix'
-              : 'Plus de 500 restaurants partenaires dans les grandes villes du Cameroun'}
+              : 'Les meilleurs restaurants de vos quartiers, à Douala, Yaoundé et au-delà'}
           </motion.p>
         </div>
       </section>
 
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 -mt-10 relative z-50">
+      {/* z-30 : doit rester SOUS la navbar (z-50) et la barre catégories sticky (z-40) au scroll */}
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 -mt-10 relative z-30">
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -310,7 +318,7 @@ export default function Restaurants() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex items-center gap-2 flex-1 bg-bg-secondary rounded-lg px-3 h-12">
+            <div className="flex items-center gap-2 flex-1 bg-white border border-border-custom rounded-lg px-3 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
               <Search className="w-4 h-4 text-text-muted shrink-0" />
               <input
                 type="text"
@@ -321,7 +329,9 @@ export default function Restaurants() {
                 className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
               />
             </div>
-            <div className="flex flex-wrap gap-3">
+            {/* Mobile : grille 2×2 stricte (Ville|Quartier / Note|Rechercher) — le
+                flex-wrap produisait un empilement en quinconce à 360px */}
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
               <div className="relative">
                 <button
                   type="button"
@@ -330,17 +340,17 @@ export default function Restaurants() {
                     setShowNeighborhoodMenu(false);
                     setCitySearch('');
                   }}
-                  className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12"
+                  className="w-full sm:w-auto flex items-center gap-2 bg-white border border-border-custom hover:border-text-muted rounded-lg px-3 h-12 transition-colors"
                 >
                   <MapPin className="w-4 h-4 text-text-muted" />
                   <div className="text-left">
                     <span className="text-[10px] text-text-muted font-inter block leading-none">Ville</span>
                     <span className="text-sm text-text-primary font-inter font-medium">{selectedCity}</span>
                   </div>
-                  <ChevronDown className="w-4 h-4 text-text-muted" />
+                  <ChevronDown className="w-4 h-4 text-text-muted ml-auto sm:ml-0" />
                 </button>
                 {showCityMenu && (
-                  <div className="absolute top-full left-0 mt-2 bg-white border border-border-custom rounded-lg shadow-lg z-50 min-w-[200px] overflow-hidden">
+                  <div className="absolute top-full left-0 mt-2 bg-white border border-border-custom rounded-lg shadow-xl z-[100] min-w-[200px] overflow-hidden">
                     <div className="flex items-center gap-2 px-3 py-2 border-b border-border-light">
                       <Search className="w-3.5 h-3.5 text-text-muted shrink-0" />
                       <input
@@ -387,17 +397,17 @@ export default function Restaurants() {
                     setShowCityMenu(false);
                     setNeighborhoodSearch('');
                   }}
-                  className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12"
+                  className="w-full sm:w-auto flex items-center gap-2 bg-white border border-border-custom hover:border-text-muted rounded-lg px-3 h-12 transition-colors"
                 >
                   <SlidersHorizontal className="w-4 h-4 text-text-muted" />
                   <div className="text-left">
                     <span className="text-[10px] text-text-muted font-inter block leading-none">Quartier</span>
                     <span className="text-sm text-text-primary font-inter font-medium">{selectedNeighborhood || 'Tous'}</span>
                   </div>
-                  <ChevronDown className="w-4 h-4 text-text-muted" />
+                  <ChevronDown className="w-4 h-4 text-text-muted ml-auto sm:ml-0" />
                 </button>
                 {showNeighborhoodMenu && (
-                  <div className="absolute top-full left-0 mt-2 bg-white border border-border-custom rounded-lg shadow-lg z-50 min-w-[200px] overflow-hidden">
+                  <div className="absolute top-full left-0 mt-2 bg-white border border-border-custom rounded-lg shadow-xl z-[100] min-w-[200px] overflow-hidden">
                     <div className="flex items-center gap-2 px-3 py-2 border-b border-border-light">
                       <Search className="w-3.5 h-3.5 text-text-muted shrink-0" />
                       <input
@@ -450,55 +460,55 @@ export default function Restaurants() {
                 )}
               </div>
               {mode === 'restaurants' && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowRatingMenu(!showRatingMenu);
-                    setShowCityMenu(false);
-                    setShowNeighborhoodMenu(false);
-                  }}
-                  className={`flex items-center gap-2 rounded-lg px-3 h-12 transition-colors ${minRating > 0 ? 'bg-gold-light' : 'bg-bg-secondary'
-                    }`}
-                >
-                  <Star className={`w-4 h-4 ${minRating > 0 ? 'text-gold-accent fill-gold-accent' : 'text-text-muted'}`} />
-                  <div className="text-left">
-                    <span className="text-[10px] text-text-muted font-inter block leading-none">Note</span>
-                    <span className={`text-sm font-inter font-medium ${minRating > 0 ? 'text-gold-accent' : 'text-text-primary'}`}>
-                      {minRating > 0 ? `${minRating.toFixed(1)}+` : 'Toutes'}
-                    </span>
-                  </div>
-                  <ChevronDown className="w-4 h-4 text-text-muted" />
-                </button>
-                {showRatingMenu && (
-                  <div className="absolute top-full left-0 mt-2 bg-white border border-border-custom rounded-lg shadow-lg z-50 min-w-[180px] overflow-hidden py-1">
-                    {ratingOptions.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => {
-                          setMinRating(opt.value);
-                          setShowRatingMenu(false);
-                        }}
-                        className={`flex items-center justify-between w-full text-left px-4 py-2 text-sm font-inter transition-colors ${minRating === opt.value
-                          ? 'text-gold-accent bg-gold-light'
-                          : 'text-text-secondary hover:bg-bg-secondary'
-                          }`}
-                      >
-                        <span className="flex items-center gap-1.5">
-                          {opt.value > 0 && <Star className="w-3.5 h-3.5 fill-gold-accent text-gold-accent" />}
-                          {opt.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowRatingMenu(!showRatingMenu);
+                      setShowCityMenu(false);
+                      setShowNeighborhoodMenu(false);
+                    }}
+                    className={`w-full sm:w-auto flex items-center gap-2 rounded-lg px-3 h-12 transition-colors border ${minRating > 0 ? 'bg-gold-light border-gold-accent/40' : 'bg-white border-border-custom hover:border-text-muted'
+                      }`}
+                  >
+                    <Star className={`w-4 h-4 ${minRating > 0 ? 'text-gold-accent fill-gold-accent' : 'text-text-muted'}`} />
+                    <div className="text-left">
+                      <span className="text-[10px] text-text-muted font-inter block leading-none">Note</span>
+                      <span className={`text-sm font-inter font-medium ${minRating > 0 ? 'text-amber-700' : 'text-text-primary'}`}>
+                        {minRating > 0 ? `${minRating.toFixed(1)}+` : 'Toutes'}
+                      </span>
+                    </div>
+                    <ChevronDown className="w-4 h-4 text-text-muted" />
+                  </button>
+                  {showRatingMenu && (
+                    <div className="absolute top-full left-0 mt-2 bg-white border border-border-custom rounded-lg shadow-xl z-[100] min-w-[180px] overflow-hidden py-1">
+                      {ratingOptions.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            setMinRating(opt.value);
+                            setShowRatingMenu(false);
+                          }}
+                          className={`flex items-center justify-between w-full text-left px-4 py-2 text-sm font-inter transition-colors ${minRating === opt.value
+                            ? 'text-amber-700 bg-gold-light'
+                            : 'text-text-secondary hover:bg-bg-secondary'
+                            }`}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            {opt.value > 0 && <Star className="w-3.5 h-3.5 fill-gold-accent text-gold-accent" />}
+                            {opt.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
               <button
                 type="button"
                 onClick={handleSearch}
-                className="flex-1 sm:flex-none bg-green-primary text-white font-inter font-medium text-sm h-12 px-6 rounded-lg hover:bg-green-dark transition-colors"
+                className={`${mode === 'restaurants' ? '' : 'col-span-2'} sm:flex-none bg-green-primary text-white font-inter font-medium text-sm h-12 px-6 rounded-lg hover:bg-green-dark active:scale-[0.98] transition-all`}
               >
                 Rechercher
               </button>
@@ -524,285 +534,334 @@ export default function Restaurants() {
       )}
 
       {mode === 'restaurants' && (
-      <>
-      <div className="sticky top-[72px] z-40 bg-white border-b border-border-custom mt-6">
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-3">
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
-            {allCategories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => {
-                  setActiveCategory(cat);
-                  syncParams({ q: searchQuery, category: cat, ville: selectedCity, quartier: selectedNeighborhood });
-                }}
-                className={`snap-start shrink-0 px-4 py-2 rounded-full font-inter text-[13px] font-medium whitespace-nowrap transition-colors cursor-pointer ${cat === activeCategory
-                  ? 'bg-green-primary text-white'
-                  : 'bg-bg-secondary text-text-secondary hover:bg-green-light hover:text-green-primary'
-                  }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <section className="py-8 sm:py-12">
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
-          <div className="flex flex-col lg:flex-row gap-8">
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-6">
-                <span className="text-text-secondary font-inter text-sm">
-                  {filtered.length} restaurants trouvés
-                  {selectedNeighborhood ? ` à ${selectedNeighborhood}` : ` à ${selectedCity}`}
-                </span>
-                <div className="relative">
+        <>
+          <div className="sticky top-[72px] z-40 bg-white border-b border-border-custom mt-6">
+            <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-3">
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
+                {allCategories.map((cat) => (
                   <button
-                    onClick={() => setShowSort(!showSort)}
-                    className="flex items-center gap-2 text-text-secondary font-inter text-sm hover:text-text-primary"
+                    key={cat}
+                    onClick={() => {
+                      setActiveCategory(cat);
+                      syncParams({ q: searchQuery, category: cat, ville: selectedCity, quartier: selectedNeighborhood });
+                    }}
+                    className={`snap-start shrink-0 px-4 py-2 rounded-full font-inter text-[13px] font-medium whitespace-nowrap transition-colors cursor-pointer ${cat === activeCategory
+                      ? 'bg-green-primary text-white'
+                      : 'bg-bg-secondary text-text-secondary hover:bg-green-light hover:text-green-primary'
+                      }`}
                   >
-                    Trier par : {sortOptions.find((o) => o.value === sortBy)?.label}
-                    <ChevronDown className="w-4 h-4" />
+                    {cat}
                   </button>
-                  {showSort && (
-                    <div className="absolute right-0 top-full mt-2 bg-white border border-border-custom rounded-lg shadow-lg py-1 z-20 min-w-[180px]">
-                      {sortOptions.map((opt) => (
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <section className="py-8 sm:py-12">
+            <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+              <div className="flex flex-col lg:flex-row gap-8">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className="text-text-secondary font-inter text-sm min-w-0 truncate">
+                      <span className="font-semibold text-text-primary">{filtered.length}</span> restaurant{filtered.length !== 1 ? 's' : ''}
+                      {selectedNeighborhood ? ` à ${selectedNeighborhood}` : ` à ${selectedCity}`}
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* Accès carte immédiat sur mobile — la carte compacte n'arrive qu'en fin de liste */}
+                      {mapPoints.length > 0 && (
                         <button
-                          key={opt.value}
-                          onClick={() => {
-                            setSortBy(opt.value);
-                            setShowSort(false);
-                          }}
-                          className={`block w-full text-left px-4 py-2 text-sm font-inter transition-colors ${sortBy === opt.value
-                            ? 'text-green-primary bg-green-light'
-                            : 'text-text-secondary hover:bg-bg-secondary'
+                          type="button"
+                          onClick={() => setMapFullscreen(true)}
+                          className="lg:hidden flex items-center gap-1.5 text-text-secondary font-inter text-sm hover:text-green-primary min-h-11 px-2 transition-colors"
+                        >
+                          <MapPin className="w-4 h-4" />
+                          Carte
+                        </button>
+                      )}
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowSort(!showSort)}
+                          className="flex items-center gap-1.5 text-text-secondary font-inter text-sm hover:text-text-primary min-h-11 px-2 whitespace-nowrap transition-colors"
+                        >
+                          Trier : {sortOptions.find((o) => o.value === sortBy)?.label}
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                        {showSort && (
+                          <div className="absolute right-0 top-full mt-2 bg-white border border-border-custom rounded-lg shadow-lg py-1 z-20 min-w-[180px]">
+                            {sortOptions.map((opt) => (
+                              <button
+                                key={opt.value}
+                                onClick={() => {
+                                  setSortBy(opt.value);
+                                  setShowSort(false);
+                                }}
+                                className={`block w-full text-left px-4 py-2 text-sm font-inter transition-colors ${sortBy === opt.value
+                                  ? 'text-green-primary bg-green-light'
+                                  : 'text-text-secondary hover:bg-bg-secondary'
+                                  }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick filter pills */}
+                  <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-1">
+                    {quickFilterDefs.map((pill) => {
+                      const isActive = activeQuickFilters.has(pill.id);
+                      return (
+                        <button
+                          key={pill.id}
+                          onClick={() => toggleQuickFilter(pill.id)}
+                          className={`shrink-0 px-3.5 py-2 rounded-full text-xs font-inter font-medium transition-colors ${isActive
+                            ? 'bg-green-primary text-white'
+                            : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
                             }`}
                         >
-                          {opt.label}
+                          {pill.label}
                         </button>
-                      ))}
+                      );
+                    })}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                    {filtered.map((resto, i) => {
+                      const isOpen = isEffectivelyOpen(resto);
+                      return (
+                        <motion.div
+                          key={resto.id}
+                          initial={{ opacity: 0, y: 30 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: 0.4,
+                            delay: Math.min(i, 6) * 0.06,
+                            ease: [0.16, 1, 0.3, 1],
+                          }}
+                        >
+                          <Link
+                            to={`/restaurant/${resto.slug || resto.id}`}
+                            className="block bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden hover:shadow-[0_12px_32px_rgba(0,0,0,0.10)] hover:-translate-y-1 active:scale-[0.99] transition-all duration-200 group"
+                          >
+                            <div className="aspect-[16/9] overflow-hidden relative">
+                              <AppImage
+                                src={resto.image}
+                                alt={resto.name}
+                                fallbackLabel={resto.category}
+                                className={`w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-300 ${isOpen ? '' : 'grayscale-[0.6]'}`}
+                              />
+                              {/* L'état ouvert/fermé est l'information n°1 avant de commander :
+                                il doit se lire dès la liste, pas seulement sur la fiche. */}
+                              {!isOpen && (
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
+                                  <span className="bg-white/95 text-text-primary text-xs font-inter font-semibold px-3 py-1.5 rounded-full shadow-sm">
+                                    Fermé actuellement
+                                  </span>
+                                </div>
+                              )}
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  toggleFavorite(resto.id);
+                                }}
+                                className="absolute top-3 right-3 w-11 h-11 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors"
+                                aria-label="Ajouter aux favoris"
+                              >
+                                <Heart
+                                  className={`w-4 h-4 ${favorites.has(resto.id)
+                                    ? 'fill-error text-error'
+                                    : 'text-text-secondary'
+                                    }`}
+                                />
+                              </button>
+                              {resto.isPremium && (
+                                <span className="absolute top-3 left-3 bg-green-primary text-white text-[11px] font-inter font-semibold px-2.5 py-1 rounded-full">
+                                  Premium
+                                </span>
+                              )}
+                            </div>
+                            <div className="p-4">
+                              <div className="flex items-start justify-between gap-2 mb-0.5">
+                                <h3 className="font-inter font-semibold text-text-primary text-base truncate min-w-0 flex items-center gap-1.5">
+                                  {resto.name}
+                                  {resto.verified && (
+                                  <span title="Restaurant vérifié"><BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" /></span>
+                                  )}
+                                </h3>
+                                <span className={`shrink-0 inline-flex items-center gap-1 text-[11px] font-inter font-medium mt-0.5 ${isOpen ? 'text-green-primary' : 'text-text-muted'}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${isOpen ? 'bg-success' : 'bg-text-muted'}`} />
+                                  {isOpen ? 'Ouvert' : 'Fermé'}
+                                </span>
+                              </div>
+                              <p className="text-text-muted text-xs font-inter mb-2.5 truncate">
+                                {resto.tags.join(' · ')}
+                              </p>
+                              <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-xs font-inter">
+                                <span className="inline-flex items-center gap-1 bg-gold-light text-amber-700 font-medium px-2 py-0.5 rounded-full">
+                                  <Star className="w-3 h-3 fill-gold-accent text-gold-accent" />
+                                  {resto.rating.toFixed(1)}
+                                  {resto.dynamicReviewCount != null && resto.dynamicReviewCount > 0 && (
+                                    <span className="text-amber-600/70">({resto.dynamicReviewCount})</span>
+                                  )}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-text-secondary">
+                                  <Clock className="w-3 h-3" />
+                                  {resto.deliveryTime}
+                                </span>
+                                <span className="text-border-custom">·</span>
+                                <span className={resto.deliveryFee === 0 ? 'text-green-primary font-medium' : 'text-text-secondary'}>
+                                  {resto.deliveryFee === 0 ? 'Livraison gratuite' : `${resto.deliveryFee.toLocaleString()} FCFA`}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 mt-2 text-xs text-text-muted font-inter">
+                                <span className="flex items-center gap-1 min-w-0">
+                                  <MapPin className="w-3 h-3 shrink-0" />
+                                  <span className="truncate">{resto.neighborhood}, {resto.city} · {stableDistance(resto.id)} km</span>
+                                </span>
+                                {/* Gamme de prix en ₣ (contexte FCFA) — la donnée reste
+                                    stockée en « € » côté catalogue, conversion à l'affichage. */}
+                                <span className="shrink-0" title="Gamme de prix" aria-label={`Gamme de prix ${resto.priceRange.length} sur 3`}>
+                                  {resto.priceRange.replace(/€/g, '₣')}
+                                </span>
+                              </div>
+                            </div>
+                          </Link>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+
+                  {filtered.length === 0 && (
+                    <div className="bg-white rounded-2xl border border-border-custom p-10 text-center">
+                      <div className="w-16 h-16 rounded-full bg-green-light flex items-center justify-center mx-auto mb-4">
+                        <Search className="w-8 h-8 text-green-primary" />
+                      </div>
+                      <p className="text-text-primary font-inter font-semibold mb-1">
+                        Aucun restaurant ne correspond
+                      </p>
+                      <p className="text-text-secondary font-inter text-sm mb-5">
+                        Essayez d&apos;élargir vos filtres ou de changer de quartier.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setSearchQuery('');
+                          setActiveCategory('Tous');
+                          setSelectedCity('Douala');
+                          setSelectedNeighborhood('');
+                          setActiveQuickFilters(new Set());
+                          setMinRating(0);
+                          setSearchParams({}, { replace: true });
+                        }}
+                        className="h-11 px-5 rounded-lg border border-green-primary text-green-primary hover:bg-green-light font-inter text-sm font-medium transition-colors"
+                      >
+                        Réinitialiser les filtres
+                      </button>
                     </div>
                   )}
                 </div>
-              </div>
 
-              {/* Quick filter pills */}
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
-                {quickFilterDefs.map((pill) => {
-                  const isActive = activeQuickFilters.has(pill.id);
-                  return (
-                    <button
-                      key={pill.id}
-                      onClick={() => toggleQuickFilter(pill.id)}
-                      className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-inter font-medium transition-colors ${isActive
-                        ? 'bg-green-primary text-white'
-                        : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
-                        }`}
-                    >
-                      {pill.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {filtered.map((resto, i) => (
-                  <motion.div
-                    key={resto.id}
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      duration: 0.4,
-                      delay: i * 0.08,
-                      ease: [0.16, 1, 0.3, 1],
-                    }}
-                  >
-                    <Link
-                      to={`/restaurant/${resto.slug || resto.id}`}
-                      className="block bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden hover:shadow-[0_12px_32px_rgba(0,0,0,0.10)] hover:-translate-y-1 transition-all duration-250 group"
-                    >
-                      <div className="aspect-[16/10] overflow-hidden relative">
-                        <AppImage
-                          src={resto.image}
-                          alt={resto.name}
-                          fallbackLabel={resto.category}
-                          className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-400"
-                        />
+                {/* ── Carte interactive (responsive) ── */}
+                {/* Desktop : panneau latéral */}
+                <div className="hidden lg:block w-[380px] shrink-0">
+                  <div className="sticky top-[140px] h-[calc(100vh-160px)] bg-white rounded-xl border border-border-custom overflow-hidden">
+                    {mapPoints.length > 0 ? (
+                      <div className="relative h-full flex flex-col">
+                        <div className="flex-1 min-h-0">
+                          <LazyDeliveryMap points={mapPoints} height="100%" scrollWheelZoom={false} hideNavigation />
+                        </div>
+                        {/* Expand button */}
                         <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            toggleFavorite(resto.id);
-                          }}
-                          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors"
+                          type="button"
+                          onClick={() => setMapFullscreen(true)}
+                          className="absolute top-3 right-3 z-[1000] w-8 h-8 rounded-lg bg-white/90 backdrop-blur-sm border border-border-custom shadow-sm flex items-center justify-center text-text-secondary hover:text-green-primary hover:border-green-primary transition-all"
+                          title="Agrandir la carte"
                         >
-                          <Heart
-                            className={`w-4 h-4 ${favorites.has(resto.id)
-                              ? 'fill-error text-error'
-                              : 'text-text-secondary'
-                              }`}
-                          />
+                          <Maximize2 className="w-4 h-4" />
                         </button>
-                        {resto.isPremium && (
-                          <span className="absolute top-3 left-3 bg-green-primary text-white text-[11px] font-inter font-semibold px-2.5 py-1 rounded-full">
-                            Premium
-                          </span>
-                        )}
-                      </div>
-                      <div className="p-4">
-                        <h3 className="font-inter font-semibold text-text-primary text-base mb-1">
-                          {resto.name}
-                        </h3>
-                        <p className="text-text-secondary text-xs font-inter mb-3">
-                          {resto.tags.join(' • ')}
-                        </p>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="inline-flex items-center gap-1 bg-gold-light text-gold-accent text-xs font-inter font-medium px-2 py-0.5 rounded-full">
-                            <Star className="w-3 h-3 fill-gold-accent" />
-                            {resto.rating}
-                          </span>
-                          <span className="inline-flex items-center gap-1 bg-bg-secondary text-text-secondary text-xs font-inter px-2 py-0.5 rounded-full">
-                            <Clock className="w-3 h-3" />
-                            {resto.deliveryTime}
-                          </span>
-                          <span className="text-text-secondary text-xs font-inter">
-                            {resto.deliveryFee === 0 ? 'Gratuit' : `${resto.deliveryFee} FCFA`}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 mt-2 text-xs text-text-muted font-inter">
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            {resto.neighborhood}, {resto.city} · {stableDistance(resto.id)} km
-                          </span>
-                          <span>{resto.priceRange}</span>
+                        <div className="absolute bottom-3 left-3 right-12 bg-white/90 backdrop-blur-sm rounded-lg border border-border-custom px-3 py-2 text-xs font-inter text-text-secondary shadow-sm pointer-events-none">
+                          <MapPin className="w-3.5 h-3.5 text-green-primary inline mr-1" />
+                          {mapPoints.length} restaurant{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
                         </div>
                       </div>
-                    </Link>
-                  </motion.div>
-                ))}
-              </div>
-
-              {filtered.length === 0 && (
-                <div className="text-center py-16">
-                  <p className="text-text-secondary font-inter text-lg">
-                    Aucun restaurant ne correspond à votre recherche.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setSearchQuery('');
-                      setActiveCategory('Tous');
-                      setSelectedCity('Douala');
-                      setSelectedNeighborhood('');
-                      setActiveQuickFilters(new Set());
-                      setMinRating(0);
-                      setSearchParams({}, { replace: true });
-                    }}
-                    className="mt-4 text-green-primary font-inter text-sm font-medium hover:underline"
-                  >
-                    Réinitialiser les filtres
-                  </button>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-text-muted p-4">
+                        <MapPin className="w-10 h-10 mb-3 opacity-30" />
+                        <p className="text-sm font-inter text-center">Aucun restaurant à afficher</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
 
-            {/* ── Carte interactive (responsive) ── */}
-            {/* Desktop : panneau latéral */}
-            <div className="hidden lg:block w-[380px] shrink-0">
-              <div className="sticky top-[140px] h-[calc(100vh-160px)] bg-white rounded-xl border border-border-custom overflow-hidden">
-                {mapPoints.length > 0 ? (
-                  <div className="relative h-full flex flex-col">
-                    <div className="flex-1 min-h-0">
-                      <LazyDeliveryMap points={mapPoints} height="100%" scrollWheelZoom={false} hideNavigation />
-                    </div>
-                    {/* Expand button */}
-                    <button
-                      type="button"
-                      onClick={() => setMapFullscreen(true)}
-                      className="absolute top-3 right-3 z-[1000] w-8 h-8 rounded-lg bg-white/90 backdrop-blur-sm border border-border-custom shadow-sm flex items-center justify-center text-text-secondary hover:text-green-primary hover:border-green-primary transition-all"
-                      title="Agrandir la carte"
-                    >
-                      <Maximize2 className="w-4 h-4" />
-                    </button>
-                    <div className="absolute bottom-3 left-3 right-12 bg-white/90 backdrop-blur-sm rounded-lg border border-border-custom px-3 py-2 text-xs font-inter text-text-secondary shadow-sm pointer-events-none">
-                      <MapPin className="w-3.5 h-3.5 text-green-primary inline mr-1" />
-                      {mapPoints.length} restaurant{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
+                {/* Mobile/Tablette : carte compacte */}
+                {mapPoints.length > 0 && (
+                  <div className="lg:hidden mt-4">
+                    <div className="bg-white rounded-xl border border-border-custom overflow-hidden">
+                      <div className="relative h-[200px]">
+                        <LazyDeliveryMap points={mapPoints} height="200px" scrollWheelZoom={false} hideNavigation />
+                        <button
+                          type="button"
+                          onClick={() => setMapFullscreen(true)}
+                          className="absolute top-2 right-2 z-[1000] w-8 h-8 rounded-lg bg-white/90 backdrop-blur-sm border border-border-custom shadow-sm flex items-center justify-center text-text-secondary hover:text-green-primary hover:border-green-primary transition-all"
+                          title="Agrandir la carte"
+                        >
+                          <Maximize2 className="w-4 h-4" />
+                        </button>
+                        <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm rounded-lg border border-border-custom px-2.5 py-1.5 text-[11px] font-inter text-text-secondary shadow-sm pointer-events-none">
+                          <MapPin className="w-3 h-3 text-green-primary inline mr-1" />
+                          {mapPoints.length} restaurant{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-text-muted p-4">
-                    <MapPin className="w-10 h-10 mb-3 opacity-30" />
-                    <p className="text-sm font-inter text-center">Aucun restaurant à afficher</p>
+                )}
+
+                {/* ── Full-screen map overlay ── */}
+                {mapFullscreen && (
+                  <div
+                    className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm animate-in fade-in"
+                    onClick={() => setMapFullscreen(false)}
+                  >
+                    <div
+                      className="absolute inset-4 sm:inset-6 lg:inset-10 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Header bar */}
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-border-light shrink-0">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-green-primary" />
+                          <span className="font-inter font-semibold text-text-primary text-sm">
+                            {mapPoints.length} restaurant{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setMapFullscreen(false)}
+                          className="w-9 h-9 rounded-lg bg-bg-secondary hover:bg-border-light flex items-center justify-center text-text-secondary hover:text-text-primary transition-all"
+                          title="Réduire la carte"
+                        >
+                          <Minimize2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      {/* Map */}
+                      <div className="flex-1 min-h-0">
+                        <LazyDeliveryMap points={mapPoints} height="100%" scrollWheelZoom={true} hideNavigation />
+                      </div>
+                      {/* Footer hint */}
+                      <div className="px-4 py-2 border-t border-border-light bg-bg-secondary shrink-0">
+                        <p className="text-[11px] font-inter text-text-muted text-center">
+                          🖱️ Molette pour zoomer · Glissez pour naviguer · Échap ou clic extérieur pour fermer
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
-
-            {/* Mobile/Tablette : carte compacte */}
-            {mapPoints.length > 0 && (
-              <div className="lg:hidden mt-4">
-                <div className="bg-white rounded-xl border border-border-custom overflow-hidden">
-                  <div className="relative h-[200px]">
-                    <LazyDeliveryMap points={mapPoints} height="200px" scrollWheelZoom={false} hideNavigation />
-                    <button
-                      type="button"
-                      onClick={() => setMapFullscreen(true)}
-                      className="absolute top-2 right-2 z-[1000] w-8 h-8 rounded-lg bg-white/90 backdrop-blur-sm border border-border-custom shadow-sm flex items-center justify-center text-text-secondary hover:text-green-primary hover:border-green-primary transition-all"
-                      title="Agrandir la carte"
-                    >
-                      <Maximize2 className="w-4 h-4" />
-                    </button>
-                    <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm rounded-lg border border-border-custom px-2.5 py-1.5 text-[11px] font-inter text-text-secondary shadow-sm pointer-events-none">
-                      <MapPin className="w-3 h-3 text-green-primary inline mr-1" />
-                      {mapPoints.length} restaurant{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── Full-screen map overlay ── */}
-            {mapFullscreen && (
-              <div
-                className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm animate-in fade-in"
-                onClick={() => setMapFullscreen(false)}
-              >
-                <div
-                  className="absolute inset-4 sm:inset-6 lg:inset-10 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* Header bar */}
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-border-light shrink-0">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-green-primary" />
-                      <span className="font-inter font-semibold text-text-primary text-sm">
-                        {mapPoints.length} restaurant{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setMapFullscreen(false)}
-                      className="w-9 h-9 rounded-lg bg-bg-secondary hover:bg-border-light flex items-center justify-center text-text-secondary hover:text-text-primary transition-all"
-                      title="Réduire la carte"
-                    >
-                      <Minimize2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                  {/* Map */}
-                  <div className="flex-1 min-h-0">
-                    <LazyDeliveryMap points={mapPoints} height="100%" scrollWheelZoom={true} hideNavigation />
-                  </div>
-                  {/* Footer hint */}
-                  <div className="px-4 py-2 border-t border-border-light bg-bg-secondary shrink-0">
-                    <p className="text-[11px] font-inter text-text-muted text-center">
-                      🖱️ Molette pour zoomer · Glissez pour naviguer · Échap ou clic extérieur pour fermer
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-      </>
+          </section>
+        </>
       )}
     </div>
   );

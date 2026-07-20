@@ -46,7 +46,7 @@ export default function Candidature() {
   // Already has an application → show status
   if (existingApp) {
     const cfg = {
-      pending: { icon: Clock, color: 'text-gold-accent', bg: 'bg-gold-light', title: "Candidature en cours d'examen", msg: 'Notre équipe vous contactera sous 24-48h.' },
+      pending: { icon: Clock, color: 'text-amber-700', bg: 'bg-gold-light', title: "Candidature en cours d'examen", msg: 'Notre équipe vous contactera sous 24-48h.' },
       rejected: { icon: XCircle, color: 'text-error', bg: 'bg-error/10', title: 'Candidature rejetée', msg: existingApp.rejectionReason ? `Motif : ${existingApp.rejectionReason}` : 'Contactez notre support.' },
       approved: { icon: CheckCircle2, color: 'text-success', bg: 'bg-green-light', title: 'Candidature approuvée', msg: 'Votre compte est déjà validé.' },
     }[existingApp.status];

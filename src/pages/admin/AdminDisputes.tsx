@@ -2,8 +2,9 @@ import { usePolling } from '../../hooks/usePolling';
 import { useState, useCallback, useMemo } from 'react';
 import { AlertTriangle, Bike, Check } from 'lucide-react';
 import { useRestaurants } from '../../hooks/useCatalog';
-import { fetchAllOrders, resolveOrderDispute, type Order } from '../../lib/orders';
+import { fetchAllOrders, resolveOrderDispute, applyGuaranteeDecision, type Order, type GuaranteeDecision } from '../../lib/orders';
 import { fetchAllIncidents, resolveIncident, INCIDENT_LABELS, type DeliveryIncident } from '../../lib/incidents';
+import { POINTS_CONFIG } from '../../data/launchConfig';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +34,68 @@ export default function AdminDisputes() {
   usePolling(load, 30000);
 
   const restaurantNameById = useMemo(() => Object.fromEntries(restaurants.map((r) => [r.id, r.name])), [restaurants]);
+  const orderById = useMemo(() => Object.fromEntries(orders.map((o) => [o.id, o])), [orders]);
+
+  // Série PTS — arbitrage garanti : récap AVANT application (Dialog), puis
+  // applyGuaranteeDecision (garantie + points + annulation) et clôture du litige.
+  const [decisionTarget, setDecisionTarget] = useState<{ incident: DeliveryIncident; order: Order; decision: GuaranteeDecision } | null>(null);
+  const [applyingDecision, setApplyingDecision] = useState(false);
+
+  const DECISION_LABELS: Record<GuaranteeDecision, string> = {
+    abusive_rejection: 'Rejet client abusif',
+    restaurant_fault: 'Faute du restaurant',
+    driver_fault: 'Faute du livreur',
+  };
+
+  const decisionPreview = (t: { order: Order; decision: GuaranteeDecision }): string[] => {
+    const amount = t.order.guarantee?.amountFcfa ?? 0;
+    if (t.decision === 'abusive_rejection') {
+      const driverShare = Math.min(amount, t.order.deliveryFee);
+      return [
+        `Garantie de ${amount.toLocaleString()} FCFA confisquée au client.`,
+        `Répartition (reversements manuels hors app) : ${driverShare.toLocaleString()} FCFA au livreur, ${(amount - driverShare).toLocaleString()} FCFA au restaurant.`,
+        'Strike client : au 2e rejet abusif, son compte est suspendu.',
+        'La commande est annulée (par le client) — points du resto restitués.',
+      ];
+    }
+    if (t.decision === 'restaurant_fault') {
+      return [
+        `Garantie de ${amount.toLocaleString()} FCFA remboursée intégralement au client.`,
+        `Remboursement prélevé sur la caution points du restaurant (${Math.ceil(amount / POINTS_CONFIG.POINT_PRICE_FCFA)} points).`,
+        'La commande est annulée (par le restaurant) — pénalité de points appliquée.',
+      ];
+    }
+    return [
+      `Garantie de ${amount.toLocaleString()} FCFA remboursée intégralement au client.`,
+      "Reversement organisé par l'assistance (la garantie a été encaissée par le restaurant).",
+      'La commande est annulée (par MiamExpress) — points du resto restitués, pas de pénalité.',
+    ];
+  };
+
+  const handleApplyDecision = async () => {
+    if (!decisionTarget) return;
+    setApplyingDecision(true);
+    try {
+      const result = await applyGuaranteeDecision(decisionTarget.order.id, decisionTarget.decision);
+      const parts: string[] = [`Décision : ${DECISION_LABELS[decisionTarget.decision]}.`];
+      if (decisionTarget.decision === 'abusive_rejection') {
+        parts.push(`Répartition : ${result.driverShareFcfa.toLocaleString()} F livreur / ${result.restaurantShareFcfa.toLocaleString()} F resto (reversements manuels).`);
+        parts.push(`Strikes client : ${result.customerStrikes}${result.customerSuspended ? ' — compte suspendu' : ''}.`);
+      } else if (result.refundPointsConverted > 0) {
+        parts.push(`${result.refundPointsConverted} points convertis depuis la caution du resto.`);
+      } else if (result.refundShortfallFcfa > 0) {
+        parts.push(`Remboursement de ${result.refundShortfallFcfa.toLocaleString()} F à organiser hors application.`);
+      }
+      await resolveIncident(decisionTarget.incident.id, parts.join(' '));
+      toast.success(`Litige arbitré — ${DECISION_LABELS[decisionTarget.decision]}.`);
+      setDecisionTarget(null);
+      load();
+    } catch (err) {
+      toast.error((err as Error).message || "Impossible d'appliquer la décision.");
+    } finally {
+      setApplyingDecision(false);
+    }
+  };
 
   const cancelled = orders.filter((o) => o.status === 'cancelled');
   const openCancellations = cancelled.filter((o) => !o.disputeResolved);
@@ -100,9 +163,44 @@ export default function AdminDisputes() {
                     {new Date(incident.createdAt).toLocaleString('fr-FR')} · Livreur {incident.driverId.slice(0, 12)}
                   </p>
                   {incident.note && <p className="text-xs text-text-secondary font-inter mt-1 italic">"{incident.note}"</p>}
+                  {incident.reportedBy === 'customer' && (
+                    <p className="text-[11px] text-amber-700 font-inter mt-0.5">Signalé par le client</p>
+                  )}
                   {incident.status === 'resolved' && incident.resolutionNote && (
                     <p className="text-xs text-green-primary font-inter mt-1">Traitement : {incident.resolutionNote}</p>
                   )}
+                  {/* Série PTS — arbitrage d'un litige portant sur une commande garantie :
+                      la décision applique en une action garantie + points + annulation. */}
+                  {incident.status === 'open' && (() => {
+                    const order = orderById[incident.orderId];
+                    const g = order?.guarantee;
+                    if (!order || !g || !['declared', 'confirmed'].includes(g.status)) return null;
+                    return (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        <span className="text-[11px] font-inter text-text-muted">
+                          Garantie {g.amountFcfa.toLocaleString()} FCFA en jeu — décision :
+                        </span>
+                        <button
+                          onClick={() => setDecisionTarget({ incident, order, decision: 'abusive_rejection' })}
+                          className="text-[11px] font-inter font-semibold px-2.5 py-1.5 rounded-lg border border-error text-error hover:bg-error/5 transition-colors"
+                        >
+                          Rejet client abusif
+                        </button>
+                        <button
+                          onClick={() => setDecisionTarget({ incident, order, decision: 'restaurant_fault' })}
+                          className="text-[11px] font-inter font-semibold px-2.5 py-1.5 rounded-lg border border-border-custom text-text-secondary hover:bg-bg-secondary transition-colors"
+                        >
+                          Faute restaurant
+                        </button>
+                        <button
+                          onClick={() => setDecisionTarget({ incident, order, decision: 'driver_fault' })}
+                          className="text-[11px] font-inter font-semibold px-2.5 py-1.5 rounded-lg border border-border-custom text-text-secondary hover:bg-bg-secondary transition-colors"
+                        >
+                          Faute livreur
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-xs font-inter font-medium px-2.5 py-1 rounded-full ${incident.status === 'open' ? 'bg-error/10 text-error' : 'bg-green-light text-green-primary'}`}>
@@ -198,6 +296,40 @@ export default function AdminDisputes() {
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={handleResolve} className="bg-green-primary text-white hover:bg-green-dark">
               Marquer traité
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Série PTS — récapitulatif AVANT application d'une décision de garantie */}
+      <AlertDialog open={!!decisionTarget} onOpenChange={(open) => { if (!open) setDecisionTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {decisionTarget ? DECISION_LABELS[decisionTarget.decision] : ''} — commande #{decisionTarget?.order.id.slice(0, 8)}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Voici exactement ce qui va être appliqué :
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {decisionTarget && (
+            <ul className="space-y-1.5">
+              {decisionPreview(decisionTarget).map((line, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm font-inter text-text-secondary">
+                  <Check className="w-3.5 h-3.5 text-green-primary shrink-0 mt-0.5" />
+                  {line}
+                </li>
+              ))}
+            </ul>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleApplyDecision}
+              disabled={applyingDecision}
+              className={`text-white disabled:opacity-60 ${decisionTarget?.decision === 'abusive_rejection' ? 'bg-error hover:bg-error/90' : 'bg-green-primary hover:bg-green-dark'}`}
+            >
+              {applyingDecision ? 'Application...' : 'Appliquer la décision'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

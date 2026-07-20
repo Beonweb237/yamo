@@ -141,7 +141,7 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const match = matchLocation(pos.coords.latitude, pos.coords.longitude);
-        if (match) onLocationChange(match.city, match.neighborhood);
+        if (match) onLocationChange(match.city, ''); // Seule la ville, pas le quartier → tous les restaurants de la ville
         setGeoLoading(false);
       },
       () => {
@@ -221,6 +221,35 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
   }, [locationItems, query, quickFilter, activeDietary, sortBy]);
 
   const toggleDietary = (id: string) => setActiveDietary(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
+
+  // Badge « Tendance » mérité : top ~20 % des plats réellement commandés
+  // (commandes locales) ; repli sur isPopular (plafonné) sans historique.
+  // Un badge présent sur presque tous les plats ne signale plus rien.
+  const trendingKeys = useMemo(() => {
+    const cap = Math.max(1, Math.ceil(dishGroups.length * 0.2));
+    try {
+      const orders = JSON.parse(localStorage.getItem('yamo_local_orders') ?? '[]') as { items?: { baseItemId?: string; quantity?: number }[] }[];
+      const countByItemId: Record<string, number> = {};
+      for (const order of orders) {
+        for (const line of order.items ?? []) {
+          if (line.baseItemId) countByItemId[line.baseItemId] = (countByItemId[line.baseItemId] ?? 0) + (line.quantity ?? 1);
+        }
+      }
+      const scored = dishGroups
+        .map((g) => ({ key: g.key, score: g.items.reduce((sum, i) => sum + (countByItemId[i.id] ?? 0), 0) }))
+        .filter((s) => s.score > 0);
+      if (scored.length > 0) {
+        return new Set(scored.sort((a, b) => b.score - a.score).slice(0, cap).map((s) => s.key));
+      }
+    } catch { /* localStorage illisible — repli isPopular ci-dessous */ }
+    return new Set(
+      dishGroups
+        .filter((g) => g.items.some((i) => i.isPopular))
+        .sort((a, b) => b.avgRating - a.avgRating)
+        .slice(0, cap)
+        .map((g) => g.key)
+    );
+  }, [dishGroups]);
 
   // ── Quick Order : ajout direct (même ville, resto unique) ──
   const handleQuickAdd = (e: React.MouseEvent, item: EnrichedItem) => {
@@ -346,9 +375,10 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
   const cartRestaurantId = cartItems[0]?.item.restaurantId ?? null;
   const cartRestaurant = cartRestaurantId ? restaurants.find((r) => r.id === cartRestaurantId) : null;
 
+  // « Nouveautés » retiré : sans date d'ajout sur les plats, le filtre était
+  // identique à « Tous » (même compte) — un onglet sans signal trompe l'œil.
   const quickFilters: { id: QuickFilter; label: string; icon?: typeof Clock; count: number }[] = [
     { id: 'all', label: 'Tous', count: locationItems.length },
-    { id: 'new', label: 'Nouveautés', icon: Clock, count: locationItems.length },
     { id: 'plats', label: 'Plats', count: locationItems.filter(i => i.category === 'Plats Principaux').length },
     { id: 'grillades', label: 'Grillades', count: locationItems.filter(i => i.category === 'Grillades').length },
     { id: 'boissons', label: 'Boissons', count: locationItems.filter(i => i.category === 'Boissons').length },
@@ -441,7 +471,7 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
             {dishGroups.map(group => {
-              const isTrending = group.items.some(i => i.isPopular);
+              const isTrending = trendingKeys.has(group.key);
               const dishLocation = getDishLocationSummary(group.items);
               const visibleTags = [
                 ...activeDietary.filter((tag) => group.tags.includes(tag)),
@@ -450,8 +480,8 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
               return (
                 <Link
                   key={group.key}
-                  to={`/article/${dishSlug(group.displayName)}`}
-                  className="group text-left bg-white rounded-2xl border border-border-custom shadow-sm overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-250"
+                  to={`/plat/${dishSlug(group.displayName)}`}
+                  className="group text-left bg-white rounded-2xl border border-border-custom shadow-sm overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-bg-secondary">
                     {group.bestImage ? (
@@ -472,18 +502,20 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                         <Flame className="w-3 h-3" />Tendance
                       </span>
                     )}
-                    <div className="absolute top-2 right-2 flex items-center gap-1.5">
-                      <span className="flex items-center gap-0.5 bg-white/90 backdrop-blur-sm text-gold-accent text-[11px] font-inter font-bold px-2 py-0.5 rounded-full shadow-sm">
-                        <Star className="w-3 h-3 fill-gold-accent" />{group.avgRating.toFixed(1)}
-                      </span>
+                    {/* Pile verticale : sur carte étroite (2 col à 360px), une rangée
+                        horizontale chevauchait le badge « Tendance » posé à gauche. */}
+                    <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
                       <button
                         type="button"
                         onClick={(e) => { e.preventDefault(); toggleFavoriteDish(group.key); }}
                         aria-label="Ajouter aux favoris"
-                        className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors shadow-sm shrink-0"
+                        className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors shadow-sm shrink-0"
                       >
-                        <Heart className={`w-3.5 h-3.5 ${favoriteDishes.has(group.key) ? 'fill-error text-error' : 'text-text-secondary'}`} />
+                        <Heart className={`w-4 h-4 ${favoriteDishes.has(group.key) ? 'fill-error text-error' : 'text-text-secondary'}`} />
                       </button>
+                      <span className="flex items-center gap-0.5 bg-white/90 backdrop-blur-sm text-amber-700 text-[11px] font-inter font-bold px-2 py-0.5 rounded-full shadow-sm">
+                        <Star className="w-3 h-3 fill-gold-accent" />{group.avgRating.toFixed(1)}
+                      </span>
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 p-3">
                       <h3 className="font-inter font-semibold text-white text-sm leading-tight drop-shadow-sm line-clamp-2">{group.displayName}</h3>
@@ -541,7 +573,7 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                             <button
                               type="button"
                               onClick={(e) => handleQuickAdd(e, singleItem)}
-                              className="group/add flex items-center justify-center w-7 h-7 rounded-full border border-border-custom text-text-muted hover:text-green-primary hover:border-green-primary hover:bg-green-light/30 transition-all"
+                              className="group/add flex items-center justify-center w-10 h-10 rounded-full border border-border-custom text-text-muted hover:text-green-primary hover:border-green-primary hover:bg-green-light/30 transition-all"
                               title={`Ajouter ${singleItem.name} — ${singleItem.restaurantName}`}
                             >
                               <Plus className="w-3.5 h-3.5 group-hover/add:scale-110 transition-transform" />
@@ -556,7 +588,7 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                               <button
                                 type="button"
                                 onClick={(e) => handleOpenRestaurantPicker(e, group)}
-                                className="group/add flex items-center justify-center w-7 h-7 rounded-full border border-border-custom text-text-muted hover:text-green-primary hover:border-green-primary hover:bg-green-light/30 transition-all"
+                                className="group/add flex items-center justify-center w-10 h-10 rounded-full border border-border-custom text-text-muted hover:text-green-primary hover:border-green-primary hover:bg-green-light/30 transition-all"
                                 title={`${group.totalRestaurants} restaurants — choisir`}
                               >
                                 <Plus className="w-3.5 h-3.5 group-hover/add:scale-110 transition-transform" />
@@ -621,7 +653,7 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
 
         {/* ── Quick Order Modal (conflit panier ou ville différente) ── */}
         <Dialog open={!!quickOrderItem} onOpenChange={(open) => { if (!open) setQuickOrderItem(null); }}>
-          <DialogContent className="sm:max-w-[440px]">
+          <DialogContent className="sm:max-w-[440px] max-h-[85dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="font-poppins text-lg">
                 {isDifferentCity ? 'Restaurant dans une autre ville' : 'Changer de restaurant ?'}

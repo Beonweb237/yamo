@@ -34,23 +34,23 @@ export interface DishGroup {
 /** Métadonnées des tags diététiques/régimes — labels seulement, les icônes restent côté page. */
 export const DIETARY_TAG_META: { id: string; label: string }[] = [
   { id: 'sans-sucre', label: 'Sans sucre' },
-  { id: 'diabetique', label: 'Diabetique' },
+  { id: 'diabetique', label: 'Diabétique' },
   { id: 'pauvre-en-sel', label: 'Pauvre en sel' },
-  { id: 'vegetarien', label: 'Vegetarien' },
+  { id: 'vegetarien', label: 'Végétarien' },
   { id: 'vegan', label: 'Vegan' },
   { id: 'halal', label: 'Halal' },
   { id: 'bio', label: 'Bio' },
-  { id: 'riche-en-proteines', label: 'Proteine' },
-  { id: 'allege', label: 'Allege' },
-  { id: 'epice', label: 'Epice' },
-  { id: 'braise', label: 'Braise' },
+  { id: 'riche-en-proteines', label: 'Protéiné' },
+  { id: 'allege', label: 'Allégé' },
+  { id: 'epice', label: 'Épicé' },
+  { id: 'braise', label: 'Braisé' },
   { id: 'traditionnel', label: 'Traditionnel' },
   { id: 'sans-cube', label: 'Sans cube' },
   { id: 'fait-maison', label: 'Fait maison' },
   { id: 'sans-gluten', label: 'Sans gluten' },
   { id: 'cocktail', label: 'Cocktail' },
-  { id: 'detox', label: 'Detox' },
-  { id: 'presse-du-jour', label: 'Presse du jour' },
+  { id: 'detox', label: 'Détox' },
+  { id: 'presse-du-jour', label: 'Pressé du jour' },
 ];
 
 function normalizeTag(tag: string): string {
@@ -79,7 +79,15 @@ function normalizeTag(tag: string): string {
 }
 
 export function normalizeDishName(name: string): string {
-  return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+  // \u0153/\u00e6 ne sont ni des diacritiques ni des [a-z] : sans translitt\u00e9ration ils
+  // disparaissent (\u00ab b\u0153uf \u00bb \u2192 \u00ab buf \u00bb dans les slugs partag\u00e9s).
+  return name.toLowerCase().replace(/\u0153/g, 'oe').replace(/\u00e6/g, 'ae').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/** Variante historique (sans translitt\u00e9ration \u0153\u2192oe) \u2014 uniquement pour r\u00e9soudre
+ * les anciens liens partag\u00e9s du type /article/boukarou-de-buf. */
+export function legacyDishSlug(name: string): string {
+  return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim().replace(/\s+/g, '-');
 }
 
 function catalogMatchesItem(catalogName: string, itemText: string): boolean {
@@ -154,7 +162,7 @@ export function inferDietaryTags(item: MenuItem): string[] {
 
   return [...new Set(tags.map(normalizeTag))];
 }
-/** Slug URL-safe pour la route /article/:slug — dérivé de normalizeDishName. */
+/** Slug URL-safe pour la route /plat/:slug — dérivé de normalizeDishName. */
 export function dishSlug(name: string): string {
   return normalizeDishName(name).replace(/\s+/g, '-');
 }

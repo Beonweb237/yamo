@@ -1,0 +1,23 @@
+# ============================================================
+# MiamExpress — Configuration SSH locale
+# Placer ce fichier dans : ~/.ssh/config
+# Puis utiliser : ssh miamexpress-vps
+# ============================================================
+
+Host miamexpress-vps
+    HostName 51.222.15.0
+    User ubuntu
+    IdentityFile ~/.ssh/id_ed25519_jackpot
+    Port 22
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    StrictHostKeyChecking accept-new
+    UserKnownHostsFile ~/.ssh/known_hosts
+    ControlMaster auto
+    ControlPath ~/.ssh/control-%h-%p-%r
+    ControlPersist 600
+
+# Note : Après ajouter ce fichier à ~/.ssh/config, vous pouvez vous connecter avec :
+# ssh miamexpress-vps
+# scp file.txt miamexpress-vps:/home/ubuntu/miamexpress/
+# ssh miamexpress-vps "ls -la"

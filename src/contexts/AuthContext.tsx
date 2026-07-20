@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { getLocalSuspensionInfo } from '../lib/drivers';
+import { SEED_PROFILES } from '../data/demoAccounts';
+import { checkQuota } from '../lib/quotas';
 
 export type UserRole = 'client' | 'restaurant' | 'livreur' | 'admin';
 
@@ -20,6 +22,20 @@ export interface AuthUser {
   // livraisons ; serviceNeighborhoods vide/absent = dessert toute la ville.
   city?: string | null;
   serviceNeighborhoods?: string[] | null;
+  // Nom complet (optionnel) — renseigné à l'inscription ou propagé depuis la
+  // candidature à l'approbation. Affiché anonymisé côté client (« Paul K. »).
+  name?: string | null;
+  adminRoleCode?: string | null;
+  adminRoleName?: string | null;
+  adminRoleCodes?: string[];
+  adminPermissions?: string[];
+  adminScopes?: {
+    roleCode: string;
+    roleName?: string | null;
+    scopeType: string;
+    scopeValue?: string | null;
+  }[];
+  isSuperAdmin?: boolean;
 }
 
 export interface SignUpParams {
@@ -63,6 +79,43 @@ export class RoleMismatchError extends Error {
   }
 }
 
+/** Mot de passe par défaut appliqué à tous les profils mock */
+export const ADMIN_DEFAULT_PASSWORD = '12345';
+
+/**
+ * Récupère l'email auto-généré d'un utilisateur à partir de son téléphone.
+ */
+export function getUserEmail(phone: string): string {
+  const phoneKey = phone.replace(/\s/g, '');
+  return `${phoneKey}@yamo.cm`;
+}
+
+/**
+ * Génère un email basé sur le téléphone et stocke le mot de passe
+ * par défaut (12345) dans le registre des identifiants email.
+ * Stocke DEUX entrées pour permettre la connexion par email ET par téléphone :
+ *   emailUsers['+237690000003@yamo.cm'] → connexion par email
+ *   emailUsers['+237690000003']         → connexion par téléphone
+ */
+export function autoGenerateCredentials(phone: string, name?: string | null): void {
+  const phoneKey = phone.replace(/\s/g, '');
+  const emailUsers: Record<string, { phone: string; password: string; name: string | null }> =
+    JSON.parse(localStorage.getItem(LOCAL_EMAIL_USERS_KEY) ?? '{}');
+
+  // Génère l'email à partir du téléphone
+  const email = `${phoneKey}@yamo.cm`;
+
+  // Définit le même payload pour les deux clés
+  const payload = { phone: phoneKey, password: ADMIN_DEFAULT_PASSWORD, name: name ?? null };
+
+  // Par email (connexion email + mot de passe)
+  emailUsers[email] = payload;
+  // Par téléphone (connexion téléphone + mot de passe)
+  emailUsers[phoneKey] = payload;
+
+  localStorage.setItem(LOCAL_EMAIL_USERS_KEY, JSON.stringify(emailUsers));
+}
+
 function isSelfApprovingRole(role: UserRole) {
   return role === 'client' || role === 'admin';
 }
@@ -80,6 +133,13 @@ function toAuthUserFromSession(u: Record<string, unknown>): AuthUser {
     suspensionReason: (u.suspensionReason as string | null) ?? null,
     city: (u.city as string | null) ?? null,
     serviceNeighborhoods: (u.serviceNeighborhoods as string[] | null) ?? null,
+    name: (u.fullName as string | null) ?? (u.name as string | null) ?? null,
+    adminRoleCode: (u.adminRoleCode as string | null) ?? null,
+    adminRoleName: (u.adminRoleName as string | null) ?? null,
+    adminRoleCodes: (u.adminRoleCodes as string[] | undefined) ?? [],
+    adminPermissions: (u.adminPermissions as string[] | undefined) ?? [],
+    adminScopes: (u.adminScopes as AuthUser['adminScopes'] | undefined) ?? [],
+    isSuperAdmin: Boolean(u.isSuperAdmin),
   };
 }
 
@@ -88,25 +148,49 @@ function readLocalRegistry(): Record<string, AuthUser> {
   return raw ? JSON.parse(raw) : {};
 }
 
-// Pre-seeded mock profiles for instant testing — all profiles, approved + pending.
-// Phone numbers are used as keys (without spaces).
-const SEED_PROFILES: AuthUser[] = [
-  { id: 'seed-admin', phone: '+237690000001', role: 'admin', isApproved: true, isSuspended: false },
-  { id: 'seed-client', phone: '+237690000002', role: 'client', isApproved: true, isSuspended: false },
-  { id: 'seed-resto-ok', phone: '+237690000003', role: 'restaurant', isApproved: true, isSuspended: false },
-  { id: 'seed-resto-pend', phone: '+237690000004', role: 'restaurant', isApproved: false, isSuspended: false },
-  { id: 'seed-livreur-ok', phone: '+237690000005', role: 'livreur', isApproved: true, isSuspended: false },
-  { id: 'seed-livreur-pend', phone: '+237690000006', role: 'livreur', isApproved: false, isSuspended: false },
-];
+// Les profils mock pré-seedés (SEED_PROFILES) sont définis dans
+// src/data/demoAccounts.ts — partagés avec le seed démo et les pages de
+// connexion (react-refresh interdit d'exporter des constantes d'ici).
 
 function seedLocalRegistry() {
   const existing = readLocalRegistry();
-  if (Object.keys(existing).length > 0) return; // already seeded or user-created
+  if (Object.keys(existing).length > 0) {
+    // Backfill : s'assurer que tous les profils existants ont des credentials
+    for (const [phone, user] of Object.entries(existing)) {
+      autoGenerateCredentials(phone, user.name);
+    }
+    return;
+  }
   const registry: Record<string, AuthUser> = {};
   for (const p of SEED_PROFILES) {
-    registry[p.phone.replace(/\s/g, '')] = p;
+    const phoneKey = p.phone.replace(/\s/g, '');
+    registry[phoneKey] = p;
+    autoGenerateCredentials(phoneKey, p.name);
   }
   localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(registry));
+}
+
+/**
+ * Admin définit ou réinitialise le mot de passe d'un utilisateur (mock localStorage).
+ * Stocke sous les deux clés (email + téléphone) dans yamo_email_users pour
+ * permettre la connexion par email ou par téléphone.
+ * En mode VPS, le mot de passe est géré côté serveur.
+ */
+export function adminSetPassword(phone: string, newPassword: string): void {
+  const phoneKey = phone.replace(/\s/g, '');
+  const emailUsers: Record<string, { phone: string; password: string; name: string | null }> =
+    JSON.parse(localStorage.getItem(LOCAL_EMAIL_USERS_KEY) ?? '{}');
+
+  const email = `${phoneKey}@yamo.cm`;
+  const registry = readLocalRegistry();
+  const user = registry[phoneKey];
+  const payload = { phone: phoneKey, password: newPassword, name: user?.name ?? null };
+
+  // Met à jour les deux entrées
+  emailUsers[email] = payload;
+  emailUsers[phoneKey] = payload;
+
+  localStorage.setItem(LOCAL_EMAIL_USERS_KEY, JSON.stringify(emailUsers));
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -137,12 +221,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setLoading(false);
             return; // API session found — done
           }
+          // API reachable but no session — user not logged in, no fallback
+          setUser(null);
+          setLoading(false);
+          return;
         } catch {
-          // API unreachable — fall through
+          // API unreachable — in VPS mode, no fallback to mock
+          setUser(null);
+          setLoading(false);
+          return;
         }
       }
 
-      // 2. Fallback to localStorage session
+      // 2. Fallback to localStorage session (mock mode only)
       const raw = localStorage.getItem(LOCAL_SESSION_KEY);
       if (raw) {
         const session: AuthUser = JSON.parse(raw);
@@ -170,40 +261,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const sendOtp = useCallback(async (phone: string) => {
     if (isSupabaseConfigured && supabase) {
-      try {
-        await supabase.auth.sendOtp(phone);
-        return; // OTP émis par le backend (visible dans ses logs tant qu'aucun SMS n'est branché)
-      } catch {
-        // Backend injoignable — fall through to mock mode
-      }
+      await supabase.auth.sendOtp(phone);
+      return;
     }
-    // Mock mode or backend unavailable: any code works in verifyOtp.
+    // Mock mode: any code works in verifyOtp.
   }, []);
 
   const verifyOtp = useCallback(async (phone: string, code: string, requestedRole: UserRole = 'client') => {
     if (isSupabaseConfigured && supabase) {
-      try {
-        const json = await supabase.auth.verifyOtp(phone, code, requestedRole);
-        if (json?.user) {
-          // Re-lecture via /api/auth/me pour le profil complet (suspension,
-          // ville, zones) — la réponse verify-otp ne porte que l'essentiel.
-          const { data } = await supabase.auth.getSession();
-          const resolvedUser: AuthUser = data?.session?.user
-            ? toAuthUserFromSession(data.session.user as Record<string, unknown>)
-            : toAuthUserFromSession(json.user as Record<string, unknown>);
-          setUser(resolvedUser);
-          return resolvedUser;
-        }
-      } catch (err) {
-        if (err instanceof RoleMismatchError) throw err;
-        // Backend injoignable ou code invalide — fall through to mock mode
+      const json = await supabase.auth.verifyOtp(phone, code, requestedRole);
+      if (json?.user) {
+        const { data } = await supabase.auth.getSession();
+        const resolvedUser: AuthUser = data?.session?.user
+          ? toAuthUserFromSession(data.session.user as Record<string, unknown>)
+          : toAuthUserFromSession(json.user as Record<string, unknown>);
+        setUser(resolvedUser);
+        return resolvedUser;
       }
+      throw new Error('Code invalide.');
     }
 
     // Dev mode fallback: simulate a verified session without a real SMS provider.
     // The role/approval are fixed the first time a phone number "signs up" and reused after that.
     const registry = readLocalRegistry();
     const existing = registry[phone];
+    // Verifie quota avant de creer un nouveau profil
+    if (!existing) {
+      const quota = checkQuota(requestedRole);
+      if (!quota.allowed) {
+        throw new Error('QUOTA_EXCEEDED:' + quota.message);
+      }
+    }
     if (existing && existing.role !== requestedRole) {
       throw new RoleMismatchError(existing.role);
     }
@@ -225,6 +313,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     registry[phone] = localUser;
     localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(registry));
     localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(localUser));
+    // Auto-génère email + mot de passe 12345 pour tout nouveau profil
+    autoGenerateCredentials(phone, localUser.name);
     setUser(localUser);
     return localUser;
   }, []);
@@ -275,6 +365,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Un compte existe déjà avec ce numéro de téléphone.');
     }
 
+    // Verifie quota avant de creer un nouveau profil
+    const quota = checkQuota(role);
+    if (!quota.allowed) {
+      throw new Error('QUOTA_EXCEEDED:' + quota.message);
+    }
+
     const localUserId = `local-${phoneKey}`;
     const localUser: AuthUser = {
       id: localUserId,
@@ -282,17 +378,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role,
       isApproved: isSelfApprovingRole(role),
       isSuspended: false,
+      name: name?.trim() || null,
     };
     registry[phoneKey] = localUser;
     localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(registry));
     localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(localUser));
 
-    // Also store email credentials for mock email login.
-    if (email && password) {
-      const emailUsers = JSON.parse(localStorage.getItem(LOCAL_EMAIL_USERS_KEY) ?? '{}');
-      emailUsers[email.toLowerCase().trim()] = { phone: phoneKey, password, name };
-      localStorage.setItem(LOCAL_EMAIL_USERS_KEY, JSON.stringify(emailUsers));
-    }
+    // Auto-génère email + mot de passe 12345 pour tout nouveau profil
+    autoGenerateCredentials(phone, name);
 
     setUser(localUser);
     return localUser;

@@ -9,10 +9,22 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "seed": "node scripts/seed.mjs",
+    "seed:reviews": "node scripts/seed-review-examples.mjs",
+    "seed:admin-demo": "node scripts/seed-admin-demo.mjs",
+    "sync:review-stats": "node scripts/sync-restaurant-review-stats.mjs",
     "seed:test-profiles": "node scripts/seed-test-profiles.mjs",
     "verify:catalog": "node scripts/verify-catalog.mjs",
+    "verify:points": "node scripts/verify-points.mjs",
     "deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1",
-    "deploy:dry": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 -DryRun"
+    "deploy:dry": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 -DryRun",
+    "vps:shell": "powershell -ExecutionPolicy Bypass -File scripts/connect-vps.ps1 -Command shell",
+    "vps:status": "powershell -ExecutionPolicy Bypass -File scripts/connect-vps.ps1 -Command status",
+    "vps:logs": "powershell -ExecutionPolicy Bypass -File scripts/connect-vps.ps1 -Command logs",
+    "vps:restart": "powershell -ExecutionPolicy Bypass -File scripts/connect-vps.ps1 -Command restart-services",
+    "vps:disk": "powershell -ExecutionPolicy Bypass -File scripts/connect-vps.ps1 -Command check-disk",
+    "vps:process": "powershell -ExecutionPolicy Bypass -File scripts/connect-vps.ps1 -Command check-process",
+    "vps:update": "powershell -ExecutionPolicy Bypass -File scripts/connect-vps.ps1 -Command update-app",
+    "vps:backup": "powershell -ExecutionPolicy Bypass -File scripts/connect-vps.ps1 -Command backup-db"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

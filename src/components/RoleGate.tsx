@@ -1,11 +1,13 @@
 import { type ReactNode, useState, useEffect } from 'react';
 import { Link, Outlet } from 'react-router-dom';
-import { ShieldAlert, Phone, ShieldCheck, Loader2 } from 'lucide-react';
+import { ShieldAlert, Phone, Loader2, ArrowRight, LockKeyhole } from 'lucide-react';
 import { useAuth, RoleMismatchError, type UserRole } from '../contexts/AuthContext';
 import { fetchMyApplications } from '../lib/applications';
+import AuthHeader from './AuthHeader';
+import OtpInput from './OtpInput';
 
 export default function RoleGate({ allow, children }: { allow: UserRole[]; children?: ReactNode }) {
-  const { user, loading, sendOtp, verifyOtp } = useAuth();
+  const { user, loading, sendOtp, verifyOtp, signInWithPassword, signOut } = useAuth();
   const isAdminRoute = allow.length === 1 && allow[0] === 'admin';
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [hasApplication, setHasApplication] = useState(true);
@@ -23,8 +25,9 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
   }, [user]);
 
   // Admin login form state
-  const [adminStep, setAdminStep] = useState<'phone' | 'code'>('phone');
+  const [adminStep, setAdminStep] = useState<'password' | 'phone' | 'code'>('password');
   const [adminPhone, setAdminPhone] = useState('+237 ');
+  const [adminPassword, setAdminPassword] = useState('');
   const [adminCode, setAdminCode] = useState('');
   const [adminError, setAdminError] = useState('');
   const [adminSubmitting, setAdminSubmitting] = useState(false);
@@ -36,6 +39,23 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
   if (!user || !roleMatches || !user.isApproved || user.isSuspended) {
     // Admin gate: show dedicated admin login when not authenticated
     if (isAdminRoute && !user) {
+      const handlePasswordLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setAdminError('');
+        setAdminSubmitting(true);
+        try {
+          const loggedInUser = await signInWithPassword(adminPhone.replace(/\s/g, ''), adminPassword);
+          if (loggedInUser.role !== 'admin') {
+            await signOut();
+            setAdminError("Ce numéro n'est pas enregistré comme administrateur.");
+          }
+        } catch {
+          setAdminError('Numéro ou PIN incorrect.');
+        } finally {
+          setAdminSubmitting(false);
+        }
+      };
+
       const handleSendOtp = async (e: React.FormEvent) => {
         e.preventDefault();
         setAdminError('');
@@ -69,24 +89,26 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
 
       return (
         <div className="min-h-screen bg-bg-secondary flex items-center justify-center px-4">
-          <div className="w-full max-w-[420px] bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-6 sm:p-8 my-12">
-            <div className="text-center mb-6">
-              <ShieldAlert className="w-10 h-10 text-green-primary mx-auto mb-3" />
-              <h1 className="font-poppins font-bold text-text-primary text-xl mb-1">Administration MiamExpress</h1>
-              <p className="text-text-secondary font-inter text-sm">Connectez-vous avec votre numéro de téléphone.</p>
-            </div>
+          <div className="w-full max-w-[420px] bg-white rounded-2xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden my-12">
+            <AuthHeader
+              icon={ShieldAlert}
+              title="Administration MiamExpress"
+              subtitle="Connectez-vous avec votre numéro de téléphone."
+            />
+
+            <div className="px-6 sm:px-8 pb-6 sm:pb-8">
 
             {!user && (
-              <div className="bg-gold-light text-gold-accent text-xs font-inter rounded-lg px-3 py-2 mb-5">
-                Mode démo : aucun SMS n'est envoyé, saisissez n'importe quel code à l'étape suivante.
+              <div className="bg-gold-light text-amber-700 text-xs font-inter rounded-lg px-3 py-2 mb-5">
+                Connexion admin : utilisez votre numéro et votre PIN. Le code SMS reste une option secondaire.
               </div>
             )}
 
-            {adminStep === 'phone' ? (
-              <form onSubmit={handleSendOtp} className="space-y-4">
+            {adminStep === 'password' ? (
+              <form onSubmit={handlePasswordLogin} className="space-y-4">
                 <div>
                   <label className="block text-text-secondary font-inter text-sm mb-1.5">Numéro de téléphone</label>
-                  <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
+                  <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
                     <Phone className="w-4 h-4 text-text-muted shrink-0" />
                     <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
                     <input
@@ -99,48 +121,89 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
                     />
                   </div>
                 </div>
-                {adminError && <p className="text-error text-sm font-inter">{adminError}</p>}
-                <button
-                  type="submit"
-                  disabled={adminSubmitting}
-                  className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60"
-                >
-                  {adminSubmitting ? 'Envoi...' : 'Recevoir le code'}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleVerify} className="space-y-4">
                 <div>
-                  <label className="block text-text-secondary font-inter text-sm mb-1.5">Code reçu par SMS</label>
-                  <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-12">
-                    <ShieldCheck className="w-4 h-4 text-text-muted shrink-0" />
+                  <label className="block text-text-secondary font-inter text-sm mb-1.5">PIN / mot de passe</label>
+                  <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+                    <LockKeyhole className="w-4 h-4 text-text-muted shrink-0" />
                     <input
-                      type="text"
-                      value={adminCode}
-                      onChange={(e) => setAdminCode(e.target.value)}
-                      placeholder="123456"
+                      type="password"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      placeholder="PIN"
                       className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
                       required
                     />
                   </div>
                 </div>
-                {adminError && <p className="text-error text-sm font-inter">{adminError}</p>}
+                {adminError && <p className="text-error text-sm font-inter" role="alert">{adminError}</p>}
                 <button
                   type="submit"
                   disabled={adminSubmitting}
-                  className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {adminSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Connexion...</> : <>Se connecter <ArrowRight className="w-4 h-4" /></>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAdminStep('phone'); setAdminCode(''); setAdminError(''); }}
+                  className="w-full text-text-secondary font-inter text-sm hover:text-text-primary min-h-11"
+                >
+                  Recevoir un code à la place
+                </button>
+              </form>
+            ) : adminStep === 'phone' ? (
+              <form onSubmit={handleSendOtp} className="space-y-4">
+                <div>
+                  <label className="block text-text-secondary font-inter text-sm mb-1.5">Numéro de téléphone</label>
+                  <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 transition-all">
+                    <Phone className="w-4 h-4 text-text-muted shrink-0" />
+                    <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
+                    <input
+                      type="tel"
+                      value={adminPhone.replace('+237 ', '')}
+                      onChange={(e) => setAdminPhone('+237 ' + e.target.value.replace(/\s/g, ''))}
+                      placeholder="6XX XX XX XX"
+                      className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
+                      required
+                    />
+                  </div>
+                </div>
+                {adminError && <p className="text-error text-sm font-inter" role="alert">{adminError}</p>}
+                <button
+                  type="submit"
+                  disabled={adminSubmitting}
+                  className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {adminSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Envoi...</> : <>Recevoir le code <ArrowRight className="w-4 h-4" /></>}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerify} className="space-y-4">
+                <div>
+                  <p className="text-text-secondary font-inter text-sm text-center mb-4">
+                    Code envoyé au <strong className="text-text-primary">{adminPhone}</strong>
+                  </p>
+                  <label className="block text-text-secondary font-inter text-sm mb-2">Code reçu par SMS</label>
+                  <OtpInput value={adminCode} onChange={setAdminCode} disabled={adminSubmitting} />
+                </div>
+                {adminError && <p className="text-error text-sm font-inter" role="alert">{adminError}</p>}
+                <button
+                  type="submit"
+                  disabled={adminSubmitting || adminCode.length < 6}
+                  className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {adminSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Vérification...</> : 'Accéder à l\'administration'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAdminStep('phone')}
-                  className="w-full text-text-secondary font-inter text-sm hover:text-text-primary"
+                  onClick={() => { setAdminStep('phone'); setAdminCode(''); setAdminError(''); }}
+                  className="w-full text-text-secondary font-inter text-sm hover:text-text-primary min-h-11"
                 >
                   Changer de numéro
                 </button>
               </form>
             )}
+            </div>
           </div>
         </div>
       );

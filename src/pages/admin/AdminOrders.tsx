@@ -143,7 +143,7 @@ export default function AdminOrders() {
                     <td className="py-2 pr-4 text-text-secondary">
                       {statusLabels[order.status]}
                       {order.deliveredWithoutCode && (
-                        <span className="ml-1.5 text-[10px] font-inter font-bold text-gold-accent bg-gold-light px-1.5 py-0.5 rounded-full" title="Clôturée sans code de livraison">
+                        <span className="ml-1.5 text-[10px] font-inter font-bold text-amber-700 bg-gold-light px-1.5 py-0.5 rounded-full" title="Clôturée sans code de livraison">
                           sans code ⚠
                         </span>
                       )}
@@ -172,11 +172,11 @@ export default function AdminOrders() {
 
               <div className="space-y-4 px-4 pb-6">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-xs font-inter font-medium px-2.5 py-1 rounded-full ${selected.status === 'cancelled' ? 'bg-error/10 text-error' : selected.status === 'delivered' ? 'bg-green-light text-green-primary' : 'bg-gold-light text-gold-accent'}`}>
+                  <span className={`text-xs font-inter font-medium px-2.5 py-1 rounded-full ${selected.status === 'cancelled' ? 'bg-error/10 text-error' : selected.status === 'delivered' ? 'bg-green-light text-green-primary' : 'bg-gold-light text-amber-700'}`}>
                     {statusLabels[selected.status]}
                   </span>
                   {selected.deliveredWithoutCode && (
-                    <span className="text-[10px] font-inter font-bold text-gold-accent bg-gold-light px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-inter font-bold text-amber-700 bg-gold-light px-2 py-0.5 rounded-full">
                       Clôturée sans code ⚠
                     </span>
                   )}

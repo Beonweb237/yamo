@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import {
   Star, MapPin, Clock, Store, Flame, ChevronRight, ImageOff,
   Leaf, Beef, Wheat, Coffee, Apple, Heart,
-  ShoppingCart, Plus, Minus, Check, Send, UserRound,
+  ShoppingCart, Plus, Minus, Check, Send,
 } from 'lucide-react';
 import { useRestaurants } from '../hooks/useCatalog';
 import { useFavoriteDishes } from '../hooks/useFavoriteDishes';
@@ -15,6 +15,7 @@ import {
   buildEnrichedItems,
   groupDishes,
   dishSlug,
+  legacyDishSlug,
   DIETARY_TAG_META,
   normalizeDishName,
   type EnrichedItem,
@@ -72,7 +73,9 @@ function DishDetailContent({ slug }: { slug?: string }) {
   );
 
   const dish = useMemo(
-    () => dishGroups.find((g) => dishSlug(g.displayName) === slug),
+    // legacyDishSlug : les anciens liens partagés (avant translittération
+    // œ→oe, ex. /article/boukarou-de-buf) doivent encore résoudre le plat.
+    () => dishGroups.find((g) => dishSlug(g.displayName) === slug || legacyDishSlug(g.displayName) === slug),
     [dishGroups, slug]
   );
 
@@ -121,7 +124,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
   const handleQuickAdd = () => {
     if (!bestItem) return;
     if (!user) {
-      navigate('/connexion', { state: { from: `/article/${slug}` } });
+      navigate('/connexion', { state: { from: `/plat/${slug}` } });
       return;
     }
     const uCity = user.city?.trim();
@@ -244,7 +247,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
             </h1>
 
             <div className="flex flex-wrap items-center gap-4 mb-4 text-sm font-inter">
-              <span className="inline-flex items-center gap-1 text-gold-accent font-semibold">
+              <span className="inline-flex items-center gap-1 text-amber-700 font-semibold">
                 <Star className="w-4 h-4 fill-gold-accent" />
                 {dish.avgRating.toFixed(1)}
               </span>
@@ -319,7 +322,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
               const handleRowQuickAdd = (e: React.MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (!user) { navigate('/connexion', { state: { from: `/article/${slug}` } }); return; }
+                if (!user) { navigate('/connexion', { state: { from: `/plat/${slug}` } }); return; }
                 const uCity = user.city?.trim();
                 const rCity = item.restaurantCity?.trim();
                 if (uCity && rCity && uCity !== rCity) { setQuickOrderItem(item); return; }
@@ -343,7 +346,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-inter font-semibold text-text-primary text-sm">{item.restaurantName}</p>
-                        <span className="flex items-center gap-0.5 text-xs text-gold-accent shrink-0">
+                        <span className="flex items-center gap-0.5 text-xs text-amber-700 shrink-0">
                           <Star className="w-3 h-3 fill-gold-accent" />{item.restaurantRating}
                         </span>
                       </div>
@@ -375,7 +378,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
                       <button
                         type="button"
                         onClick={handleRowQuickRemove}
-                        className="w-8 h-8 rounded-full border border-green-primary/30 bg-green-light/60 text-green-primary hover:bg-error/10 hover:text-error hover:border-error/30 transition-all flex items-center justify-center"
+                        className="w-10 h-10 rounded-full border border-green-primary/30 bg-green-light/60 text-green-primary hover:bg-error/10 hover:text-error hover:border-error/30 transition-all flex items-center justify-center"
                         title="Retirer du panier"
                       >
                         <Check className="w-3.5 h-3.5" />
@@ -384,7 +387,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
                       <button
                         type="button"
                         onClick={handleRowQuickAdd}
-                        className="w-8 h-8 rounded-full border border-border-custom text-text-muted hover:text-green-primary hover:border-green-primary hover:bg-green-light/30 transition-all flex items-center justify-center"
+                        className="w-10 h-10 rounded-full border border-border-custom text-text-muted hover:text-green-primary hover:border-green-primary hover:bg-green-light/30 transition-all flex items-center justify-center"
                         title={`Ajouter — ${item.restaurantName}`}
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -406,7 +409,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
               {similarDishes.map((group) => (
                 <Link
                   key={group.key}
-                  to={`/article/${dishSlug(group.displayName)}`}
+                  to={`/plat/${dishSlug(group.displayName)}`}
                   className="group text-left bg-white rounded-xl border border-border-custom shadow-sm overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-bg-secondary">
@@ -432,7 +435,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
 
       {/* ── Sticky Bottom Bar — Commande rapide ── */}
       {bestItem && (
-        <div className="fixed bottom-16 md:bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-border-custom shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+        <div className="fixed bottom-14 md:bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-border-custom shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
           <div className="max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
             {/* Infos resto */}
             <div className="flex-1 min-w-0">
@@ -504,7 +507,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
 
       {/* ── Cross-city / conflit panier modal ── */}
       <Dialog open={!!quickOrderItem} onOpenChange={(open) => { if (!open) setQuickOrderItem(null); }}>
-        <DialogContent className="sm:max-w-[440px]">
+        <DialogContent className="sm:max-w-[440px] max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-poppins text-lg">
               {isDifferentCity ? 'Restaurant dans une autre ville' : 'Changer de restaurant ?'}

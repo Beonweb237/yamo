@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, MapPin, Save, Trash2, Plus, LogOut, Shield, Camera, Globe, Navigation, Wallet, Heart, ShoppingBag, MessageCircle, Gauge } from 'lucide-react';
+import { User, MapPin, Save, Trash2, Plus, LogOut, Shield, Camera, Globe, Navigation, Wallet, Heart, ShoppingBag, MessageCircle, Gauge, Package, UtensilsCrossed, Search } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { Switch } from '../components/ui/switch';
@@ -65,6 +65,9 @@ export default function Profile() {
 
   // C1: profile enrichment
   const [profileName, setProfileName] = useState(() => localStorage.getItem(PROFILE_NAME_KEY) ?? '');
+  // Tant que l'utilisateur n'a rien saisi, on affiche le nom du compte
+  // (registre) plutôt qu'un champ vide — dérivé, pas de setState en effet.
+  const effectiveProfileName = profileName || user?.name || '';
   const [profileLang, setProfileLang] = useState(() => localStorage.getItem(PROFILE_LANG_KEY) ?? 'fr');
   const [profilePhoto, setProfilePhoto] = useState(() => localStorage.getItem(PROFILE_PHOTO_KEY) ?? '');
   const [whatsapp, setWhatsapp] = useState(() => localStorage.getItem(PROFILE_WHATSAPP_KEY) ?? '');
@@ -125,10 +128,10 @@ export default function Profile() {
   const saveProfile = async () => {
     setSavingProfile(true);
     try {
-      localStorage.setItem(PROFILE_NAME_KEY, profileName);
+      localStorage.setItem(PROFILE_NAME_KEY, effectiveProfileName);
       localStorage.setItem(PROFILE_LANG_KEY, profileLang);
       localStorage.setItem(PROFILE_WHATSAPP_KEY, whatsapp);
-      if (profileName.trim()) await updateProfileName(profileName.trim());
+      if (effectiveProfileName.trim()) await updateProfileName(effectiveProfileName.trim());
       toast.success('Profil mis à jour');
     } catch {
       toast.error('Le nom a été enregistré localement, mais pas synchronisé au serveur.');
@@ -258,16 +261,19 @@ export default function Profile() {
               <button
                 type="button"
                 onClick={() => photoRef.current?.click()}
-                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-green-primary text-white flex items-center justify-center shadow"
+                className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-green-primary text-white flex items-center justify-center shadow"
+                aria-label="Changer la photo de profil"
               >
-                <Camera className="w-3.5 h-3.5" />
+                <Camera className="w-4 h-4" />
               </button>
               <input ref={photoRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
             </div>
-            <div className="flex-1 space-y-2">
+            {/* min-w-0 : sans lui, la largeur intrinsèque (téléphone non tronqué)
+                déborde du viewport à 360px (mesuré : scrollWidth 401px) */}
+            <div className="flex-1 min-w-0 space-y-2">
               <input
                 type="text"
-                value={profileName}
+                value={effectiveProfileName}
                 onChange={(e) => setProfileName(e.target.value)}
                 placeholder="Votre nom complet"
                 className="w-full bg-white rounded-xl border border-border-custom px-4 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted transition-all focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 hover:border-text-muted"
@@ -284,7 +290,7 @@ export default function Profile() {
                     <option value="en">English</option>
                   </select>
                 </div>
-                <span className="text-text-muted text-xs font-inter">{user.phone}</span>
+                <span className="text-text-muted text-xs font-inter truncate min-w-0">{user.phone}</span>
               </div>
               <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-11 transition-all focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10 hover:border-text-muted">
                 <MessageCircle className="w-4 h-4 text-green-primary shrink-0" />
@@ -294,7 +300,7 @@ export default function Profile() {
                   value={whatsapp.replace('+237 ', '')}
                   onChange={(e) => setWhatsapp('+237 ' + e.target.value.replace(/\s/g, ''))}
                   placeholder="6XX XX XX XX (WhatsApp)"
-                  className="flex-1 bg-transparent text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
+                  className="flex-1 min-w-0 bg-transparent text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
                 />
               </div>
             </div>
@@ -305,10 +311,10 @@ export default function Profile() {
               {roleLabels[user.role] ?? user.role}
             </span>
             {!user.isApproved && (
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gold-light text-gold-accent">En attente</span>
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gold-light text-amber-700">En attente</span>
             )}
           </div>
-          <button onClick={saveProfile} disabled={savingProfile} className="mt-3 flex items-center gap-1.5 text-green-primary text-sm font-inter font-semibold hover:underline disabled:opacity-60 transition-all">
+          <button onClick={saveProfile} disabled={savingProfile} className="mt-3 flex items-center gap-1.5 text-green-primary text-sm font-inter font-semibold hover:underline disabled:opacity-60 transition-all min-h-11">
             <Save className="w-3.5 h-3.5" /> {savingProfile ? 'Enregistrement...' : 'Enregistrer le profil'}
           </button>
         </section>
@@ -348,17 +354,19 @@ export default function Profile() {
           </h2>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { to: '/commandes', icon: '📦', label: 'Mes commandes', desc: 'Historique et suivi' },
-              { to: '/favoris', icon: '❤️', label: 'Favoris', desc: 'Restos & plats sauvegardés' },
-              { to: '/demandes/mes-demandes', icon: '🍽️', label: 'Demandes de plats', desc: 'Mes demandes sur mesure' },
-              { to: '/restaurants?mode=plats', icon: '🔍', label: 'Explorer', desc: 'Trouver un plat' },
+              { to: '/commandes', icon: Package, label: 'Mes commandes', desc: 'Historique et suivi' },
+              { to: '/favoris', icon: Heart, label: 'Favoris', desc: 'Restos & plats sauvegardés' },
+              { to: '/demandes/mes-demandes', icon: UtensilsCrossed, label: 'Demandes de plats', desc: 'Mes demandes sur mesure' },
+              { to: '/restaurants?mode=plats', icon: Search, label: 'Explorer', desc: 'Trouver un plat' },
             ].map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
                 className="flex items-center gap-3 bg-white rounded-2xl border border-border-custom shadow-sm p-4 hover:border-green-primary hover:shadow-md hover:-translate-y-0.5 transition-all group"
               >
-                <span className="text-2xl shrink-0">{link.icon}</span>
+                <span className="w-10 h-10 rounded-xl bg-green-light flex items-center justify-center shrink-0">
+                  <link.icon className="w-5 h-5 text-green-primary" />
+                </span>
                 <div className="min-w-0">
                   <p className="font-inter font-semibold text-text-primary text-sm group-hover:text-green-primary transition-colors">
                     {link.label}
@@ -412,54 +420,18 @@ export default function Profile() {
           </section>
         )}
 
-        {/* Adresse de livraison par défaut */}
-        {addresses.length === 0 && (
-          <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6 mb-6 border-l-4 border-l-gold-accent">
-            <div className="flex items-center gap-2 mb-3">
-              <MapPin className="w-5 h-5 text-gold-accent" />
-              <h2 className="font-poppins font-semibold text-text-primary text-lg">
-                Adresse de livraison
-              </h2>
-            </div>
-            <p className="text-text-secondary font-inter text-sm mb-4">
-              Ajoutez votre adresse pour passer votre première commande. Sans adresse, vous ne pourrez pas commander.
-            </p>
-            <button
-              onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 bg-green-primary text-white font-inter font-medium text-sm px-5 h-10 rounded-lg hover:bg-green-dark transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Ajouter mon adresse
-            </button>
-          </section>
-        )}
-        {addresses.length > 0 && (
-          <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6 mb-6 border-l-4 border-l-green-primary">
-            <div className="flex items-center gap-2 mb-2">
-              <MapPin className="w-5 h-5 text-green-primary" />
-              <h2 className="font-poppins font-semibold text-text-primary text-lg">
-                Adresse de livraison
-              </h2>
-              <span className="text-xs font-inter text-text-muted bg-bg-secondary px-2 py-0.5 rounded-full">par défaut</span>
-            </div>
-            <p className="text-text-primary font-inter text-sm font-medium">{addresses[0].fullText}</p>
-            {addresses[0].label && (
-              <p className="text-text-muted text-xs font-inter mt-0.5">{addresses[0].label}</p>
-            )}
-          </section>
-        )}
-
-        {/* Saved addresses */}
+        {/* Adresses de livraison — section unique : liste (la 1re est l'adresse
+            par défaut), formulaire d'ajout et état vide avec avertissement. */}
         <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-poppins font-semibold text-text-primary text-lg flex items-center gap-2">
               <MapPin className="w-5 h-5 text-green-primary" />
-              Adresses enregistrées
+              Adresses de livraison
             </h2>
             {!showForm && addresses.length < MAX_ADDRESSES && (
               <button
                 onClick={() => setShowForm(true)}
-                className="flex items-center gap-1.5 text-green-primary font-inter font-medium text-sm"
+                className="flex items-center gap-1.5 text-green-primary font-inter font-medium text-sm min-h-11"
               >
                 <Plus className="w-4 h-4" />
                 Ajouter
@@ -565,18 +537,37 @@ export default function Profile() {
           )}
 
           {addresses.length === 0 && !showForm ? (
-            <p className="text-text-secondary font-inter text-sm text-center py-4">
-              Aucune adresse enregistrée. Ajoutez-en une pour vos prochaines commandes.
-            </p>
+            <div className="text-center py-4">
+              <p className="text-text-secondary font-inter text-sm mb-1">
+                Aucune adresse enregistrée.
+              </p>
+              <p className="text-amber-700 bg-gold-light inline-block rounded-lg px-3 py-1.5 font-inter text-xs mb-4">
+                Sans adresse, vous ne pourrez pas passer commande.
+              </p>
+              <div>
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="inline-flex items-center gap-2 bg-green-primary text-white font-inter font-medium text-sm px-5 h-10 rounded-lg hover:bg-green-dark transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Ajouter mon adresse
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="space-y-2">
-              {addresses.map((addr) => (
+              {addresses.map((addr, addrIdx) => (
                 <div key={addr.id} className="p-3 bg-bg-secondary rounded-lg">
                   <div className="flex items-center justify-between">
                     <div>
-                      {addr.label && (
-                        <p className="font-inter font-semibold text-text-primary text-sm">{addr.label}</p>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {addr.label && (
+                          <p className="font-inter font-semibold text-text-primary text-sm">{addr.label}</p>
+                        )}
+                        {addrIdx === 0 && (
+                          <span className="text-[10px] font-inter font-medium text-green-primary bg-green-light px-2 py-0.5 rounded-full">par défaut</span>
+                        )}
+                      </div>
                       <p className="text-text-secondary text-xs font-inter">{addr.fullText}</p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -588,7 +579,7 @@ export default function Profile() {
                       </button>
                       <button
                         onClick={() => setDeleteTargetAddr(addr)}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted hover:text-error hover:bg-error/10 transition-colors"
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-text-muted hover:text-error hover:bg-error/10 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -611,12 +602,6 @@ export default function Profile() {
 
         {/* Actions */}
         <section className="space-y-3">
-          <button
-            onClick={() => navigate('/commandes')}
-            className="w-full bg-white rounded-xl border border-border-custom p-4 text-left font-inter font-medium text-text-primary hover:bg-bg-secondary transition-colors"
-          >
-            📦 Mes commandes
-          </button>
           <button
             onClick={() => { signOut(); navigate('/'); }}
             className="w-full bg-white rounded-xl border border-border-custom p-4 text-left font-inter font-medium text-error hover:bg-error/5 transition-colors flex items-center gap-2"

@@ -28,19 +28,14 @@ const mainLinks: (MegaLink | MegaSection)[] = [
   {
     title: 'Explorer',
     links: [
-      { name: 'Tous les articles', path: '/restaurants?mode=plats', icon: Compass, description: 'Parcourez notre catalogue' },
-      { name: 'Restaurants', path: '/restaurants', icon: Store, description: 'Trouvez un restaurant' },
-      { name: 'Commande perso', path: '/demandes/nouvelle', icon: UtensilsCrossed, description: 'Demande sur mesure' },
-      { name: 'Mes favoris', path: '/favoris', icon: Star, description: 'Vos plats préférés' },
+      { name: 'Restaurants', path: '/restaurants', icon: Store, description: 'Trouvez un restaurant près de chez vous' },
+      { name: 'Tous les plats', path: '/restaurants?mode=plats', icon: Compass, description: 'Parcourez tout le catalogue' },
+      { name: 'Sur mesure', path: '/demandes/nouvelle', icon: UtensilsCrossed, description: 'Commandez un plat personnalisé' },
+      { name: 'Mes favoris', path: '/favoris', icon: Star, description: 'Vos restaurants et plats préférés' },
+      { name: 'Devenir livreur', path: '/livreurs', icon: Bike, description: 'Rejoignez notre flotte' },
     ],
   },
-  {
-    title: 'Premium',
-    links: [
-      { name: 'Partenaires', path: '/partenaires', icon: Store, description: 'Restaurants & commerces' },
-      { name: 'Livreurs', path: '/livreurs', icon: Bike, description: 'Rejoignez notre flotte' },
-    ],
-  },
+  { name: 'Partenaires', path: '/partenaires', icon: Store },
   { name: 'Contact', path: '/contact', icon: Phone },
 ];
 
@@ -122,12 +117,6 @@ export default function Navbar() {
             <div className="flex items-baseline gap-1.5">
               <span className={`font-inter font-semibold text-xl tracking-normal ${isSolid ? 'text-green-primary' : 'text-white'}`}>
                 MiamExpress
-              </span>
-              <span className={`text-[10px] font-inter font-bold uppercase tracking-widest px-1.5 py-0.5 rounded ${isSolid
-                ? 'bg-amber-100 text-amber-700'
-                : 'bg-white/20 text-white'
-                }`}>
-                Premium
               </span>
             </div>
           </Link>
@@ -228,7 +217,7 @@ export default function Navbar() {
             <div className="hidden lg:block">
               <Popover open={cartOpen} onOpenChange={setCartOpen}>
                 <PopoverTrigger asChild>
-                  <button type="button" className={`relative p-2 rounded-lg transition-colors ${isSolid ? 'text-text-primary hover:bg-bg-secondary' : 'text-white hover:bg-white/10'
+                  <button type="button" className={`relative min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg transition-colors ${isSolid ? 'text-text-primary hover:bg-bg-secondary' : 'text-white hover:bg-white/10'
                     }`} aria-label="Panier">
                     <ShoppingCart className="w-5 h-5" />
                     {totalItems > 0 && (
@@ -276,7 +265,7 @@ export default function Navbar() {
             </div>
 
             {/* Mobile cart link */}
-            <Link to="/checkout" className={`lg:hidden relative p-2 rounded-lg transition-colors ${isSolid ? 'text-text-primary hover:bg-bg-secondary' : 'text-white hover:bg-white/10'
+            <Link to="/checkout" className={`lg:hidden relative min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg transition-colors ${isSolid ? 'text-text-primary hover:bg-bg-secondary' : 'text-white hover:bg-white/10'
               }`} aria-label="Panier">
               <ShoppingCart className="w-5 h-5" />
               {totalItems > 0 && (
@@ -285,7 +274,7 @@ export default function Navbar() {
             </Link>
 
             {/* Mobile menu toggle */}
-            <button onClick={() => setMobileOpen(true)} className={`lg:hidden p-2 rounded-lg transition-colors ${isSolid ? 'text-text-primary hover:bg-bg-secondary' : 'text-white hover:bg-white/10'
+            <button onClick={() => setMobileOpen(true)} className={`lg:hidden min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg transition-colors ${isSolid ? 'text-text-primary hover:bg-bg-secondary' : 'text-white hover:bg-white/10'
               }`} aria-label="Menu">
               <Menu className="w-5 h-5" />
             </button>
@@ -307,10 +296,9 @@ export default function Navbar() {
                   <img src="/logo-icon.png" alt="MiamExpress Logo" className="w-8 h-8 object-contain" />
                   <div className="flex items-baseline gap-1">
                     <span className="font-inter font-semibold text-lg text-green-primary">MiamExpress</span>
-                    <span className="text-[9px] font-inter font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-amber-100 text-amber-700">Premium</span>
                   </div>
                 </Link>
-                <button onClick={() => setMobileOpen(false)} className="p-2 rounded-lg text-text-secondary hover:text-text-primary" aria-label="Fermer">
+                <button onClick={() => setMobileOpen(false)} className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg text-text-secondary hover:text-text-primary" aria-label="Fermer">
                   <X className="w-5 h-5" />
                 </button>
               </div>
