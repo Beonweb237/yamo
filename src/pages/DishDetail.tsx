@@ -28,6 +28,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '../components/ui/dialog';
+import { useTranslation } from "react-i18next";
 
 const DIETARY_ICONS: Record<string, typeof Leaf> = {
   'sans-sucre': Coffee, diabetique: Apple, 'pauvre-en-sel': Wheat, vegetarien: Leaf,
@@ -43,11 +44,13 @@ const dietaryLabel = (id: string) => DIETARY_TAG_META.find((t) => t.id === id)?.
 // évite de réinitialiser galleryIndex via un effet et garantit un scroll en
 // haut de page cohérent, sans état résiduel de la fiche précédente.
 export default function DishDetail() {
+    const { t } = useTranslation();
   const { slug } = useParams<{ slug: string }>();
   return <DishDetailContent key={slug} slug={slug} />;
 }
 
 function DishDetailContent({ slug }: { slug?: string }) {
+    const { t } = useTranslation();
   const { restaurants } = useRestaurants();
   const { favoriteDishes, toggleFavoriteDish } = useFavoriteDishes();
   const { user } = useAuth();
@@ -179,10 +182,10 @@ function DishDetailContent({ slug }: { slug?: string }) {
       <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
         <div className="text-center">
           <p className="text-text-secondary font-inter font-medium mb-3">
-            Ce plat n'existe pas ou n'est plus disponible.
+            {t("Ce plat n'existe pas ou n'est plus disponible.")}
           </p>
           <Link to="/restaurants?mode=plats" className="text-green-primary font-inter text-sm font-medium hover:underline">
-            Retour à l'exploration des plats
+            {t("Retour à l'exploration des plats")}
           </Link>
         </div>
       </div>
@@ -197,9 +200,9 @@ function DishDetailContent({ slug }: { slug?: string }) {
     <div className="pt-[72px] min-h-screen bg-bg-secondary pb-20">
       <div className="max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="text-text-muted text-xs font-inter mb-4">
-          <Link to="/" className="hover:text-text-primary transition-colors">Accueil</Link>
+          <Link to="/" className="hover:text-text-primary transition-colors">{t("Accueil")}</Link>
           <span className="mx-2">/</span>
-          <Link to="/restaurants?mode=plats" className="hover:text-text-primary transition-colors">Explorer</Link>
+          <Link to="/restaurants?mode=plats" className="hover:text-text-primary transition-colors">{t("Explorer")}</Link>
           <span className="mx-2">/</span>
           <span className="text-text-primary">{dish.displayName}</span>
         </div>
@@ -213,7 +216,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
             )}
             {isTrending && (
               <span className="absolute top-4 left-4 flex items-center gap-1 bg-gold-accent text-white text-xs font-inter font-bold px-3 py-1 rounded-full shadow-sm">
-                <Flame className="w-3.5 h-3.5" />Tendance
+                <Flame className="w-3.5 h-3.5" />{t("Tendance")}
               </span>
             )}
             <button
@@ -253,7 +256,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
               </span>
               <span className="inline-flex items-center gap-1 text-text-secondary">
                 <Store className="w-4 h-4" />
-                {dish.totalRestaurants} restaurant{dish.totalRestaurants > 1 ? 's' : ''}
+                {dish.totalRestaurants} {t("restaurant")}{dish.totalRestaurants > 1 ? 's' : ''}
               </span>
             </div>
 
@@ -282,23 +285,23 @@ function DishDetailContent({ slug }: { slug?: string }) {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
           {dish.minPrice === dish.maxPrice ? (
             <div className="bg-white rounded-xl border border-border-custom p-4 text-center col-span-2 sm:col-span-2">
-              <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide mb-1">Prix</p>
-              <p className="font-poppins font-bold text-text-primary text-lg">{dish.minPrice.toLocaleString()} FCFA</p>
+              <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide mb-1">{t("Prix")}</p>
+              <p className="font-poppins font-bold text-text-primary text-lg">{dish.minPrice.toLocaleString()} {t("FCFA")}</p>
             </div>
           ) : (
             <>
               <div className="bg-white rounded-xl border border-border-custom p-4 text-center">
-                <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide mb-1">À partir de</p>
-                <p className="font-poppins font-bold text-text-primary text-lg">{dish.minPrice.toLocaleString()} FCFA</p>
+                <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide mb-1">{t("À partir de")}</p>
+                <p className="font-poppins font-bold text-text-primary text-lg">{dish.minPrice.toLocaleString()} {t("FCFA")}</p>
               </div>
               <div className="bg-white rounded-xl border border-border-custom p-4 text-center">
-                <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide mb-1">Jusqu'à</p>
-                <p className="font-poppins font-bold text-text-primary text-lg">{dish.maxPrice.toLocaleString()} FCFA</p>
+                <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide mb-1">{t("Jusqu'à")}</p>
+                <p className="font-poppins font-bold text-text-primary text-lg">{dish.maxPrice.toLocaleString()} {t("FCFA")}</p>
               </div>
             </>
           )}
           <div className="bg-white rounded-xl border border-border-custom p-4 text-center col-span-2 sm:col-span-1">
-            <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide mb-1">Note moyenne</p>
+            <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide mb-1">{t("Note moyenne")}</p>
             <p className="font-poppins font-bold text-text-primary text-lg">{dish.avgRating.toFixed(1)} / 5</p>
           </div>
         </div>
@@ -306,12 +309,13 @@ function DishDetailContent({ slug }: { slug?: string }) {
         <section className="bg-white rounded-2xl border border-border-custom shadow-sm overflow-hidden mb-8">
           <div className="px-5 sm:px-6 py-4 border-b border-border-light">
             <h2 className="font-poppins font-semibold text-text-primary text-lg">
-              Disponible chez {dish.totalRestaurants} restaurant{dish.totalRestaurants > 1 ? 's' : ''}
+              {t("Disponible chez")} {dish.totalRestaurants} {t("restaurant")}{dish.totalRestaurants > 1 ? 's' : ''}
             </h2>
-            <p className="text-text-muted text-xs font-inter mt-0.5">Trié du moins cher au plus cher</p>
+            <p className="text-text-muted text-xs font-inter mt-0.5">{t("Trié du moins cher au plus cher")}</p>
           </div>
           <div className="divide-y divide-border-light">
             {dish.items.map((item) => {
+                const { t } = useTranslation();
               const resto = restaurantById.get(item.restaurantId);
               const location = [resto?.neighborhood ?? item.restaurantNeighborhood, resto?.city ?? item.restaurantCity].filter(Boolean).join(', ');
               const deliveryTime = resto?.deliveryTime ?? item.restaurantDeliveryTime;
@@ -367,7 +371,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
                       </div>
                     </div>
                     <span className="font-inter font-bold text-green-primary text-sm shrink-0">
-                      {item.price.toLocaleString()} FCFA
+                      {item.price.toLocaleString()} {t("FCFA")}
                     </span>
                     <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-green-primary group-hover:translate-x-0.5 transition-all shrink-0" />
                   </Link>
@@ -403,7 +407,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
         {similarDishes.length > 0 && (
           <section className="pb-12">
             <h2 className="font-poppins font-bold text-text-primary text-xl mb-4">
-              Plats similaires
+              {t("Plats similaires")}
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {similarDishes.map((group) => (
@@ -421,7 +425,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
                   </div>
                   <div className="p-2.5">
                     <p className="font-inter font-semibold text-text-primary text-xs truncate">{group.displayName}</p>
-                    <p className="text-green-primary font-inter font-bold text-xs mt-0.5">{group.minPrice.toLocaleString()} FCFA</p>
+                    <p className="text-green-primary font-inter font-bold text-xs mt-0.5">{group.minPrice.toLocaleString()} {t("FCFA")}</p>
                   </div>
                 </Link>
               ))}
@@ -455,7 +459,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
                     <MapPin className="w-2.5 h-2.5" />
                     {bestItem.restaurantNeighborhood || bestItem.restaurantCity}
                     {dish.totalRestaurants > 1 && (
-                      <span className="text-text-muted">· +{dish.totalRestaurants - 1} autre{dish.totalRestaurants > 2 ? 's' : ''}</span>
+                      <span className="text-text-muted">· +{dish.totalRestaurants - 1} {t("autre")}{dish.totalRestaurants > 2 ? 's' : ''}</span>
                     )}
                   </p>
                 </div>
@@ -465,7 +469,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
             {/* Prix + bouton */}
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-sm font-inter font-bold text-green-primary">
-                {bestItem.price.toLocaleString()} FCFA
+                {bestItem.price.toLocaleString()} {t("FCFA")}
               </span>
 
               {isInCart ? (
@@ -478,8 +482,8 @@ function DishDetailContent({ slug }: { slug?: string }) {
                   >
                     <Check className="w-4 h-4 group-hover/remove:hidden" />
                     <Minus className="w-4 h-4 hidden group-hover/remove:block" />
-                    <span className="group-hover/remove:hidden">Ajouté</span>
-                    <span className="hidden group-hover/remove:block">Retirer</span>
+                    <span className="group-hover/remove:hidden">{t("Ajouté")}</span>
+                    <span className="hidden group-hover/remove:block">{t("Retirer")}</span>
                   </button>
                   <button
                     type="button"
@@ -497,7 +501,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
                   className="h-10 px-5 rounded-xl bg-green-primary text-white text-xs font-inter font-semibold hover:bg-green-dark transition-all flex items-center gap-1.5 active:scale-95"
                 >
                   <ShoppingCart className="w-4 h-4" />
-                  Commander
+                  {t("Commander")}
                 </button>
               )}
             </div>
@@ -526,21 +530,21 @@ function DishDetailContent({ slug }: { slug?: string }) {
             <div className="space-y-3">
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm font-inter text-amber-800">
-                  🚫 Vous êtes à <strong>{userCity}</strong>, ce restaurant est à <strong>{orderItemCity}</strong>.
+                  {t("🚫 Vous êtes à")} <strong>{userCity}</strong>{t(", ce restaurant est à")} <strong>{orderItemCity}</strong>.
                 </p>
               </div>
               <div className="p-3 bg-green-light border border-green-primary/20 rounded-lg">
                 <p className="text-sm font-inter text-green-primary font-medium mb-2">
-                  💡 Commandez ce plat pour quelqu'un à {orderItemCity} !
+                  {t("💡 Commandez ce plat pour quelqu'un à")} {orderItemCity} !
                 </p>
                 <p className="text-xs font-inter text-text-secondary">
-                  Créez une demande sur mesure, un restaurant local préparera et livrera le plat.
+                  {t("Créez une demande sur mesure, un restaurant local préparera et livrera le plat.")}
                 </p>
               </div>
               <div className="flex gap-3">
-                <button onClick={() => setQuickOrderItem(null)} className="flex-1 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-sm font-medium hover:bg-bg-secondary transition-colors">Annuler</button>
+                <button onClick={() => setQuickOrderItem(null)} className="flex-1 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-sm font-medium hover:bg-bg-secondary transition-colors">{t("Annuler")}</button>
                 <button onClick={handleOrderForOther} className="flex-1 h-10 rounded-lg bg-green-primary text-white font-inter text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-green-dark transition-colors">
-                  <Send className="w-4 h-4" />Commander pour autrui
+                  <Send className="w-4 h-4" />{t("Commander pour autrui")}
                 </button>
               </div>
             </div>
@@ -548,12 +552,12 @@ function DishDetailContent({ slug }: { slug?: string }) {
             <div className="space-y-3">
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm font-inter text-amber-800">
-                  Votre panier contient déjà des plats d'un autre restaurant.
+                  {t("Votre panier contient déjà des plats d'un autre restaurant.")}
                 </p>
               </div>
               <div className="flex gap-3">
-                <button onClick={() => setQuickOrderItem(null)} className="flex-1 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-sm font-medium hover:bg-bg-secondary transition-colors">Annuler</button>
-                <button onClick={handleReplaceCart} className="flex-1 h-10 rounded-lg bg-green-primary text-white font-inter text-sm font-semibold hover:bg-green-dark transition-colors">Remplacer le panier</button>
+                <button onClick={() => setQuickOrderItem(null)} className="flex-1 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-sm font-medium hover:bg-bg-secondary transition-colors">{t("Annuler")}</button>
+                <button onClick={handleReplaceCart} className="flex-1 h-10 rounded-lg bg-green-primary text-white font-inter text-sm font-semibold hover:bg-green-dark transition-colors">{t("Remplacer le panier")}</button>
               </div>
             </div>
           )}

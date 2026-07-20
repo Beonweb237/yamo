@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react';
 import type { OrderStatus } from '../lib/orders';
+import { useTranslation } from "react-i18next";
 
 const STEPS: { status: OrderStatus; label: string }[] = [
   { status: 'confirmed', label: 'Confirmée' },
@@ -17,10 +18,11 @@ function stepIndexForStatus(status: OrderStatus): number {
 }
 
 export default function OrderStatusStepper({ status }: { status: OrderStatus }) {
+    const { t } = useTranslation();
   if (status === 'cancelled') {
     return (
       <div className="bg-error/10 text-error text-sm font-inter font-medium rounded-lg px-3 py-2">
-        Commande annulée
+        {t("Commande annulée")}
       </div>
     );
   }

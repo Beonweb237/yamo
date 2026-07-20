@@ -20,6 +20,7 @@ import {
 import { contactFAQ } from '../data/mockData';
 import { whatsappLink } from '../data/support';
 import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
+import { useTranslation } from "react-i18next";
 
 const contactChannels = [
   {
@@ -98,6 +99,7 @@ const SUPPORT_WHATSAPP = '237677777777';
 const SUPPORT_EMAIL = 'support@miamexpress.cm';
 
 export default function Contact() {
+    const { t } = useTranslation();
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -136,9 +138,9 @@ export default function Contact() {
             transition={{ duration: 0.4 }}
             className="text-white/60 text-xs font-inter mb-4"
           >
-            <Link to="/" className="hover:text-white transition-colors">Accueil</Link>
+            <Link to="/" className="hover:text-white transition-colors">{t("Accueil")}</Link>
             <span className="mx-2">/</span>
-            <span className="text-white">Contact</span>
+            <span className="text-white">{t("Contact")}</span>
           </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
@@ -146,7 +148,7 @@ export default function Contact() {
             transition={{ duration: 0.4, delay: 0.1 }}
             className="font-poppins font-semibold text-white text-3xl sm:text-4xl lg:text-[38px]/[1.18] tracking-normal mb-3"
           >
-            Nous Sommes L&agrave; pour Vous Aider
+            {t("Nous Sommes L&agrave; pour Vous Aider")}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -154,7 +156,7 @@ export default function Contact() {
             transition={{ duration: 0.4, delay: 0.2 }}
             className="text-white/75 font-inter text-base max-w-[600px] mx-auto mb-8"
           >
-            Que vous soyez client, restaurateur ou livreur &mdash; notre &eacute;quipe de support est disponible 7 jours sur 7 pour r&eacute;pondre &agrave; vos questions.
+            {t("Que vous soyez client, restaurateur ou livreur &mdash; notre &eacute;quipe de support est disponible 7 jours sur 7 pour r&eacute;pondre &agrave; vos questions.")}
           </motion.p>
           <motion.div
             initial={{ opacity: 0 }}
@@ -212,7 +214,7 @@ export default function Contact() {
                 rel="noopener noreferrer"
                 className="block w-full py-2.5 border border-green-primary text-green-primary text-center font-inter text-sm font-medium rounded-lg hover:bg-green-light transition-colors"
               >
-                {ch.cta} (WhatsApp)
+                {ch.cta} {t("(WhatsApp)")}
               </a>
             </motion.div>
           ))}
@@ -232,10 +234,10 @@ export default function Contact() {
               className="flex-[3]"
             >
               <h2 className="font-poppins font-semibold text-text-primary text-xl sm:text-2xl mb-2">
-                Envoyez-Nous un Message
+                {t("Envoyez-Nous un Message")}
               </h2>
               <p className="text-text-secondary font-inter text-sm mb-6">
-                Remplissez le formulaire ci-dessous et nous vous r&eacute;pondrons sous 24h.
+                {t("Remplissez le formulaire ci-dessous et nous vous r&eacute;pondrons sous 24h.")}
               </p>
 
               {formSubmitted && (
@@ -245,14 +247,14 @@ export default function Contact() {
                   className="flex items-center gap-2 bg-green-light text-green-primary font-inter text-sm p-4 rounded-lg mb-4"
                 >
                   <CheckCircle className="w-5 h-5 shrink-0" />
-                  Votre message est pr&ecirc;t dans WhatsApp — appuyez sur Envoyer pour nous le transmettre. Nous r&eacute;pondons sous 24h.
+                  {t("Votre message est pr&ecirc;t dans WhatsApp — appuyez sur Envoyer pour nous le transmettre. Nous r&eacute;pondons sous 24h.")}
                 </motion.div>
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="font-inter font-medium text-text-primary text-sm mb-1.5 block">
-                    Nom complet <span className="text-error">*</span>
+                    {t("Nom complet")} <span className="text-error">*</span>
                   </label>
                   <input
                     type="text"
@@ -265,7 +267,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <label className="font-inter font-medium text-text-primary text-sm mb-1.5 block">
-                    Email <span className="text-error">*</span>
+                    {t("Email")} <span className="text-error">*</span>
                   </label>
                   <input
                     type="email"
@@ -278,7 +280,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <label className="font-inter font-medium text-text-primary text-sm mb-1.5 block">
-                    T&eacute;l&eacute;phone
+                    {t("T&eacute;l&eacute;phone")}
                   </label>
                   <input
                     type="tel"
@@ -290,7 +292,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <label className="font-inter font-medium text-text-primary text-sm mb-1.5 block">
-                    Sujet <span className="text-error">*</span>
+                    {t("Sujet")} <span className="text-error">*</span>
                   </label>
                   <select
                     required
@@ -298,17 +300,17 @@ export default function Contact() {
                     onChange={(e) => setSubject(e.target.value)}
                     className="w-full h-12 px-4 border border-border-custom rounded-lg font-inter text-text-primary bg-white outline-none focus:border-green-primary focus:ring-[3px] focus:ring-green-primary/12"
                   >
-                    <option value="">S&eacute;lectionnez un sujet</option>
-                    <option value="order">Question sur une commande</option>
-                    <option value="technical">Probl&egrave;me technique</option>
-                    <option value="partner">Devenir partenaire restaurant</option>
-                    <option value="driver">Devenir livreur</option>
-                    <option value="other">Autre</option>
+                    <option value="">{t("S&eacute;lectionnez un sujet")}</option>
+                    <option value="order">{t("Question sur une commande")}</option>
+                    <option value="technical">{t("Probl&egrave;me technique")}</option>
+                    <option value="partner">{t("Devenir partenaire restaurant")}</option>
+                    <option value="driver">{t("Devenir livreur")}</option>
+                    <option value="other">{t("Autre")}</option>
                   </select>
                 </div>
                 <div>
                   <label className="font-inter font-medium text-text-primary text-sm mb-1.5 block">
-                    Message <span className="text-error">*</span>
+                    {t("Message")} <span className="text-error">*</span>
                   </label>
                   <textarea
                     required
@@ -324,15 +326,15 @@ export default function Contact() {
                   className="w-full bg-green-primary text-white font-inter font-semibold h-12 rounded-lg hover:bg-green-dark transition-colors flex items-center justify-center gap-2"
                 >
                   <Send className="w-4 h-4" />
-                  Envoyer via WhatsApp
+                  {t("Envoyer via WhatsApp")}
                 </button>
                 <p className="text-center text-text-muted text-xs font-inter">
-                  Vous pr&eacute;f&eacute;rez l&apos;email ?{' '}
+                  {t("Vous pr&eacute;f&eacute;rez l&apos;email ?")}{' '}
                   <a
                     href={mailtoHref()}
                     className="text-green-primary font-medium hover:text-green-dark underline"
                   >
-                    Envoyer par email
+                    {t("Envoyer par email")}
                   </a>
                 </p>
               </form>
@@ -348,19 +350,19 @@ export default function Contact() {
             >
               <div className="bg-white rounded-xl border border-border-custom p-6">
                 <h3 className="font-poppins font-semibold text-text-primary text-lg mb-5">
-                  Informations de Contact
+                  {t("Informations de Contact")}
                 </h3>
 
                 {/* Address */}
                 <div className="mb-5">
                   <p className="font-inter font-semibold text-text-primary text-base">
-                    MiamExpress SARL
+                    {t("MiamExpress SARL")}
                   </p>
                   <p className="text-text-secondary font-inter text-sm">
-                    Rue des Palmiers, Bonapriso
+                    {t("Rue des Palmiers, Bonapriso")}
                   </p>
                   <p className="text-text-secondary font-inter text-sm">
-                    Douala, Cameroun
+                    {t("Douala, Cameroun")}
                   </p>
                 </div>
 
@@ -371,14 +373,14 @@ export default function Contact() {
                   <div className="flex items-center gap-2 mb-2">
                     <Clock className="w-4 h-4 text-green-primary" />
                     <span className="font-inter font-medium text-text-primary text-sm">
-                      Heures d&apos;ouverture du support
+                      {t("Heures d&apos;ouverture du support")}
                     </span>
                   </div>
                   <p className="text-text-secondary font-inter text-sm pl-6">
-                    Lundi &ndash; Samedi : 8h00 &ndash; 22h00
+                    {t("Lundi &ndash; Samedi : 8h00 &ndash; 22h00")}
                   </p>
                   <p className="text-text-secondary font-inter text-sm pl-6">
-                    Dimanche : 10h00 &ndash; 18h00
+                    {t("Dimanche : 10h00 &ndash; 18h00")}
                   </p>
                 </div>
 
@@ -387,7 +389,7 @@ export default function Contact() {
                 {/* Social */}
                 <div>
                   <span className="font-inter font-medium text-text-primary text-sm block mb-3">
-                    Suivez-nous
+                    {t("Suivez-nous")}
                   </span>
                   <div className="flex gap-2">
                     {[Facebook, Instagram, Twitter].map((Icon, i) => (
@@ -439,10 +441,10 @@ export default function Contact() {
             className="text-center mb-10"
           >
             <h2 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl lg:text-[44px] leading-[1.14] tracking-normal mb-3">
-              Questions Fr&eacute;quentes
+              {t("Questions Fr&eacute;quentes")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              Trouvez rapidement une r&eacute;ponse &agrave; vos questions
+              {t("Trouvez rapidement une r&eacute;ponse &agrave; vos questions")}
             </p>
           </motion.div>
           <Accordion items={contactFAQ} />

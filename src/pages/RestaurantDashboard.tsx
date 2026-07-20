@@ -56,6 +56,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
+import { useTranslation } from "react-i18next";
 
 const statusFlow: OrderStatus[] = ['pending', 'confirmed', 'preparing', 'ready', 'picked_up', 'delivering', 'delivered'];
 
@@ -97,6 +98,7 @@ function restaurantCanCancel(status: OrderStatus): boolean {
 type Tab = 'orders' | 'menu' | 'profile' | 'finances' | 'drivers';
 
 export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) {
+    const { t } = useTranslation();
   const { user } = useAuth();
   const { restaurants: allRestaurants } = useRestaurants();
   const [ownedRestaurants, setOwnedRestaurants] = useState<Restaurant[]>([]);
@@ -434,7 +436,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                     }`}
                 >
                   <Coins className="w-4 h-4" />
-                  {pointsBalance.available} pts
+                  {pointsBalance.available} {t("pts")}
                 </button>
               )}
               <button onClick={() => setSoundEnabled(!soundEnabled)}
@@ -444,7 +446,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
               </button>
               <button onClick={loadOrders}
                 className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-inter font-medium px-3 py-2 rounded-lg backdrop-blur-sm transition-colors">
-                <RefreshCw className="w-3.5 h-3.5" /> Actualiser
+                <RefreshCw className="w-3.5 h-3.5" /> {t("Actualiser")}
               </button>
             </div>
           }
@@ -478,7 +480,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
               <Store className="w-8 h-8 text-green-primary" />
             </div>
             <p className="text-text-secondary font-inter font-medium">
-              Aucun restaurant associé à votre compte. Contactez le support MiamExpress.
+              {t("Aucun restaurant associé à votre compte. Contactez le support MiamExpress.")}
             </p>
           </div>
         ) : (
@@ -511,7 +513,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                       le restaurateur quand le toggle dit « Ouvert » hors plage. */}
                   {activeRestaurant.isOpen && isWithinHours(activeRestaurant.hours) === false && (
                     <span className="text-[11px] font-inter bg-gold-light text-amber-700 px-2 py-0.5 rounded-full">
-                      Hors horaires ({activeRestaurant.hours}) — affiché « Fermé » aux clients
+                      {t("Hors horaires (")}{activeRestaurant.hours}{t(") — affiché « Fermé » aux clients")}
                     </span>
                   )}
                   <Switch
@@ -534,14 +536,14 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                 {pointsBalance !== null && pointsBalance.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_POINTS && (
                   <div className="flex items-center justify-between gap-3 bg-gold-light border border-gold-accent/40 rounded-xl px-4 py-3 mb-4">
                     <span className="text-amber-700 text-sm font-inter">
-                      <span className="font-semibold">Solde faible : {pointsBalance.available} pt{pointsBalance.available > 1 ? 's' : ''}.</span>{' '}
-                      Accepter une commande réserve {POINTS_CONFIG.ORDER_COST_POINTS} points.
+                      <span className="font-semibold">{t("Solde faible :")} {pointsBalance.available} {t("pt")}{pointsBalance.available > 1 ? 's' : ''}.</span>{' '}
+                      {t("Accepter une commande réserve")} {POINTS_CONFIG.ORDER_COST_POINTS} {t("points.")}
                     </span>
                     <button
                       onClick={() => navigate('/partenaires/dashboard/finances')}
                       className="shrink-0 bg-green-primary hover:bg-green-dark text-white text-sm font-inter font-semibold px-4 min-h-11 rounded-lg transition-colors"
                     >
-                      Recharger
+                      {t("Recharger")}
                     </button>
                   </div>
                 )}
@@ -561,15 +563,16 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                       <PackageCheck className="w-8 h-8 text-green-primary" />
                     </div>
                     <p className="text-text-secondary font-inter font-medium mb-1">
-                      👋 En attente de commandes
+                      {t("👋 En attente de commandes")}
                     </p>
                     <p className="text-text-muted text-xs font-inter">
-                      Vos clients peuvent commander dès maintenant. Vérifiez votre statut « Ouvert ».
+                      {t("Vos clients peuvent commander dès maintenant. Vérifiez votre statut « Ouvert ».")}
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {orders.map((order) => {
+                        const { t } = useTranslation();
                       const next = nextStatus(order.status);
                       const isFinal = order.status === 'delivered' || order.status === 'cancelled';
                       const ageMs = Date.now() - new Date(order.createdAt).getTime();
@@ -596,8 +599,8 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                           </div>
                           {order.status === 'cancelled' && order.cancellationReason && (
                             <p className="bg-error/5 text-text-secondary rounded-lg px-3 py-2 mb-2 text-xs font-inter">
-                              Annulée par {order.cancelledBy === 'customer' ? 'le client' : order.cancelledBy === 'restaurant' ? 'vous' : "l'équipe MiamExpress"}
-                              {' '}· Motif : <span className="font-medium text-text-primary">{order.cancellationReason}</span>
+                              {t("Annulée par")} {order.cancelledBy === 'customer' ? 'le client' : order.cancelledBy === 'restaurant' ? 'vous' : "l'équipe MiamExpress"}
+                              {' '}{t("· Motif :")} <span className="font-medium text-text-primary">{order.cancellationReason}</span>
                             </p>
                           )}
                           <div className="space-y-1 mb-2">
@@ -616,7 +619,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                             <div className="rounded-lg bg-green-light/60 px-3 py-2 mb-2 text-xs font-inter text-text-secondary">
                               <p className="flex items-center gap-1 font-semibold text-text-primary">
                                 <Users className="w-3.5 h-3.5 text-green-primary" />
-                                Pour {order.recipient.name || 'bénéficiaire'}{order.recipient.phone ? ` · ${order.recipient.phone}` : ''}
+                                {t("Pour")} {order.recipient.name || 'bénéficiaire'}{order.recipient.phone ? ` · ${order.recipient.phone}` : ''}
                               </p>
                               {order.recipient.contactInstructions && (
                                 <p className="mt-1 text-text-muted">{order.recipient.contactInstructions}</p>
@@ -636,7 +639,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                               className="inline-flex items-center gap-1.5 text-green-primary text-xs font-inter font-medium mb-1 hover:underline"
                             >
                               <Phone className="w-3.5 h-3.5" />
-                              Appeler le client · {displayCameroonPhone(order.contactPhone)}
+                              {t("Appeler le client ·")} {displayCameroonPhone(order.contactPhone)}
                             </a>
                           )}
                           {prepMessage && (
@@ -651,7 +654,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                               {ageMin < 1 ? 'À l\'instant' : `il y a ${formatDistanceToNow(new Date(order.createdAt), { locale: fr })}`}
                             </span>
                             <span className="font-inter font-bold text-text-primary text-sm">
-                              {order.total.toLocaleString()} FCFA
+                              {order.total.toLocaleString()} {t("FCFA")}
                             </span>
                           </div>
                           {!isFinal && (
@@ -669,7 +672,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                           : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
                                           }`}
                                       >
-                                        {minutes} min
+                                        {minutes} {t("min")}
                                       </button>
                                     ))}
                                   </div>
@@ -687,7 +690,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                       disabled={isProcessing}
                                       className="px-4 h-10 rounded-lg border border-error text-error font-inter font-medium text-sm hover:bg-error/5 transition-colors disabled:opacity-60"
                                     >
-                                      Refuser
+                                      {t("Refuser")}
                                     </button>
                                   </div>
                                   {/* Série PTS : solde épuisé — le resto VOIT la commande mais ne peut
@@ -695,13 +698,13 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                   {!canAccept && (
                                     <div className="flex items-center justify-between gap-2 bg-error/5 border border-error/20 rounded-lg px-3 py-2">
                                       <span className="text-error text-xs font-inter">
-                                        Solde insuffisant ({pointsBalance?.available ?? 0} pts) — accepter réserve {POINTS_CONFIG.ORDER_COST_POINTS} points.
+                                        {t("Solde insuffisant (")}{pointsBalance?.available ?? 0} {t("pts) — accepter réserve")} {POINTS_CONFIG.ORDER_COST_POINTS} {t("points.")}
                                       </span>
                                       <button
                                         onClick={() => navigate('/partenaires/dashboard/finances')}
                                         className="shrink-0 text-xs font-inter font-semibold text-white bg-green-primary hover:bg-green-dark px-3 py-1.5 rounded-lg transition-colors"
                                       >
-                                        Recharger
+                                        {t("Recharger")}
                                       </button>
                                     </div>
                                   )}
@@ -713,7 +716,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                       flux reste identique au pool plateforme historique. */}
                                   {next === 'ready' && ownDriverIds.length > 0 && (
                                     <div className="flex items-center gap-1.5 mb-2">
-                                      <span className="text-[11px] font-inter text-text-muted shrink-0">Livraison :</span>
+                                      <span className="text-[11px] font-inter text-text-muted shrink-0">{t("Livraison :")}</span>
                                       <button
                                         type="button"
                                         onClick={() => setDeliveryModes((prev) => ({ ...prev, [order.id]: 'platform' }))}
@@ -722,7 +725,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                           : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
                                           }`}
                                       >
-                                        Tous les livreurs
+                                        {t("Tous les livreurs")}
                                       </button>
                                       <button
                                         type="button"
@@ -732,7 +735,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                           : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
                                           }`}
                                       >
-                                        Mes livreurs ({ownDriverIds.length})
+                                        {t("Mes livreurs (")}{ownDriverIds.length})
                                       </button>
                                     </div>
                                   )}
@@ -742,27 +745,26 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                     {order.status === 'confirmed' && order.guarantee && order.guarantee.status === 'awaiting_payment' && (
                                       <p className="flex-1 flex items-center gap-1.5 bg-bg-secondary text-text-secondary font-inter text-xs px-3 py-2.5 rounded-lg">
                                         <Clock className="w-4 h-4 text-amber-700 shrink-0" />
-                                        En attente du paiement de la garantie ({order.guarantee.amountFcfa.toLocaleString()} FCFA) par le client.
+                                        {t("En attente du paiement de la garantie (")}{order.guarantee.amountFcfa.toLocaleString()} {t("FCFA) par le client.")}
                                       </p>
                                     )}
                                     {order.status === 'confirmed' && order.guarantee && order.guarantee.status === 'declared' && (
                                       <div className="flex-1 bg-gold-light border border-gold-accent/40 rounded-lg px-3 py-2.5">
                                         <p className="text-amber-700 text-xs font-inter font-semibold mb-2">
-                                          Garantie déclarée payée{order.guarantee.proofNote ? ` — réf. ${order.guarantee.proofNote}` : ''}.
-                                          Vérifiez votre compte marchand.
+                                          {t("Garantie déclarée payée")}{order.guarantee.proofNote ? ` — réf. ${order.guarantee.proofNote}` : ''}{t(".\r\n                                          Vérifiez votre compte marchand.")}
                                         </p>
                                         <div className="flex gap-2">
                                           <button
                                             onClick={async () => { await confirmGuaranteeReceived(order.id); toast.success('Garantie confirmée — vous pouvez lancer la préparation.'); await loadOrders(); }}
                                             className="flex-1 bg-green-primary hover:bg-green-dark text-white font-inter font-semibold text-xs h-10 rounded-lg transition-colors"
                                           >
-                                            Paiement reçu
+                                            {t("Paiement reçu")}
                                           </button>
                                           <button
                                             onClick={async () => { await rejectGuaranteeDeclaration(order.id); toast.info('Déclaration annulée — le client est invité à payer.'); await loadOrders(); }}
                                             className="px-3 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-xs hover:bg-bg-secondary transition-colors"
                                           >
-                                            Non reçu
+                                            {t("Non reçu")}
                                           </button>
                                         </div>
                                       </div>
@@ -789,7 +791,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                         disabled={isProcessing}
                                         className="px-4 h-10 rounded-lg border border-error text-error font-inter font-medium text-sm hover:bg-error/5 transition-colors disabled:opacity-60"
                                       >
-                                        Annuler
+                                        {t("Annuler")}
                                       </button>
                                     )}
                                   </div>
@@ -805,16 +807,15 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                 <AlertDialog open={!!cancelTarget} onOpenChange={(open) => { if (!open) setCancelTarget(null); }}>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Annuler la commande ?</AlertDialogTitle>
+                      <AlertDialogTitle>{t("Annuler la commande ?")}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        La commande #{cancelTarget?.id.slice(0, 8)} sera définitivement annulée.
-                        Le client sera informé du motif. Cette action est irréversible.
+                        {t("La commande #")}{cancelTarget?.id.slice(0, 8)} {t("sera définitivement annulée.\r\n                        Le client sera informé du motif. Cette action est irréversible.")}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <div className="space-y-3">
                       <div>
                         <label htmlFor="resto-cancel-reason" className="block text-text-secondary font-inter text-sm mb-1.5">
-                          Motif de l&apos;annulation <span className="text-error">*</span>
+                          {t("Motif de l&apos;annulation")} <span className="text-error">*</span>
                         </label>
                         <select
                           id="resto-cancel-reason"
@@ -822,12 +823,12 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                           onChange={(e) => setCancelReason(e.target.value)}
                           className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none"
                         >
-                          <option value="" disabled>Sélectionnez un motif</option>
-                          <option value="Ingrédient en rupture">Ingrédient en rupture</option>
-                          <option value="Trop de commandes en cours">Trop de commandes en cours</option>
-                          <option value="Fermeture exceptionnelle">Fermeture exceptionnelle</option>
-                          <option value="Prix erroné sur la carte">Prix erroné sur la carte</option>
-                          <option value="Autre">Autre</option>
+                          <option value="" disabled>{t("Sélectionnez un motif")}</option>
+                          <option value="Ingrédient en rupture">{t("Ingrédient en rupture")}</option>
+                          <option value="Trop de commandes en cours">{t("Trop de commandes en cours")}</option>
+                          <option value="Fermeture exceptionnelle">{t("Fermeture exceptionnelle")}</option>
+                          <option value="Prix erroné sur la carte">{t("Prix erroné sur la carte")}</option>
+                          <option value="Autre">{t("Autre")}</option>
                         </select>
                       </div>
                       {cancelReason === 'Autre' && (
@@ -842,7 +843,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                       )}
                     </div>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Retour</AlertDialogCancel>
+                      <AlertDialogCancel>{t("Retour")}</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={() => {
                           if (cancelTarget) { handleCancel(cancelTarget); setCancelTarget(null); }
@@ -850,7 +851,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                         disabled={!cancelReasonComplete}
                         className="bg-error text-white hover:bg-error/90 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Oui, annuler la commande
+                        {t("Oui, annuler la commande")}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -860,19 +861,18 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                 <AlertDialog open={!!deleteTargetItem} onOpenChange={(open) => { if (!open) setDeleteTargetItem(null); }}>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Supprimer ce plat ?</AlertDialogTitle>
+                      <AlertDialogTitle>{t("Supprimer ce plat ?")}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        <strong>{deleteTargetItem?.name}</strong> sera déplacé dans la corbeille pour 7 jours.
-                        Vous pourrez le restaurer depuis le tableau de bord pendant cette période.
+                        <strong>{deleteTargetItem?.name}</strong> {t("sera déplacé dans la corbeille pour 7 jours.\r\n                        Vous pourrez le restaurer depuis le tableau de bord pendant cette période.")}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                      <AlertDialogCancel>{t("Annuler")}</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={confirmDeleteMenuItem}
                         className="bg-error text-white hover:bg-error/90"
                       >
-                        Supprimer
+                        {t("Supprimer")}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -914,20 +914,18 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
             <AlertDialog open={confirmCloseOpen} onOpenChange={setConfirmCloseOpen}>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Fermer temporairement le restaurant ?</AlertDialogTitle>
+                  <AlertDialogTitle>{t("Fermer temporairement le restaurant ?")}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    {activeRestaurant?.name} n&apos;apparaîtra plus comme ouvert et ne recevra
-                    plus de nouvelles commandes jusqu&apos;à sa réouverture. Les commandes en
-                    cours ne sont pas affectées.
+                    {activeRestaurant?.name} {t("n&apos;apparaîtra plus comme ouvert et ne recevra\r\n                    plus de nouvelles commandes jusqu&apos;à sa réouverture. Les commandes en\r\n                    cours ne sont pas affectées.")}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Rester ouvert</AlertDialogCancel>
+                  <AlertDialogCancel>{t("Rester ouvert")}</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={() => { setConfirmCloseOpen(false); void applyOpenStatus(false); }}
                     className="bg-error text-white hover:bg-error/90"
                   >
-                    Fermer le restaurant
+                    {t("Fermer le restaurant")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -945,6 +943,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
 const RECHARGE_PRESETS = [10, 20, 50];
 
 function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string; onBalanceChange: () => void }) {
+    const { t } = useTranslation();
   const [balance, setBalance] = useState<PointsBalance | null>(null);
   const [ledger, setLedger] = useState<PointsLedgerEntry[]>([]);
   const [recharges, setRecharges] = useState<RechargeRequest[]>([]);
@@ -1028,14 +1027,14 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
         <div className="w-8 h-8 rounded-lg bg-green-light flex items-center justify-center">
           <Coins className="w-4 h-4 text-green-primary" />
         </div>
-        <h2 className="font-poppins font-semibold text-text-primary text-lg">Mes points</h2>
+        <h2 className="font-poppins font-semibold text-text-primary text-lg">{t("Mes points")}</h2>
       </div>
 
       {loadError ? (
         <div className="text-center py-6">
-          <p className="text-text-secondary font-inter text-sm mb-2">Impossible de charger votre solde.</p>
+          <p className="text-text-secondary font-inter text-sm mb-2">{t("Impossible de charger votre solde.")}</p>
           <button onClick={() => void load()} className="text-green-primary font-inter text-sm font-medium hover:underline min-h-11">
-            Réessayer
+            {t("Réessayer")}
           </button>
         </div>
       ) : balance === null ? (
@@ -1048,10 +1047,10 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
           <div className="flex flex-wrap items-center justify-between gap-3 bg-bg-secondary rounded-xl p-4 mb-4">
             <div>
               <p className="font-poppins font-bold text-text-primary text-3xl leading-none">
-                {balance.available} <span className="text-base font-semibold">pts</span>
+                {balance.available} <span className="text-base font-semibold">{t("pts")}</span>
               </p>
               <p className="text-text-muted text-xs font-inter mt-1">
-                ≈ {(balance.available * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} FCFA
+                ≈ {(balance.available * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} {t("FCFA")}
                 {balance.held > 0 && ` · ${balance.held} pts réservés (commandes en cours)`}
               </p>
             </div>
@@ -1059,18 +1058,17 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
               onClick={() => setRechargeOpen(true)}
               className="bg-green-primary hover:bg-green-dark text-white font-inter font-semibold text-sm px-5 min-h-11 rounded-lg transition-colors active:scale-95"
             >
-              Recharger
+              {t("Recharger")}
             </button>
           </div>
           <p className="text-text-muted text-xs font-inter mb-4">
-            Une commande livrée coûte {POINTS_CONFIG.ORDER_COST_POINTS} points ({(POINTS_CONFIG.ORDER_COST_POINTS * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} FCFA).
-            En dessous de {POINTS_CONFIG.MIN_BALANCE_TO_ACCEPT_POINTS} points disponibles, vous ne pouvez plus accepter de nouvelles commandes.
+            {t("Une commande livrée coûte")} {POINTS_CONFIG.ORDER_COST_POINTS} {t("points (")}{(POINTS_CONFIG.ORDER_COST_POINTS * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} {t("FCFA).\r\n            En dessous de")} {POINTS_CONFIG.MIN_BALANCE_TO_ACCEPT_POINTS} {t("points disponibles, vous ne pouvez plus accepter de nouvelles commandes.")}
           </p>
 
-          <h3 className="font-inter font-semibold text-text-primary text-sm mb-2">Historique</h3>
+          <h3 className="font-inter font-semibold text-text-primary text-sm mb-2">{t("Historique")}</h3>
           {history.length === 0 ? (
             <p className="text-text-muted font-inter text-sm py-4 text-center">
-              Aucun mouvement pour le moment.
+              {t("Aucun mouvement pour le moment.")}
             </p>
           ) : (
             <>
@@ -1095,7 +1093,7 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
                   onClick={() => setHistoryLimit((n) => n + 10)}
                   className="w-full text-green-primary font-inter text-sm font-medium hover:underline min-h-11"
                 >
-                  Voir plus ({history.length - historyLimit} restants)
+                  {t("Voir plus (")}{history.length - historyLimit} {t("restants)")}
                 </button>
               )}
             </>
@@ -1109,43 +1107,43 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
           {createdRequest ? (
             <>
               <DialogHeader>
-                <DialogTitle className="font-poppins">Demande enregistrée</DialogTitle>
+                <DialogTitle className="font-poppins">{t("Demande enregistrée")}</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
                 <div className="bg-green-light rounded-xl p-4 text-center">
-                  <p className="text-text-secondary text-xs font-inter mb-1">Référence à rappeler lors du dépôt</p>
+                  <p className="text-text-secondary text-xs font-inter mb-1">{t("Référence à rappeler lors du dépôt")}</p>
                   <p className="font-poppins font-bold text-green-primary text-2xl tracking-wider">{createdRequest.paymentRef}</p>
                 </div>
                 <p className="text-text-secondary text-sm font-inter">
-                  {createdRequest.points} points · {createdRequest.amountFcfa.toLocaleString()} FCFA ·{' '}
+                  {createdRequest.points} {t("points ·")} {createdRequest.amountFcfa.toLocaleString()} {t("FCFA ·")}{' '}
                   {createdRequest.method === 'momo' ? 'Mobile Money' : 'cash chez un partenaire MiamExpress'}.
                 </p>
                 {createdRequest.method === 'momo' && (
                   <p className="text-text-secondary text-sm font-inter bg-bg-secondary rounded-lg p-3">
                     {POINTS_CONFIG.RECHARGE_MOMO_NUMBER
-                      ? <>Déposez {createdRequest.amountFcfa.toLocaleString()} FCFA au {POINTS_CONFIG.RECHARGE_MOMO_NUMBER} en indiquant la référence {createdRequest.paymentRef}.</>
-                      : <>Le numéro de dépôt vous sera communiqué par l'assistance MiamExpress (bientôt affiché ici).</>}
+                      ? <>{t("Déposez")} {createdRequest.amountFcfa.toLocaleString()} {t("FCFA au")} {POINTS_CONFIG.RECHARGE_MOMO_NUMBER} {t("en indiquant la référence")} {createdRequest.paymentRef}.</>
+                      : <>{t("Le numéro de dépôt vous sera communiqué par l'assistance MiamExpress (bientôt affiché ici).")}</>}
                   </p>
                 )}
                 <p className="text-text-muted text-xs font-inter">
-                  Vos points seront crédités après validation par MiamExpress (sous 24 h ouvrées).
+                  {t("Vos points seront crédités après validation par MiamExpress (sous 24 h ouvrées).")}
                 </p>
               </div>
               <DialogFooter>
                 <button onClick={closeRechargeDialog} className="w-full bg-green-primary text-white font-inter font-semibold h-11 rounded-lg hover:bg-green-dark transition-colors">
-                  Compris
+                  {t("Compris")}
                 </button>
               </DialogFooter>
             </>
           ) : (
             <>
               <DialogHeader>
-                <DialogTitle className="font-poppins">Recharger mes points</DialogTitle>
+                <DialogTitle className="font-poppins">{t("Recharger mes points")}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
                   <p className="text-sm font-inter font-medium text-text-primary mb-2">
-                    Nombre de points (minimum {POINTS_CONFIG.MIN_RECHARGE_POINTS})
+                    {t("Nombre de points (minimum")} {POINTS_CONFIG.MIN_RECHARGE_POINTS})
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     {RECHARGE_PRESETS.map((n) => (
@@ -1155,7 +1153,7 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
                         onClick={() => setRechargePoints(n)}
                         className={`px-4 min-h-11 rounded-lg text-sm font-inter font-semibold transition-colors ${rechargePoints === n ? 'bg-green-primary text-white' : 'bg-bg-secondary text-text-secondary hover:text-text-primary'}`}
                       >
-                        {n} pts
+                        {n} {t("pts")}
                       </button>
                     ))}
                     <input
@@ -1168,11 +1166,11 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
                     />
                   </div>
                   <p className="text-text-muted text-xs font-inter mt-2">
-                    Total : <span className="font-semibold text-text-primary">{(Math.max(0, rechargePoints) * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} FCFA</span>
+                    {t("Total :")} <span className="font-semibold text-text-primary">{(Math.max(0, rechargePoints) * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} {t("FCFA")}</span>
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-inter font-medium text-text-primary mb-2">Méthode de paiement</p>
+                  <p className="text-sm font-inter font-medium text-text-primary mb-2">{t("Méthode de paiement")}</p>
                   <div className="space-y-2">
                     {([
                       { id: 'momo' as RechargeMethod, label: 'Mobile Money (MTN MoMo / Orange Money)' },
@@ -1188,7 +1186,7 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
               </div>
               <DialogFooter>
                 <button onClick={closeRechargeDialog} className="px-4 h-11 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">
-                  Annuler
+                  {t("Annuler")}
                 </button>
                 <button
                   onClick={handleRecharge}
@@ -1221,6 +1219,7 @@ function driverLabel(driverId: string): string {
 }
 
 function PreferredDriversTab({ restaurantId, orders }: { restaurantId: string; orders: Order[] }) {
+    const { t } = useTranslation();
   const [preferredIds, setPreferredIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [driverStats, setDriverStats] = useState<Record<string, DriverStats>>({});
@@ -1259,17 +1258,16 @@ function PreferredDriversTab({ restaurantId, orders }: { restaurantId: string; o
     } catch (e) { toast.error((e as Error).message || 'Action impossible'); }
   };
 
-  if (loading) return <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-6 text-center text-text-secondary text-sm">Chargement...</div>;
+  if (loading) return <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-6 text-center text-text-secondary text-sm">{t("Chargement...")}</div>;
 
   return (
     <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 sm:p-6 max-w-xl">
       <h2 className="font-poppins font-semibold text-text-primary text-lg flex items-center gap-2 mb-1">
         <div className="w-8 h-8 rounded-lg bg-green-light flex items-center justify-center"><Bike className="w-4 h-4 text-green-primary" /></div>
-        Mes livreurs préférés
+        {t("Mes livreurs préférés")}
       </h2>
       <p className="text-text-muted text-xs font-inter mb-5">
-        Les commandes marquées « Prête » sont proposées en priorité à vos livreurs préférés pendant 30 secondes avant d'être diffusées à tous.
-        Max {5} livreurs.
+        {t("Les commandes marquées « Prête » sont proposées en priorité à vos livreurs préférés pendant 30 secondes avant d'être diffusées à tous.\r\n        Max")} {5} {t("livreurs.")}
       </p>
 
       <div className="space-y-2">
@@ -1286,12 +1284,12 @@ function PreferredDriversTab({ restaurantId, orders }: { restaurantId: string; o
                 )}
               </div>
             </div>
-            <button onClick={() => handleToggle(id)} className="text-xs font-inter font-medium text-error hover:underline">Retirer</button>
+            <button onClick={() => handleToggle(id)} className="text-xs font-inter font-medium text-error hover:underline">{t("Retirer")}</button>
           </div>
         ))}
         {preferredIds.length === 0 && (
           <div className="text-center py-8 text-text-muted text-sm font-inter">
-            Aucun livreur préféré pour le moment.
+            {t("Aucun livreur préféré pour le moment.")}
           </div>
         )}
       </div>
@@ -1300,12 +1298,11 @@ function PreferredDriversTab({ restaurantId, orders }: { restaurantId: string; o
       {preferredIds.length < 5 && (
         <div className="mt-4">
           <p className="text-sm font-inter font-medium text-text-primary mb-2">
-            Livreurs de vos dernières livraisons
+            {t("Livreurs de vos dernières livraisons")}
           </p>
           {recentDriverIds.length === 0 ? (
             <p className="text-text-muted text-xs font-inter bg-bg-secondary rounded-xl px-3 py-3">
-              Aucun livreur récent — les livreurs de vos commandes livrées apparaîtront ici,
-              prêts à être ajoutés en un clic.
+              {t("Aucun livreur récent — les livreurs de vos commandes livrées apparaîtront ici,\r\n              prêts à être ajoutés en un clic.")}
             </p>
           ) : (
             <div className="space-y-2">
@@ -1316,7 +1313,7 @@ function PreferredDriversTab({ restaurantId, orders }: { restaurantId: string; o
                     <div className="min-w-0">
                       <span className="font-inter font-medium text-text-primary text-sm">{driverLabel(id)}</span>
                       <span className="block text-[11px] font-inter text-text-muted">
-                        {driverStats[id]?.completedDeliveries ?? 0} livraison{(driverStats[id]?.completedDeliveries ?? 0) > 1 ? 's' : ''}
+                        {driverStats[id]?.completedDeliveries ?? 0} {t("livraison")}{(driverStats[id]?.completedDeliveries ?? 0) > 1 ? 's' : ''}
                         {driverStats[id]?.averageRating != null && (
                           <span className="ml-1.5 inline-flex items-center gap-0.5 text-amber-700">
                             <Star className="w-3 h-3 fill-gold-accent" />{driverStats[id].averageRating?.toFixed(1)}
@@ -1329,7 +1326,7 @@ function PreferredDriversTab({ restaurantId, orders }: { restaurantId: string; o
                     onClick={() => handleToggle(id)}
                     className="flex items-center gap-1 bg-green-light text-green-primary font-inter font-medium text-xs px-3 h-8 rounded-lg hover:bg-green-primary hover:text-white transition-colors shrink-0"
                   >
-                    <UserCheck className="w-3.5 h-3.5" />Ajouter
+                    <UserCheck className="w-3.5 h-3.5" />{t("Ajouter")}
                   </button>
                 </div>
               ))}
@@ -1356,6 +1353,7 @@ function OwnCourierSection({
   ownDriverIds: string[];
   onChange: () => void;
 }) {
+    const { t } = useTranslation();
   const handleAdd = async (driverId: string) => {
     const id = driverId.trim();
     if (!id) return;
@@ -1374,12 +1372,10 @@ function OwnCourierSection({
     <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 sm:p-6 max-w-xl">
       <h2 className="font-poppins font-semibold text-text-primary text-lg flex items-center gap-2 mb-1">
         <div className="w-8 h-8 rounded-lg bg-green-light flex items-center justify-center"><Bike className="w-4 h-4 text-green-primary" /></div>
-        Mes livreurs internes (livraison directe)
+        {t("Mes livreurs internes (livraison directe)")}
       </h2>
       <p className="text-text-muted text-xs font-inter mb-5">
-        Ces livreurs assurent la livraison pour votre compte. Quand vous marquez une commande
-        « Prête », vous pouvez choisir « Mes livreurs » : elle n&apos;est alors proposée qu&apos;à
-        eux, exactement comme une livraison classique côté client. Max {5} livreurs.
+        {t("Ces livreurs assurent la livraison pour votre compte. Quand vous marquez une commande\r\n        « Prête », vous pouvez choisir « Mes livreurs » : elle n&apos;est alors proposée qu&apos;à\r\n        eux, exactement comme une livraison classique côté client. Max")} {5} {t("livreurs.")}
       </p>
 
       <div className="space-y-2">
@@ -1389,19 +1385,19 @@ function OwnCourierSection({
               <div className="w-9 h-9 rounded-full bg-green-light flex items-center justify-center"><Bike className="w-4 h-4 text-green-primary" /></div>
               <span className="font-inter font-medium text-text-primary text-sm">{driverLabel(id)}</span>
             </div>
-            <button onClick={() => handleRemove(id)} className="text-xs font-inter font-medium text-error hover:underline">Retirer</button>
+            <button onClick={() => handleRemove(id)} className="text-xs font-inter font-medium text-error hover:underline">{t("Retirer")}</button>
           </div>
         ))}
         {ownDriverIds.length === 0 && (
           <div className="text-center py-8 text-text-muted text-sm font-inter">
-            Aucun livreur interne. Ajoutez ici les livreurs qui travaillent directement pour vous.
+            {t("Aucun livreur interne. Ajoutez ici les livreurs qui travaillent directement pour vous.")}
           </div>
         )}
       </div>
 
       {ownDriverIds.length < 5 && (
         <div className="mt-4 p-4 bg-bg-secondary rounded-xl">
-          <p className="text-sm font-inter font-medium text-text-primary mb-2">Ajouter un livreur interne</p>
+          <p className="text-sm font-inter font-medium text-text-primary mb-2">{t("Ajouter un livreur interne")}</p>
           <div className="flex gap-2">
             <input id="ownDriverIdInput" type="text" placeholder="ID du livreur..."
               className="flex-1 bg-white rounded-lg px-3 h-10 text-text-primary font-inter text-sm outline-none" />
@@ -1440,6 +1436,7 @@ function MenuTab({
   onDelete: (id: string) => void;
   onCreated: () => void;
 }) {
+    const { t } = useTranslation();
   type QuickFilter = 'all' | 'popular' | 'unavailable' | 'missingImage';
   type SortBy = 'category' | 'name' | 'priceAsc' | 'priceDesc' | 'popular';
   type ViewMode = 'lanes' | 'list';
@@ -1695,6 +1692,7 @@ function MenuTab({
   ];
 
   const renderItemActions = (item: MenuItem) => {
+      const { t } = useTranslation();
     const available = isItemAvailable(item);
     const busy = busyItemId === item.id;
     return (
@@ -1739,6 +1737,7 @@ function MenuTab({
   };
 
   const renderMenuCard = (item: MenuItem) => {
+      const { t } = useTranslation();
     const available = isItemAvailable(item);
     return (
       <div
@@ -1754,15 +1753,15 @@ function MenuTab({
             </div>
           )}
           <div className="absolute top-2 left-2 flex flex-col gap-1">
-            {!available && <span className="bg-error text-white text-[10px] font-inter font-bold px-2 py-0.5 rounded-full">Indisponible</span>}
-            {item.isPopular && <span className="bg-gold-accent text-white text-[10px] font-inter font-bold px-2 py-0.5 rounded-full">Populaire</span>}
+            {!available && <span className="bg-error text-white text-[10px] font-inter font-bold px-2 py-0.5 rounded-full">{t("Indisponible")}</span>}
+            {item.isPopular && <span className="bg-gold-accent text-white text-[10px] font-inter font-bold px-2 py-0.5 rounded-full">{t("Populaire")}</span>}
           </div>
         </div>
         <div className="p-3">
           <p className="font-inter font-semibold text-text-primary text-sm truncate" title={item.name}>{item.name}</p>
           <p className="text-text-muted text-xs font-inter truncate mt-0.5" title={item.description}>{item.description || item.category}</p>
           <div className="flex items-center justify-between gap-2 mt-2">
-            <p className="text-green-primary font-inter font-bold text-sm whitespace-nowrap">{item.price.toLocaleString()} FCFA</p>
+            <p className="text-green-primary font-inter font-bold text-sm whitespace-nowrap">{item.price.toLocaleString()} {t("FCFA")}</p>
           </div>
           <div className="mt-3">{renderItemActions(item)}</div>
         </div>
@@ -1775,19 +1774,19 @@ function MenuTab({
       <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="grid grid-cols-2 sm:flex sm:items-center gap-4 sm:gap-5">
           <div>
-            <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide">Plats</p>
+            <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide">{t("Plats")}</p>
             <p className="font-poppins font-bold text-text-primary text-xl">{totalCount}</p>
           </div>
           <div>
-            <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide">Disponibles</p>
+            <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide">{t("Disponibles")}</p>
             <p className="font-poppins font-bold text-green-primary text-xl">{availableCount}</p>
           </div>
           <div>
-            <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide">Catégories</p>
+            <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide">{t("Catégories")}</p>
             <p className="font-poppins font-bold text-text-primary text-xl">{categoryCount}</p>
           </div>
           <div>
-            <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide">À vérifier</p>
+            <p className="text-text-muted text-[11px] font-inter uppercase tracking-wide">{t("À vérifier")}</p>
             <p className="font-poppins font-bold text-amber-700 text-xl">{unavailableCount + missingImageCount}</p>
           </div>
         </div>
@@ -1796,7 +1795,7 @@ function MenuTab({
           className="flex items-center justify-center gap-2 bg-green-primary text-white font-inter font-semibold text-sm px-5 h-11 rounded-lg hover:bg-green-dark transition-colors shrink-0"
         >
           <Plus className="w-4 h-4" />
-          Ajouter un plat
+          {t("Ajouter un plat")}
         </button>
       </div>
 
@@ -1814,13 +1813,13 @@ function MenuTab({
         </div>
       ) : items.length === 0 ? (
         <div className="bg-white rounded-xl border border-border-custom p-10 text-center">
-          <p className="text-text-secondary font-inter font-medium mb-3">Aucun plat pour le moment.</p>
+          <p className="text-text-secondary font-inter font-medium mb-3">{t("Aucun plat pour le moment.")}</p>
           <button
             onClick={() => openCreateForm()}
             className="inline-flex items-center gap-2 bg-green-primary text-white font-inter font-medium text-sm px-5 h-10 rounded-lg hover:bg-green-dark transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Ajouter votre premier plat
+            {t("Ajouter votre premier plat")}
           </button>
         </div>
       ) : (
@@ -1843,7 +1842,7 @@ function MenuTab({
                 onClick={() => setActiveCategory('Tous')}
                 className={`shrink-0 h-9 px-4 rounded-full text-sm font-inter font-semibold transition-colors ${activeCategory === 'Tous' ? 'bg-green-primary text-white' : 'bg-white border border-border-custom text-text-secondary hover:text-text-primary'}`}
               >
-                Tous ({items.length})
+                {t("Tous (")}{items.length})
               </button>
               {categoryOptions.map((cat) => (
                 <button
@@ -1879,11 +1878,11 @@ function MenuTab({
                     onChange={(e) => setSortBy(e.target.value as SortBy)}
                     className="bg-transparent text-xs font-inter font-semibold text-text-secondary outline-none"
                   >
-                    <option value="category">Catégorie</option>
-                    <option value="name">Nom A-Z</option>
-                    <option value="priceAsc">Prix croissant</option>
-                    <option value="priceDesc">Prix décroissant</option>
-                    <option value="popular">Populaires</option>
+                    <option value="category">{t("Catégorie")}</option>
+                    <option value="name">{t("Nom A-Z")}</option>
+                    <option value="priceAsc">{t("Prix croissant")}</option>
+                    <option value="priceDesc">{t("Prix décroissant")}</option>
+                    <option value="popular">{t("Populaires")}</option>
                   </select>
                 </div>
                 <div className="shrink-0 flex items-center bg-white border border-border-custom rounded-lg p-1">
@@ -1911,11 +1910,12 @@ function MenuTab({
           {filteredItems.length === 0 ? (
             <div className="bg-white rounded-xl border border-border-custom p-10 text-center">
               <SlidersHorizontal className="w-8 h-8 text-text-muted mx-auto mb-3" />
-              <p className="text-text-secondary font-inter font-medium">Aucun plat ne correspond aux filtres.</p>
+              <p className="text-text-secondary font-inter font-medium">{t("Aucun plat ne correspond aux filtres.")}</p>
             </div>
           ) : viewMode === 'list' ? (
             <div className="bg-white rounded-xl border border-border-custom overflow-hidden divide-y divide-border-light">
               {filteredItems.map((item) => {
+                  const { t } = useTranslation();
                 const available = isItemAvailable(item);
                 return (
                   <div key={item.id} className={`flex items-center gap-3 p-3 sm:p-4 ${available ? '' : 'bg-error/5'}`}>
@@ -1925,12 +1925,12 @@ function MenuTab({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-inter font-semibold text-text-primary text-sm truncate max-w-full">{item.name}</p>
-                        {!available && <span className="text-[10px] font-inter font-bold text-error bg-error/10 px-2 py-0.5 rounded-full">Indisponible</span>}
-                        {item.isPopular && <span className="text-[10px] font-inter font-bold text-amber-700 bg-gold-light px-2 py-0.5 rounded-full">Populaire</span>}
+                        {!available && <span className="text-[10px] font-inter font-bold text-error bg-error/10 px-2 py-0.5 rounded-full">{t("Indisponible")}</span>}
+                        {item.isPopular && <span className="text-[10px] font-inter font-bold text-amber-700 bg-gold-light px-2 py-0.5 rounded-full">{t("Populaire")}</span>}
                       </div>
                       <p className="text-text-muted text-xs font-inter truncate">{item.category} · {item.description}</p>
                     </div>
-                    <p className="hidden sm:block text-green-primary font-inter font-bold text-sm w-28 text-right">{item.price.toLocaleString()} FCFA</p>
+                    <p className="hidden sm:block text-green-primary font-inter font-bold text-sm w-28 text-right">{item.price.toLocaleString()} {t("FCFA")}</p>
                     <div className="shrink-0">{renderItemActions(item)}</div>
                   </div>
                 );
@@ -1950,7 +1950,7 @@ function MenuTab({
                       className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-green-light text-green-primary font-inter font-semibold text-xs hover:bg-green-primary hover:text-white transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      Ajouter
+                      {t("Ajouter")}
                     </button>
                   </div>
                   <div className="flex gap-3 overflow-x-auto p-4 snap-x">
@@ -1961,7 +1961,7 @@ function MenuTab({
                       className="shrink-0 w-[160px] sm:w-[180px] min-h-[190px] rounded-xl border-2 border-dashed border-border-custom text-text-muted hover:border-green-primary hover:text-green-primary transition-colors flex flex-col items-center justify-center gap-1.5 snap-start"
                     >
                       <Plus className="w-5 h-5" />
-                      <span className="text-xs font-inter font-semibold">Ajouter ici</span>
+                      <span className="text-xs font-inter font-semibold">{t("Ajouter ici")}</span>
                     </button>
                   </div>
                 </section>
@@ -1983,7 +1983,7 @@ function MenuTab({
               </div>
 
               <div>
-                <label className="block text-text-secondary font-inter text-sm mb-1.5">Photo du plat</label>
+                <label className="block text-text-secondary font-inter text-sm mb-1.5">{t("Photo du plat")}</label>
                 {imagePreview ? (
                   <div className="relative inline-block">
                     <img src={imagePreview} alt="Aperçu" className="w-32 h-32 object-cover rounded-lg border border-border-custom" />
@@ -2005,7 +2005,7 @@ function MenuTab({
                 <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
                 {imagePreview && (
                   <button type="button" onClick={() => fileRef.current?.click()} className="block text-xs text-green-primary font-inter font-medium mt-1 hover:underline">
-                    Changer l'image
+                    {t("Changer l'image")}
                   </button>
                 )}
               </div>
@@ -2013,7 +2013,7 @@ function MenuTab({
               {/* Catalogue des plats — sélectionner un plat type */}
               <div>
                 <label className="block text-text-secondary font-inter text-sm mb-1.5">
-                  Plat type (catalogue)
+                  {t("Plat type (catalogue)")}
                 </label>
                 <select
                   value={formCatalogDishId}
@@ -2032,7 +2032,7 @@ function MenuTab({
                   }}
                   className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none"
                 >
-                  <option value="">Nouveau plat (soumettre pour validation)</option>
+                  <option value="">{t("Nouveau plat (soumettre pour validation)")}</option>
                   {dishCatalog.map(entry => (
                     <option key={entry.id} value={entry.id}>
                       {entry.name} ({entry.category})
@@ -2041,7 +2041,7 @@ function MenuTab({
                 </select>
                 {!formCatalogDishId && (
                   <p className="text-amber-700 text-[11px] font-inter mt-1">
-                    Ce plat sera soumis à validation par l'admin avant d'apparaître dans la recherche globale.
+                    {t("Ce plat sera soumis à validation par l'admin avant d'apparaître dans la recherche globale.")}
                   </p>
                 )}
               </div>
@@ -2076,11 +2076,11 @@ function MenuTab({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="flex items-center justify-between gap-3 bg-bg-secondary rounded-lg px-3 h-11 cursor-pointer">
-                  <span className="font-inter text-sm text-text-primary">Disponible</span>
+                  <span className="font-inter text-sm text-text-primary">{t("Disponible")}</span>
                   <input type="checkbox" checked={formIsAvailable} onChange={(e) => setFormIsAvailable(e.target.checked)} className="w-4 h-4 accent-green-primary" />
                 </label>
                 <label className="flex items-center justify-between gap-3 bg-bg-secondary rounded-lg px-3 h-11 cursor-pointer">
-                  <span className="font-inter text-sm text-text-primary">Populaire</span>
+                  <span className="font-inter text-sm text-text-primary">{t("Populaire")}</span>
                   <input type="checkbox" checked={formIsPopular} onChange={(e) => setFormIsPopular(e.target.checked)} className="w-4 h-4 accent-green-primary" />
                 </label>
               </div>
@@ -2088,7 +2088,7 @@ function MenuTab({
               {/* Dietary tags */}
               <div>
                 <label className="block text-text-secondary font-inter text-sm mb-1.5">
-                  Tags dietetiques
+                  {t("Tags dietetiques")}
                 </label>
                 <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto">
                   {ALL_DIETARY_TAGS.map(tag => {
@@ -2109,7 +2109,7 @@ function MenuTab({
                 </div>
                 {formDietaryTags.length > 0 && (
                   <button type="button" onClick={() => setFormDietaryTags([])} className="text-text-muted text-[11px] font-inter mt-1 hover:text-text-primary">
-                    Effacer la selection
+                    {t("Effacer la selection")}
                   </button>
                 )}
               </div>
@@ -2123,10 +2123,10 @@ function MenuTab({
                   className="w-full flex items-center justify-between px-3 h-11 bg-bg-secondary text-left"
                 >
                   <span className="font-inter font-medium text-text-primary text-sm">
-                    Options du plat
+                    {t("Options du plat")}
                     {(cleanOptionRows(formVariants).length > 0 || cleanOptionRows(formSupplements).length > 0) && (
                       <span className="ml-2 text-xs text-green-primary font-semibold">
-                        {cleanOptionRows(formVariants).length} variante{cleanOptionRows(formVariants).length > 1 ? 's' : ''} · {cleanOptionRows(formSupplements).length} supplément{cleanOptionRows(formSupplements).length > 1 ? 's' : ''}
+                        {cleanOptionRows(formVariants).length} {t("variante")}{cleanOptionRows(formVariants).length > 1 ? 's' : ''} · {cleanOptionRows(formSupplements).length} {t("supplément")}{cleanOptionRows(formSupplements).length > 1 ? 's' : ''}
                       </span>
                     )}
                   </span>
@@ -2135,9 +2135,9 @@ function MenuTab({
                 {showOptions && (
                   <div className="p-3 space-y-4">
                     <div>
-                      <p className="text-text-secondary font-inter text-sm mb-0.5">Tailles / portions</p>
+                      <p className="text-text-secondary font-inter text-sm mb-0.5">{t("Tailles / portions")}</p>
                       <p className="text-text-muted text-[11px] font-inter mb-2">
-                        Le prix indiqué est le <span className="font-semibold">surcoût</span> par rapport au prix de base (0 = inclus).
+                        {t("Le prix indiqué est le")} <span className="font-semibold">{t("surcoût")}</span> {t("par rapport au prix de base (0 = inclus).")}
                       </p>
                       <div className="space-y-2">
                         {formVariants.map((row, i) => (
@@ -2174,12 +2174,12 @@ function MenuTab({
                           onClick={() => setFormVariants((prev) => [...prev, { name: '', price: '' }])}
                           className="flex items-center gap-1.5 text-green-primary font-inter text-xs font-medium hover:underline"
                         >
-                          <Plus className="w-3.5 h-3.5" /> Ajouter une variante
+                          <Plus className="w-3.5 h-3.5" /> {t("Ajouter une variante")}
                         </button>
                       </div>
                     </div>
                     <div>
-                      <p className="text-text-secondary font-inter text-sm mb-2">Suppléments payants</p>
+                      <p className="text-text-secondary font-inter text-sm mb-2">{t("Suppléments payants")}</p>
                       <div className="space-y-2">
                         {formSupplements.map((row, i) => (
                           <div key={i} className="flex gap-2 items-center">
@@ -2215,7 +2215,7 @@ function MenuTab({
                           onClick={() => setFormSupplements((prev) => [...prev, { name: '', price: '' }])}
                           className="flex items-center gap-1.5 text-green-primary font-inter text-xs font-medium hover:underline"
                         >
-                          <Plus className="w-3.5 h-3.5" /> Ajouter un supplément
+                          <Plus className="w-3.5 h-3.5" /> {t("Ajouter un supplément")}
                         </button>
                       </div>
                     </div>
@@ -2235,7 +2235,7 @@ function MenuTab({
                   {submitting ? 'Enregistrement...' : editingId ? 'Enregistrer' : 'Ajouter'}
                 </button>
                 <button type="button" onClick={handleCancel} className="text-text-secondary font-inter text-sm px-4 h-11 rounded-lg hover:bg-bg-secondary transition-colors">
-                  Annuler
+                  {t("Annuler")}
                 </button>
               </div>
             </form>
@@ -2247,19 +2247,18 @@ function MenuTab({
       <AlertDialog open={!!deleteTargetItem} onOpenChange={(open) => { if (!open) setDeleteTargetItem(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer ce plat ?</AlertDialogTitle>
+            <AlertDialogTitle>{t("Supprimer ce plat ?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{deleteTargetItem?.name}</strong> sera déplacé dans la corbeille pour 7 jours.
-              Vous pourrez le restaurer depuis le tableau de bord pendant cette période.
+              <strong>{deleteTargetItem?.name}</strong> {t("sera déplacé dans la corbeille pour 7 jours.\r\n              Vous pourrez le restaurer depuis le tableau de bord pendant cette période.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("Annuler")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDeleteItem}
               className="bg-error text-white hover:bg-error/90"
             >
-              Supprimer
+              {t("Supprimer")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2275,6 +2274,7 @@ function ProfileTab({
   // Patch appliqué localement par le parent (plus de rechargement de page).
   onUpdate: (patch: Partial<Restaurant>) => void;
 }) {
+    const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   // LOT-14 (CONF-36) : horaires structurés. L'ancien format texte libre est
   // parsé si possible ; sinon on repart d'une plage par défaut (le champ
@@ -2324,20 +2324,20 @@ function ProfileTab({
         <div className="w-8 h-8 rounded-lg bg-green-light flex items-center justify-center">
           <Store className="w-4 h-4 text-green-primary" />
         </div>
-        Profil du Restaurant
+        {t("Profil du Restaurant")}
       </h2>
       {/* Le statut Ouvert/Fermé se pilote depuis le haut du tableau de bord
           (visible sur tous les onglets) — plus besoin de venir ici. */}
       <p className="bg-bg-secondary rounded-lg px-3 py-2 text-xs font-inter text-text-secondary mb-4">
-        💡 L&apos;ouverture/fermeture du restaurant se gère avec l&apos;interrupteur en haut du tableau de bord.
+        {t("💡 L&apos;ouverture/fermeture du restaurant se gère avec l&apos;interrupteur en haut du tableau de bord.")}
       </p>
       <form onSubmit={handleSubmit} className="space-y-4">
 
         <div>
-          <label className="block text-sm font-inter font-medium text-text-primary mb-1">Horaires d'ouverture</label>
+          <label className="block text-sm font-inter font-medium text-text-primary mb-1">{t("Horaires d'ouverture")}</label>
           <div className="flex items-center gap-2">
             <div className="flex-1">
-              <label htmlFor="profile-open-time" className="block text-[11px] text-text-muted font-inter mb-0.5">Ouverture</label>
+              <label htmlFor="profile-open-time" className="block text-[11px] text-text-muted font-inter mb-0.5">{t("Ouverture")}</label>
               <input
                 id="profile-open-time"
                 type="time"
@@ -2349,7 +2349,7 @@ function ProfileTab({
             </div>
             <span className="text-text-muted font-inter text-sm mt-4" aria-hidden>—</span>
             <div className="flex-1">
-              <label htmlFor="profile-close-time" className="block text-[11px] text-text-muted font-inter mb-0.5">Fermeture</label>
+              <label htmlFor="profile-close-time" className="block text-[11px] text-text-muted font-inter mb-0.5">{t("Fermeture")}</label>
               <input
                 id="profile-close-time"
                 type="time"
@@ -2361,14 +2361,14 @@ function ProfileTab({
             </div>
           </div>
           <p className="text-[11px] text-text-muted font-inter mt-1">
-            Une fermeture après minuit est possible (ex. 10:00 → 02:00). Hors de ces horaires, votre restaurant apparaît « Fermé » aux clients.
+            {t("Une fermeture après minuit est possible (ex. 10:00 → 02:00). Hors de ces horaires, votre restaurant apparaît « Fermé » aux clients.")}
           </p>
         </div>
 
         {/* Série PTS — paiement de la garantie client */}
         <div>
           <label htmlFor="profile-merchant-code" className="block text-sm font-inter font-medium text-text-primary mb-1">
-            Code marchand Mobile Money
+            {t("Code marchand Mobile Money")}
           </label>
           <input
             id="profile-merchant-code"
@@ -2380,13 +2380,12 @@ function ProfileTab({
             className="w-full bg-white border border-border-custom rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
           />
           <p className="text-[11px] text-text-muted font-inter mt-1">
-            Affiché au client pour payer la garantie de commande ({POINTS_CONFIG.GUARANTEE_AMOUNT_FCFA.toLocaleString()} FCFA, déduite du total).
-            Laissez vide pour désactiver l&apos;étape garantie.
+            {t("Affiché au client pour payer la garantie de commande (")}{POINTS_CONFIG.GUARANTEE_AMOUNT_FCFA.toLocaleString()} {t("FCFA, déduite du total).\r\n            Laissez vide pour désactiver l&apos;étape garantie.")}
           </p>
         </div>
         <div>
           <label htmlFor="profile-assistance-whatsapp" className="block text-sm font-inter font-medium text-text-primary mb-1">
-            WhatsApp assistance
+            {t("WhatsApp assistance")}
           </label>
           <input
             id="profile-assistance-whatsapp"
@@ -2397,12 +2396,12 @@ function ProfileTab({
             className="w-full bg-white border border-border-custom rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
           />
           <p className="text-[11px] text-text-muted font-inter mt-1">
-            Affiché au client à l&apos;étape garantie pour joindre votre assistance.
+            {t("Affiché au client à l&apos;étape garantie pour joindre votre assistance.")}
           </p>
         </div>
 
         <div>
-          <label htmlFor="profile-delivery-time" className="block text-sm font-inter font-medium text-text-primary mb-1">Temps de livraison estimé</label>
+          <label htmlFor="profile-delivery-time" className="block text-sm font-inter font-medium text-text-primary mb-1">{t("Temps de livraison estimé")}</label>
           <select
             id="profile-delivery-time"
             value={deliveryTime}
@@ -2416,7 +2415,7 @@ function ProfileTab({
         </div>
 
         <div>
-          <label className="block text-sm font-inter font-medium text-text-primary mb-1">Minimum de commande (FCFA)</label>
+          <label className="block text-sm font-inter font-medium text-text-primary mb-1">{t("Minimum de commande (FCFA)")}</label>
           <input
             type="number"
             value={minOrder}
@@ -2438,6 +2437,7 @@ function ProfileTab({
 }
 
 function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRate: number }) {
+    const { t } = useTranslation();
   const [period, setPeriod] = useState<'week' | 'month' | 'all'>('week');
   const now = Date.now();
   const periodStart =
@@ -2520,7 +2520,7 @@ function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRa
   return (
     <div className="space-y-6 max-w-5xl">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-inter font-medium text-text-secondary">Période :</span>
+        <span className="text-sm font-inter font-medium text-text-secondary">{t("Période :")}</span>
         {(['week', 'month', 'all'] as const).map((p) => (
           <button
             key={p}
@@ -2537,29 +2537,29 @@ function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRa
           <div className="w-9 h-9 rounded-lg bg-green-light flex items-center justify-center mx-auto mb-3">
             <DollarSign className="w-4 h-4 text-green-primary" />
           </div>
-          <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">Revenus Bruts</p>
-          <p className="font-poppins font-bold text-2xl text-text-primary">{totalRevenue.toLocaleString()} FCFA</p>
+          <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">{t("Revenus Bruts")}</p>
+          <p className="font-poppins font-bold text-2xl text-text-primary">{totalRevenue.toLocaleString()} {t("FCFA")}</p>
         </div>
         <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 text-center hover:shadow-md transition-shadow">
           <div className="w-9 h-9 rounded-lg bg-error/10 flex items-center justify-center mx-auto mb-3">
             <TrendingUp className="w-4 h-4 text-error" />
           </div>
-          <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">Commission MiamExpress ({Math.round(yamoCommissionRate * 100)}%)</p>
-          <p className="font-poppins font-bold text-2xl text-error">-{commission.toLocaleString()} FCFA</p>
+          <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">{t("Commission MiamExpress (")}{Math.round(yamoCommissionRate * 100)}%)</p>
+          <p className="font-poppins font-bold text-2xl text-error">-{commission.toLocaleString()} {t("FCFA")}</p>
         </div>
         <div className="bg-white rounded-2xl border border-green-primary/20 shadow-sm p-5 text-center hover:shadow-md transition-shadow bg-green-50/30">
           <div className="w-9 h-9 rounded-lg bg-green-primary flex items-center justify-center mx-auto mb-3">
             <Star className="w-4 h-4 text-white" />
           </div>
-          <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">Revenus Nets</p>
-          <p className="font-poppins font-bold text-2xl text-green-primary">{netRevenue.toLocaleString()} FCFA</p>
+          <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">{t("Revenus Nets")}</p>
+          <p className="font-poppins font-bold text-2xl text-green-primary">{netRevenue.toLocaleString()} {t("FCFA")}</p>
         </div>
         <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 text-center hover:shadow-md transition-shadow">
           <div className="w-9 h-9 rounded-lg bg-gold-light flex items-center justify-center mx-auto mb-3">
             <ShoppingBag className="w-4 h-4 text-gold-accent" />
           </div>
-          <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">Panier Moyen</p>
-          <p className="font-poppins font-bold text-2xl text-text-primary">{Math.round(avgBasket).toLocaleString()} FCFA</p>
+          <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">{t("Panier Moyen")}</p>
+          <p className="font-poppins font-bold text-2xl text-text-primary">{Math.round(avgBasket).toLocaleString()} {t("FCFA")}</p>
         </div>
       </div>
 
@@ -2568,7 +2568,7 @@ function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRa
           {/* S2 — évolution du CA */}
           <div className="bg-white rounded-xl border border-border-custom p-5">
             <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-green-primary" />Évolution du chiffre d'affaires
+              <TrendingUp className="w-5 h-5 text-green-primary" />{t("Évolution du chiffre d'affaires")}
             </h2>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={revenueByDay}>
@@ -2584,7 +2584,7 @@ function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRa
           {/* S3 — heures de pointe */}
           <div className="bg-white rounded-xl border border-border-custom p-5">
             <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4 flex items-center gap-2">
-              <Flame className="w-5 h-5 text-gold-accent" />Heures de pointe
+              <Flame className="w-5 h-5 text-gold-accent" />{t("Heures de pointe")}
             </h2>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={ordersByHour}>
@@ -2604,20 +2604,20 @@ function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRa
         <div className="bg-white rounded-xl border border-border-custom p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-poppins font-semibold text-text-primary text-lg flex items-center gap-2">
-              <ChefHat className="w-5 h-5 text-green-primary" />Performance des plats
+              <ChefHat className="w-5 h-5 text-green-primary" />{t("Performance des plats")}
             </h2>
             <div className="flex gap-1 bg-bg-secondary rounded-lg p-1">
               <button
                 onClick={() => setDishSort('quantity')}
                 className={`px-3 py-1.5 rounded-md text-xs font-inter font-medium transition-colors ${dishSort === 'quantity' ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary'}`}
               >
-                Quantité vendue
+                {t("Quantité vendue")}
               </button>
               <button
                 onClick={() => setDishSort('revenue')}
                 className={`px-3 py-1.5 rounded-md text-xs font-inter font-medium transition-colors ${dishSort === 'revenue' ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary'}`}
               >
-                CA généré
+                {t("CA généré")}
               </button>
             </div>
           </div>
@@ -2632,9 +2632,9 @@ function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRa
                   <span className="w-6 h-6 text-text-muted text-xs font-inter flex items-center justify-center shrink-0">{i + 1}</span>
                 )}
                 <p className="flex-1 font-inter font-medium text-text-primary text-sm truncate">{dish.name}</p>
-                <p className="text-text-muted text-xs font-inter shrink-0">{dish.quantity} vendu{dish.quantity > 1 ? 's' : ''}</p>
+                <p className="text-text-muted text-xs font-inter shrink-0">{dish.quantity} {t("vendu")}{dish.quantity > 1 ? 's' : ''}</p>
                 <p className="font-inter font-semibold text-green-primary text-sm shrink-0 w-24 text-right">
-                  {dish.revenue.toLocaleString()} FCFA
+                  {dish.revenue.toLocaleString()} {t("FCFA")}
                 </p>
               </div>
             ))}
@@ -2643,7 +2643,7 @@ function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRa
           {leastSold.length > 0 && (
             <div className="mt-4 pt-4 border-t border-border-light">
               <p className="flex items-center gap-1.5 text-text-muted text-xs font-inter font-medium mb-2">
-                <ArrowDown className="w-3.5 h-3.5" />Les moins demandés sur la période
+                <ArrowDown className="w-3.5 h-3.5" />{t("Les moins demandés sur la période")}
               </p>
               <div className="flex flex-wrap gap-2">
                 {leastSold.map((dish) => (
@@ -2664,30 +2664,30 @@ function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRa
             <div className="w-9 h-9 rounded-lg bg-error/10 flex items-center justify-center mx-auto mb-3">
               <XCircle className="w-4 h-4 text-error" />
             </div>
-            <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">Taux d'annulation</p>
+            <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">{t("Taux d'annulation")}</p>
             <p className="font-poppins font-bold text-2xl text-text-primary">{cancellationRate.toFixed(1)}%</p>
           </div>
           <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 text-center">
             <div className="w-9 h-9 rounded-lg bg-green-light flex items-center justify-center mx-auto mb-3">
               <Users className="w-4 h-4 text-green-primary" />
             </div>
-            <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">Clients fidèles</p>
+            <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">{t("Clients fidèles")}</p>
             <p className="font-poppins font-bold text-2xl text-text-primary">{customerStats.returningCustomers}</p>
           </div>
           <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 text-center">
             <div className="w-9 h-9 rounded-lg bg-gold-light flex items-center justify-center mx-auto mb-3">
               <UserPlus className="w-4 h-4 text-gold-accent" />
             </div>
-            <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">Nouveaux clients</p>
+            <p className="text-xs font-inter text-text-secondary mb-1 uppercase tracking-wide">{t("Nouveaux clients")}</p>
             <p className="font-poppins font-bold text-2xl text-text-primary">{customerStats.newCustomers}</p>
           </div>
         </div>
       )}
 
       <div className="bg-white rounded-xl border border-border-custom p-5">
-        <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">Historique des commandes livrées</h2>
+        <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">{t("Historique des commandes livrées")}</h2>
         {periodOrders.length === 0 ? (
-          <p className="text-text-secondary font-inter text-sm">Aucune commande livrée sur cette période.</p>
+          <p className="text-text-secondary font-inter text-sm">{t("Aucune commande livrée sur cette période.")}</p>
         ) : (
           <div className="divide-y divide-border-light">
             {periodOrders.map(order => (
@@ -2697,8 +2697,8 @@ function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRa
                   <p className="text-xs text-text-muted">{new Date(order.createdAt).toLocaleString('fr-FR')}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-inter font-semibold text-sm text-text-primary">{order.subtotal.toLocaleString()} FCFA</p>
-                  <p className="text-xs text-error">-{(order.subtotal * yamoCommissionRate).toLocaleString()} FCFA</p>
+                  <p className="font-inter font-semibold text-sm text-text-primary">{order.subtotal.toLocaleString()} {t("FCFA")}</p>
+                  <p className="text-xs text-error">-{(order.subtotal * yamoCommissionRate).toLocaleString()} {t("FCFA")}</p>
                 </div>
               </div>
             ))}
@@ -2712,6 +2712,7 @@ function FinancesTab({ orders, commissionRate }: { orders: Order[]; commissionRa
 // Avis clients du restaurant (lecture seule) — le restaurateur voit ce que ses
 // clients publient (la modération reste côté admin, /admin/reviews).
 function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
+    const { t } = useTranslation();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [summary, setSummary] = useState<ReviewSummary | null>(null);
   // Loading dérivé (pas de setState synchrone dans l'effet) : la section
@@ -2811,15 +2812,15 @@ function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
         <div className="w-8 h-8 rounded-lg bg-gold-light flex items-center justify-center">
           <Star className="w-4 h-4 text-gold-accent" />
         </div>
-        Avis clients
+        {t("Avis clients")}
         {unseenCount > 0 && (
           <span className="bg-green-primary text-white text-[11px] font-inter font-semibold px-2 py-0.5 rounded-full">
-            {unseenCount} nouveau{unseenCount > 1 ? 'x' : ''}
+            {unseenCount} {t("nouveau")}{unseenCount > 1 ? 'x' : ''}
           </span>
         )}
       </h2>
       <p className="text-text-secondary text-xs font-inter mb-4">
-        Avis vérifiés issus des commandes livrées. La modération est gérée par l&apos;équipe Yamo.
+        {t("Avis vérifiés issus des commandes livrées. La modération est gérée par l&apos;équipe Yamo.")}
       </p>
 
       {reviewsLoading ? (
@@ -2828,7 +2829,7 @@ function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
         </div>
       ) : reviews.length === 0 ? (
         <p className="bg-bg-secondary rounded-lg px-3 py-4 text-sm font-inter text-text-secondary text-center">
-          Aucun avis pour le moment. Les clients peuvent noter le restaurant après une commande livrée.
+          {t("Aucun avis pour le moment. Les clients peuvent noter le restaurant après une commande livrée.")}
         </p>
       ) : (
         <>
@@ -2845,7 +2846,7 @@ function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
                   ))}
                 </div>
                 <p className="text-xs text-text-muted font-inter">
-                  {summary.reviewCount} avis · {summary.verifiedCount} vérifiés
+                  {summary.reviewCount} {t("avis ·")} {summary.verifiedCount} {t("vérifiés")}
                 </p>
               </div>
             </div>
@@ -2912,7 +2913,7 @@ function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
                           disabled={replySubmittingId === review.id}
                           className="text-text-secondary font-inter text-xs hover:underline"
                         >
-                          Annuler
+                          {t("Annuler")}
                         </button>
                       </div>
                     </div>
@@ -2920,15 +2921,15 @@ function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
                 ) : review.ownerReply ? (
                   <div className={`mt-2 rounded-lg p-3 ${review.ownerReply.status === 'hidden' ? 'bg-error/5 border border-error/20' : 'bg-bg-secondary'}`}>
                     <p className="text-[11px] font-inter font-semibold text-text-muted uppercase tracking-wide mb-1">
-                      Votre réponse
-                      {review.ownerReply.updatedAt && <span className="normal-case font-normal"> · modifiée</span>}
+                      {t("Votre réponse")}
+                      {review.ownerReply.updatedAt && <span className="normal-case font-normal"> {t("· modifiée")}</span>}
                       {review.ownerReply.status === 'hidden' && (
-                        <span className="normal-case font-semibold text-error"> · masquée par la modération</span>
+                        <span className="normal-case font-semibold text-error"> {t("· masquée par la modération")}</span>
                       )}
                     </p>
                     <p className="text-text-primary text-sm font-inter leading-relaxed">{review.ownerReply.text}</p>
                     {review.ownerReply.status === 'hidden' && review.ownerReply.moderationReason && (
-                      <p className="text-error text-xs font-inter mt-1">Motif : {review.ownerReply.moderationReason}</p>
+                      <p className="text-error text-xs font-inter mt-1">{t("Motif :")} {review.ownerReply.moderationReason}</p>
                     )}
                     <div className="flex gap-3 mt-1.5">
                       <button
@@ -2937,7 +2938,7 @@ function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
                         disabled={replySubmittingId === review.id}
                         className="text-green-primary font-inter text-xs font-medium hover:underline"
                       >
-                        Modifier
+                        {t("Modifier")}
                       </button>
                       <button
                         type="button"
@@ -2955,7 +2956,7 @@ function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
                     onClick={() => { setReplyingId(review.id); setReplyText(''); }}
                     className="mt-2 text-green-primary font-inter text-xs font-medium hover:underline"
                   >
-                    Répondre à cet avis
+                    {t("Répondre à cet avis")}
                   </button>
                 )}
 
@@ -2963,11 +2964,11 @@ function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
                 <div className="mt-1.5">
                   {review.ownerReport?.status === 'open' ? (
                     <span className="inline-flex items-center gap-1 bg-gold-light text-amber-700 text-[11px] font-inter font-semibold px-2 py-0.5 rounded-full">
-                      Signalé — en attente de modération
+                      {t("Signalé — en attente de modération")}
                     </span>
                   ) : review.ownerReport?.status === 'resolved' ? (
                     <span className="inline-flex items-center gap-1 bg-bg-secondary text-text-muted text-[11px] font-inter px-2 py-0.5 rounded-full">
-                      Signalement traité par la modération
+                      {t("Signalement traité par la modération")}
                     </span>
                   ) : (
                     <button
@@ -2975,7 +2976,7 @@ function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
                       onClick={() => { setReportTarget(review); setReportReason(''); }}
                       className="text-text-muted font-inter text-[11px] hover:text-error hover:underline"
                     >
-                      Signaler cet avis à la modération
+                      {t("Signaler cet avis à la modération")}
                     </button>
                   )}
                 </div>
@@ -2989,11 +2990,9 @@ function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
       <AlertDialog open={!!reportTarget} onOpenChange={(open) => { if (!open) setReportTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Signaler cet avis à la modération ?</AlertDialogTitle>
+            <AlertDialogTitle>{t("Signaler cet avis à la modération ?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              L&apos;avis reste visible pendant l&apos;examen. L&apos;équipe Yamo décidera de le
-              maintenir ou de le masquer. Expliquez précisément le problème
-              (propos injurieux, avis mensonger, hors sujet…).
+              {t("L&apos;avis reste visible pendant l&apos;examen. L&apos;équipe Yamo décidera de le\r\n              maintenir ou de le masquer. Expliquez précisément le problème\r\n              (propos injurieux, avis mensonger, hors sujet…).")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <textarea
@@ -3007,7 +3006,7 @@ function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
             className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted"
           />
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={reportSubmitting}>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={reportSubmitting}>{t("Annuler")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => { e.preventDefault(); handleReport(); }}
               disabled={reportSubmitting || !reportReason.trim()}

@@ -24,6 +24,7 @@ import {
 } from '../../components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { phoneForWhatsapp } from '../../lib/phone';
+import { useTranslation } from "react-i18next";
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'En attente', confirmed: 'Confirmée', preparing: 'En préparation',
@@ -39,6 +40,7 @@ function whatsappTo(phone: string, message: string): string {
 }
 
 export default function AdminOrders() {
+    const { t } = useTranslation();
   const { restaurants } = useRestaurants();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,8 +114,8 @@ export default function AdminOrders() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-poppins font-bold text-text-primary text-2xl">Commandes</h1>
-        <button onClick={load} className="flex items-center gap-1.5 text-text-secondary text-sm hover:text-text-primary"><RefreshCw className="w-4 h-4" />Actualiser</button>
+        <h1 className="font-poppins font-bold text-text-primary text-2xl">{t("Commandes")}</h1>
+        <button onClick={load} className="flex items-center gap-1.5 text-text-secondary text-sm hover:text-text-primary"><RefreshCw className="w-4 h-4" />{t("Actualiser")}</button>
       </div>
       <div className="bg-white rounded-xl border border-border-custom p-5">
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -122,18 +124,18 @@ export default function AdminOrders() {
             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher par ID, restaurant ou bénéficiaire..." className="flex-1 bg-transparent text-text-primary text-sm outline-none placeholder:text-text-muted" />
           </div>
           <select value={statusFilter} onChange={(e) => handleStatusFilterChange(e.target.value as OrderStatus | 'all')} className="bg-bg-secondary rounded-lg px-3 h-10 text-text-primary text-sm outline-none">
-            <option value="all">Tous les statuts</option>
+            <option value="all">{t("Tous les statuts")}</option>
             {(Object.keys(statusLabels) as OrderStatus[]).map((s) => <option key={s} value={s}>{statusLabels[s]}</option>)}
           </select>
         </div>
         {loading ? (
           <div className="space-y-2">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
         ) : filtered.length === 0 ? (
-          <p className="text-text-secondary text-sm">Aucune commande trouvée.</p>
+          <p className="text-text-secondary text-sm">{t("Aucune commande trouvée.")}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm font-inter">
-              <thead><tr className="text-left text-text-muted text-xs"><th className="pb-2 pr-4">Commande</th><th className="pb-2 pr-4">Bénéficiaire</th><th className="pb-2 pr-4">Restaurant</th><th className="pb-2 pr-4">Statut</th><th className="pb-2 pr-4">Total</th><th className="pb-2">Date</th></tr></thead>
+              <thead><tr className="text-left text-text-muted text-xs"><th className="pb-2 pr-4">{t("Commande")}</th><th className="pb-2 pr-4">{t("Bénéficiaire")}</th><th className="pb-2 pr-4">{t("Restaurant")}</th><th className="pb-2 pr-4">{t("Statut")}</th><th className="pb-2 pr-4">{t("Total")}</th><th className="pb-2">{t("Date")}</th></tr></thead>
               <tbody className="divide-y divide-border-light">
                 {paginatedOrders.map((order) => (
                   <tr
@@ -152,7 +154,7 @@ export default function AdminOrders() {
                           {order.recipient.phone && <span className="block text-[11px] text-text-muted">{order.recipient.phone}</span>}
                         </span>
                       ) : (
-                        <span className="text-text-muted">Client</span>
+                        <span className="text-text-muted">{t("Client")}</span>
                       )}
                     </td>
                     <td className="py-2 pr-4 text-text-secondary">{restaurantNameById[order.restaurantId] ?? order.restaurantId.slice(0, 8)}</td>
@@ -160,11 +162,11 @@ export default function AdminOrders() {
                       {statusLabels[order.status]}
                       {order.deliveredWithoutCode && (
                         <span className="ml-1.5 text-[10px] font-inter font-bold text-amber-700 bg-gold-light px-1.5 py-0.5 rounded-full" title="Clôturée sans code de livraison">
-                          sans code ⚠
+                          {t("sans code ⚠")}
                         </span>
                       )}
                     </td>
-                    <td className="py-2 pr-4 text-text-primary font-semibold">{order.total.toLocaleString()} FCFA</td>
+                    <td className="py-2 pr-4 text-text-primary font-semibold">{order.total.toLocaleString()} {t("FCFA")}</td>
                     <td className="py-2 text-text-muted text-xs">{new Date(order.createdAt).toLocaleString('fr-FR')}</td>
                   </tr>
                 ))}
@@ -172,9 +174,9 @@ export default function AdminOrders() {
             </table>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-4 pt-3 border-t border-border-light">
               <div className="flex flex-wrap items-center gap-2 text-text-muted text-xs font-inter">
-                <span>{filtered.length} commande{filtered.length > 1 ? 's' : ''}</span>
+                <span>{filtered.length} {t("commande")}{filtered.length > 1 ? 's' : ''}</span>
                 <span>·</span>
-                <span>Affichage {pageStart}-{pageEnd}</span>
+                <span>{t("Affichage")} {pageStart}-{pageEnd}</span>
                 <span>·</span>
                 <select
                   value={perPage}
@@ -183,10 +185,10 @@ export default function AdminOrders() {
                   aria-label="Nombre de commandes par page"
                 >
                   {PAGE_SIZE_OPTIONS.map((size) => (
-                    <option key={size} value={size}>{size} par page</option>
+                    <option key={size} value={size}>{size} {t("par page")}</option>
                   ))}
                 </select>
-                <span>· Page {safePage} / {totalPages}</span>
+                <span>{t("· Page")} {safePage} / {totalPages}</span>
               </div>
               <div className="flex items-center gap-1">
                 <button
@@ -263,7 +265,7 @@ export default function AdminOrders() {
           {selected && (
             <>
               <SheetHeader>
-                <SheetTitle className="font-poppins">Commande #{selected.id.slice(0, 8)}</SheetTitle>
+                <SheetTitle className="font-poppins">{t("Commande #")}{selected.id.slice(0, 8)}</SheetTitle>
                 <SheetDescription>
                   {restaurantNameById[selected.restaurantId] ?? 'Restaurant'} · {new Date(selected.createdAt).toLocaleString('fr-FR')}
                 </SheetDescription>
@@ -276,7 +278,7 @@ export default function AdminOrders() {
                   </span>
                   {selected.deliveredWithoutCode && (
                     <span className="text-[10px] font-inter font-bold text-amber-700 bg-gold-light px-2 py-0.5 rounded-full">
-                      Clôturée sans code ⚠
+                      {t("Clôturée sans code ⚠")}
                     </span>
                   )}
                   <span className="text-xs font-inter text-text-muted">
@@ -286,59 +288,59 @@ export default function AdminOrders() {
 
                 {selected.status === 'cancelled' && selected.cancellationReason && (
                   <p className="bg-error/5 text-text-secondary rounded-lg px-3 py-2 text-xs font-inter">
-                    Annulée par {selected.cancelledBy === 'customer' ? 'le client' : selected.cancelledBy === 'restaurant' ? 'le restaurant' : "l'admin"}
-                    {' '}· Motif : <span className="font-medium text-text-primary">{selected.cancellationReason}</span>
+                    {t("Annulée par")} {selected.cancelledBy === 'customer' ? 'le client' : selected.cancelledBy === 'restaurant' ? 'le restaurant' : "l'admin"}
+                    {' '}{t("· Motif :")} <span className="font-medium text-text-primary">{selected.cancellationReason}</span>
                   </p>
                 )}
 
                 <div>
-                  <h3 className="font-inter font-semibold text-text-primary text-sm mb-2">Articles</h3>
+                  <h3 className="font-inter font-semibold text-text-primary text-sm mb-2">{t("Articles")}</h3>
                   <div className="space-y-1">
                     {selected.items.map((it, i) => (
                       <div key={i} className="flex justify-between text-sm font-inter">
                         <span className="text-text-secondary">{it.quantity} × {it.name}</span>
-                        <span className="text-text-primary">{(it.price * it.quantity).toLocaleString()} FCFA</span>
+                        <span className="text-text-primary">{(it.price * it.quantity).toLocaleString()} {t("FCFA")}</span>
                       </div>
                     ))}
                   </div>
                   <div className="border-t border-border-light mt-2 pt-2 space-y-1 text-sm font-inter">
-                    <div className="flex justify-between text-text-secondary"><span>Sous-total</span><span>{selected.subtotal.toLocaleString()} FCFA</span></div>
-                    <div className="flex justify-between text-text-secondary"><span>Livraison</span><span>{selected.deliveryFee.toLocaleString()} FCFA</span></div>
-                    <div className="flex justify-between font-bold text-text-primary"><span>Total</span><span>{selected.total.toLocaleString()} FCFA</span></div>
+                    <div className="flex justify-between text-text-secondary"><span>{t("Sous-total")}</span><span>{selected.subtotal.toLocaleString()} {t("FCFA")}</span></div>
+                    <div className="flex justify-between text-text-secondary"><span>{t("Livraison")}</span><span>{selected.deliveryFee.toLocaleString()} {t("FCFA")}</span></div>
+                    <div className="flex justify-between font-bold text-text-primary"><span>{t("Total")}</span><span>{selected.total.toLocaleString()} {t("FCFA")}</span></div>
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="font-inter font-semibold text-text-primary text-sm mb-1">Livraison</h3>
+                  <h3 className="font-inter font-semibold text-text-primary text-sm mb-1">{t("Livraison")}</h3>
                   <p className="text-text-secondary text-sm font-inter">{selected.address.fullText || '—'}</p>
                   {selected.notes && <p className="text-text-muted text-xs font-inter mt-1">📝 {selected.notes}</p>}
                   {selected.recipient && (
                     <p className="text-text-muted text-xs font-inter mt-1">
-                      Pour {selected.recipient.name || 'bénéficiaire'}{selected.recipient.phone ? ` · ${selected.recipient.phone}` : ''}
+                      {t("Pour")} {selected.recipient.name || 'bénéficiaire'}{selected.recipient.phone ? ` · ${selected.recipient.phone}` : ''}
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <h3 className="font-inter font-semibold text-text-primary text-sm mb-2">Contacter</h3>
+                  <h3 className="font-inter font-semibold text-text-primary text-sm mb-2">{t("Contacter")}</h3>
                   <div className="flex flex-wrap gap-2">
                     {selected.contactPhone && (
                       <>
                         <a href={`tel:${selected.contactPhone}`} className="inline-flex items-center gap-1.5 bg-bg-secondary text-text-primary font-inter text-xs h-9 px-3 rounded-lg hover:bg-border-light transition-colors">
-                          <Phone className="w-3.5 h-3.5" /> Client
+                          <Phone className="w-3.5 h-3.5" /> {t("Client")}
                         </a>
                         <a href={whatsappTo(selected.contactPhone, `Bonjour, équipe MiamExpress — au sujet de votre commande #${selected.id.slice(0, 8)}`)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 bg-bg-secondary text-text-primary font-inter text-xs h-9 px-3 rounded-lg hover:bg-border-light transition-colors">
-                          <MessageCircle className="w-3.5 h-3.5" /> WhatsApp client
+                          <MessageCircle className="w-3.5 h-3.5" /> {t("WhatsApp client")}
                         </a>
                       </>
                     )}
                     {driverPhone && (
                       <a href={`tel:${driverPhone}`} className="inline-flex items-center gap-1.5 bg-bg-secondary text-text-primary font-inter text-xs h-9 px-3 rounded-lg hover:bg-border-light transition-colors">
-                        <Phone className="w-3.5 h-3.5" /> Livreur
+                        <Phone className="w-3.5 h-3.5" /> {t("Livreur")}
                       </a>
                     )}
                     {!selected.contactPhone && !driverPhone && (
-                      <p className="text-text-muted text-xs font-inter">Aucun contact disponible.</p>
+                      <p className="text-text-muted text-xs font-inter">{t("Aucun contact disponible.")}</p>
                     )}
                   </div>
                 </div>
@@ -350,7 +352,7 @@ export default function AdminOrders() {
                     className="w-full flex items-center justify-center gap-1.5 border border-error text-error font-inter font-medium text-sm h-10 rounded-lg hover:bg-error/5 transition-colors"
                   >
                     <XCircle className="w-4 h-4" />
-                    Annuler cette commande
+                    {t("Annuler cette commande")}
                   </button>
                 )}
               </div>
@@ -363,9 +365,9 @@ export default function AdminOrders() {
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Annuler la commande #{selected?.id.slice(0, 8)} ?</AlertDialogTitle>
+            <AlertDialogTitle>{t("Annuler la commande #")}{selected?.id.slice(0, 8)} ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Le client et le restaurant verront le motif. Cette action est irréversible.
+              {t("Le client et le restaurant verront le motif. Cette action est irréversible.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <textarea
@@ -377,13 +379,13 @@ export default function AdminOrders() {
             className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted"
           />
           <AlertDialogFooter>
-            <AlertDialogCancel>Retour</AlertDialogCancel>
+            <AlertDialogCancel>{t("Retour")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleAdminCancel}
               disabled={!cancelReason.trim()}
               className="bg-error text-white hover:bg-error/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Annuler la commande
+              {t("Annuler la commande")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

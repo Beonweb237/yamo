@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { fetchMyFoodRequests, acceptBid, cancelFoodRequest, type FoodRequest } from '../lib/foodRequests';
 import PageHeader from '../components/PageHeader';
 import { UtensilsCrossed, MapPin, Clock, CheckCircle2, XCircle, Timer, MessageCircle, ChevronRight, Plus, Sparkles } from 'lucide-react';
+import { useTranslation } from "react-i18next";
 
 const STATUS_CONFIG: Record<FoodRequest['status'], { label: string; color: string; icon: typeof Timer }> = {
   open: { label: 'En attente', color: 'bg-gold-light text-amber-700 border-gold-accent/30', icon: Timer },
@@ -33,6 +34,7 @@ function expiresIn(date: string) {
 }
 
 export default function FoodRequestList() {
+    const { t } = useTranslation();
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -94,7 +96,7 @@ export default function FoodRequestList() {
               to="/demandes/nouvelle"
               className="flex items-center gap-2 px-4 h-10 bg-white/15 hover:bg-white/25 text-white rounded-lg text-sm font-inter font-semibold backdrop-blur-sm transition-colors"
             >
-              <Plus className="w-4 h-4" /> Nouvelle
+              <Plus className="w-4 h-4" /> {t("Nouvelle")}
             </Link>
           }
         />
@@ -103,8 +105,8 @@ export default function FoodRequestList() {
           <div className="mb-6 p-4 bg-green-light border border-green-primary/20 rounded-xl flex items-center gap-3">
             <Sparkles className="w-5 h-5 text-green-primary shrink-0" />
             <div>
-              <p className="text-sm font-inter font-medium text-green-primary">Demande publiée avec succès !</p>
-              <p className="text-xs font-inter text-green-primary/80">Les restaurants de votre ville peuvent maintenant soumissionner.</p>
+              <p className="text-sm font-inter font-medium text-green-primary">{t("Demande publiée avec succès !")}</p>
+              <p className="text-xs font-inter text-green-primary/80">{t("Les restaurants de votre ville peuvent maintenant soumissionner.")}</p>
             </div>
           </div>
         )}
@@ -112,18 +114,19 @@ export default function FoodRequestList() {
         {requests.length === 0 ? (
           <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-12 text-center">
             <UtensilsCrossed className="w-12 h-12 mx-auto text-text-muted mb-4" />
-            <h3 className="text-lg font-poppins font-semibold text-text-primary mb-2">Aucune demande pour le moment</h3>
-            <p className="text-sm font-inter text-text-secondary mb-6">Publiez votre première demande et laissez les restaurants vous faire des propositions !</p>
+            <h3 className="text-lg font-poppins font-semibold text-text-primary mb-2">{t("Aucune demande pour le moment")}</h3>
+            <p className="text-sm font-inter text-text-secondary mb-6">{t("Publiez votre première demande et laissez les restaurants vous faire des propositions !")}</p>
             <Link
               to="/demandes/nouvelle"
               className="inline-flex items-center gap-2 px-6 h-11 bg-green-primary text-white rounded-xl font-inter font-semibold hover:bg-green-dark transition-all"
             >
-              <Plus className="w-4 h-4" /> Créer une demande
+              <Plus className="w-4 h-4" /> {t("Créer une demande")}
             </Link>
           </div>
         ) : (
           <div className="space-y-4">
             {requests.map((req) => {
+                const { t } = useTranslation();
               const statusCfg = STATUS_CONFIG[req.status];
               const StatusIcon = statusCfg.icon;
               const acceptedBid = req.bids.find((b) => b.id === req.acceptedBidId);
@@ -147,7 +150,7 @@ export default function FoodRequestList() {
                       <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {expiresIn(req.expiresAt)}</span>
                       {req.bids.length > 0 && (
                         <span className="flex items-center gap-1 text-green-primary font-medium">
-                          <MessageCircle className="w-3 h-3" /> {req.bids.length} offre{req.bids.length > 1 ? 's' : ''}
+                          <MessageCircle className="w-3 h-3" /> {req.bids.length} {t("offre")}{req.bids.length > 1 ? 's' : ''}
                         </span>
                       )}
                     </div>
@@ -163,7 +166,7 @@ export default function FoodRequestList() {
                     {acceptedBid && (
                       <div className="p-3 bg-green-light border border-green-primary/20 rounded-xl mb-3">
                         <p className="text-sm font-inter font-medium text-green-primary">
-                          ✅ Acceptée : {acceptedBid.restaurantName} — {acceptedBid.price.toLocaleString()} FCFA
+                          {t("✅ Acceptée :")} {acceptedBid.restaurantName} — {acceptedBid.price.toLocaleString()} {t("FCFA")}
                         </p>
                       </div>
                     )}
@@ -174,7 +177,7 @@ export default function FoodRequestList() {
                           onClick={() => setSelectedRequest(req)}
                           className="flex items-center gap-1.5 px-4 h-9 bg-green-primary text-white rounded-lg text-sm font-inter font-medium hover:bg-green-dark transition-all"
                         >
-                          Voir les offres ({req.bids.length}) <ChevronRight className="w-3.5 h-3.5" />
+                          {t("Voir les offres (")}{req.bids.length}) <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                       )}
                       {req.status === 'open' && (
@@ -182,7 +185,7 @@ export default function FoodRequestList() {
                           onClick={() => handleCancel(req.id)}
                           className="px-4 h-9 text-text-secondary hover:text-error text-sm font-inter transition-colors"
                         >
-                          Annuler
+                          {t("Annuler")}
                         </button>
                       )}
                       {req.status === 'accepted' && acceptedBid && (
@@ -190,7 +193,7 @@ export default function FoodRequestList() {
                           to="/commandes"
                           className="flex items-center gap-1.5 px-4 h-9 bg-bg-secondary text-text-secondary rounded-lg text-sm font-inter font-medium hover:bg-border-light transition-all"
                         >
-                          Voir la commande
+                          {t("Voir la commande")}
                         </Link>
                       )}
                     </div>
@@ -209,7 +212,7 @@ export default function FoodRequestList() {
           <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[80vh] overflow-y-auto shadow-2xl">
             <div className="sticky top-0 bg-white border-b border-border-light px-6 py-4 rounded-t-2xl">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-poppins font-bold text-text-primary">Offres reçues</h3>
+                <h3 className="text-lg font-poppins font-bold text-text-primary">{t("Offres reçues")}</h3>
                 <button onClick={() => setSelectedRequest(null)} className="p-1 text-text-muted hover:text-text-primary">
                   <XCircle className="w-5 h-5" />
                 </button>
@@ -226,7 +229,7 @@ export default function FoodRequestList() {
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <p className="font-inter font-semibold text-text-primary">{bid.restaurantName}</p>
-                      <p className="text-lg font-poppins font-bold text-green-primary mt-1">{bid.price.toLocaleString()} FCFA</p>
+                      <p className="text-lg font-poppins font-bold text-green-primary mt-1">{bid.price.toLocaleString()} {t("FCFA")}</p>
                     </div>
                     {bid.status === 'pending' && (
                       <button
@@ -247,7 +250,7 @@ export default function FoodRequestList() {
                 </div>
               ))}
               {selectedRequest.bids.length === 0 && (
-                <p className="text-center text-text-muted font-inter py-8">Aucune offre pour le moment. Patience !</p>
+                <p className="text-center text-text-muted font-inter py-8">{t("Aucune offre pour le moment. Patience !")}</p>
               )}
             </div>
           </div>

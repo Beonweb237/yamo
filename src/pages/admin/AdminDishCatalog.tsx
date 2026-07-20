@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, Plus, X, Pencil, Trash2, ChefHat } from 'lucide-react';
 import { dishCatalog, type DishCatalogEntry } from '../../data/mockData';
 import { ALL_DIETARY_TAGS } from '../../pages/RestaurantDashboard';
+import { useTranslation } from "react-i18next";
 
 function readCatalog(): DishCatalogEntry[] {
   const stored = localStorage.getItem('yamo_admin_dish_catalog');
@@ -13,6 +14,7 @@ function writeCatalog(entries: DishCatalogEntry[]) {
 }
 
 export default function AdminDishCatalog() {
+    const { t } = useTranslation();
   const [catalog, setCatalog] = useState<DishCatalogEntry[]>(readCatalog);
   const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -70,17 +72,16 @@ export default function AdminDishCatalog() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-poppins font-bold text-text-primary text-2xl flex items-center gap-2">
-          <ChefHat className="w-6 h-6 text-green-primary" />Catalogue Plats
+          <ChefHat className="w-6 h-6 text-green-primary" />{t("Catalogue Plats")}
         </h1>
         <button onClick={() => { resetForm(); setShowForm(true); }}
           className="flex items-center gap-2 bg-green-primary text-white font-inter font-medium text-sm px-4 h-10 rounded-lg hover:bg-green-dark transition-colors">
-          <Plus className="w-4 h-4" />Nouveau plat type
+          <Plus className="w-4 h-4" />{t("Nouveau plat type")}
         </button>
       </div>
 
       <p className="text-text-secondary text-sm font-inter mb-6">
-        Gérez le catalogue central des plats. Les images définies ici sont utilisées pour la recherche globale.
-        Les restaurants peuvent utiliser ces plats comme référence ou soumettre de nouveaux plats.
+        {t("Gérez le catalogue central des plats. Les images définies ici sont utilisées pour la recherche globale.\r\n        Les restaurants peuvent utiliser ces plats comme référence ou soumettre de nouveaux plats.")}
       </p>
 
       <div className="flex items-center gap-2 bg-white rounded-lg border border-border-custom px-3 h-11 mb-4 max-w-md">
@@ -90,7 +91,7 @@ export default function AdminDishCatalog() {
 
       <div className="bg-white rounded-xl border border-border-custom overflow-hidden">
         {filtered.length === 0 ? (
-          <div className="p-8 text-center text-text-secondary text-sm">Aucun plat trouvé.</div>
+          <div className="p-8 text-center text-text-secondary text-sm">{t("Aucun plat trouvé.")}</div>
         ) : (
           <div className="divide-y divide-border-light">
             {filtered.map(entry => (
@@ -128,23 +129,23 @@ export default function AdminDishCatalog() {
               <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Nom du plat" className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" required />
               <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none">
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                <option value="Plats Principaux">Plats Principaux</option>
-                <option value="Grillades">Grillades</option>
-                <option value="Entrées">Entrées</option>
-                <option value="Boissons">Boissons</option>
-                <option value="Desserts">Desserts</option>
-                <option value="Pizza">Pizza</option>
-                <option value="Petit-Déjeuner">Petit-Déjeuner</option>
+                <option value="Plats Principaux">{t("Plats Principaux")}</option>
+                <option value="Grillades">{t("Grillades")}</option>
+                <option value="Entrées">{t("Entrées")}</option>
+                <option value="Boissons">{t("Boissons")}</option>
+                <option value="Desserts">{t("Desserts")}</option>
+                <option value="Pizza">{t("Pizza")}</option>
+                <option value="Petit-Déjeuner">{t("Petit-Déjeuner")}</option>
               </select>
               <div>
-                <label className="block text-text-secondary font-inter text-sm mb-1.5">Image par défaut (URL)</label>
+                <label className="block text-text-secondary font-inter text-sm mb-1.5">{t("Image par défaut (URL)")}</label>
                 <div className="flex items-center gap-2">
                   <input type="text" value={image} onChange={e => setImage(e.target.value)} placeholder="/plat-ndole.jpg" className="flex-1 bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" required />
                   {image && <img src={image} alt="" className="w-11 h-11 rounded-lg object-cover border shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
                 </div>
               </div>
               <div>
-                <label className="block text-text-secondary font-inter text-sm mb-1.5">Tags</label>
+                <label className="block text-text-secondary font-inter text-sm mb-1.5">{t("Tags")}</label>
                 <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto">
                   {ALL_DIETARY_TAGS.map(tag => {
                     const active = selectedTags.includes(tag);
@@ -158,7 +159,7 @@ export default function AdminDishCatalog() {
               <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description du plat" rows={3} className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none" />
               <div className="flex gap-2 pt-1">
                 <button type="submit" className="flex-1 bg-green-primary text-white font-inter font-semibold text-sm h-11 rounded-lg hover:bg-green-dark transition-colors">{editingId ? 'Enregistrer' : 'Ajouter au catalogue'}</button>
-                <button type="button" onClick={resetForm} className="text-text-secondary font-inter text-sm px-4 h-11 rounded-lg hover:bg-bg-secondary transition-colors">Annuler</button>
+                <button type="button" onClick={resetForm} className="text-text-secondary font-inter text-sm px-4 h-11 rounded-lg hover:bg-bg-secondary transition-colors">{t("Annuler")}</button>
               </div>
             </form>
           </div>

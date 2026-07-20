@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import AuthHeader from '../components/AuthHeader';
 import { useAuth, type AuthUser, type UserRole } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 import { fetchMyApplications } from '../lib/applications';
 import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
 import {
@@ -114,6 +115,7 @@ async function resolveRedirect(user: AuthUser): Promise<string> {
 }
 
 export default function Inscription({ defaultRole = 'client' as UserRole }: { defaultRole?: UserRole }) {
+  const { t } = useTranslation();
   const { signUp, isSupabaseConfigured } = useAuth();
   const navigate = useNavigate();
   const profile = profileConfigs[defaultRole];
@@ -170,14 +172,14 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
       <div className="w-full max-w-[420px] bg-white rounded-2xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden my-12">
 
         {/* ── Branded header ── */}
-        <AuthHeader icon={profile.icon} title={profile.title} subtitle={profile.subtitle} />
+        <AuthHeader icon={profile.icon} title={t(profile.title)} subtitle={t(profile.subtitle)} />
 
         <div className="px-6 sm:px-8 pb-6 sm:pb-8">
 
         {/* ── Demo banner ── */}
         {!isSupabaseConfigured && (
           <div className="bg-gold-light text-amber-700 text-xs font-inter rounded-lg px-3 py-2 mb-5">
-            Mode démo : les comptes sont sauvegardés localement dans votre navigateur.
+            {t("Mode démo : les comptes sont sauvegardés localement dans votre navigateur.")}
           </div>
         )}
 
@@ -185,7 +187,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
         <form onSubmit={handleSignUp} className="space-y-4">
           {/* Full name */}
           <div>
-            <label className="block text-text-secondary font-inter text-sm mb-1.5">Nom complet</label>
+            <label className="block text-text-secondary font-inter text-sm mb-1.5">{t('Nom complet')}</label>
             <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
               <User className="w-4 h-4 text-text-muted shrink-0" />
               <input
@@ -201,7 +203,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
 
           {/* Email */}
           <div>
-            <label className="block text-text-secondary font-inter text-sm mb-1.5">Adresse email</label>
+            <label className="block text-text-secondary font-inter text-sm mb-1.5">{t('Adresse email')}</label>
             <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
               <Mail className="w-4 h-4 text-text-muted shrink-0" />
               <input
@@ -217,7 +219,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
 
           {/* Phone */}
           <div>
-            <label className="block text-text-secondary font-inter text-sm mb-1.5">Numéro de téléphone</label>
+            <label className="block text-text-secondary font-inter text-sm mb-1.5">{t('Numéro de téléphone')}</label>
             <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
               <Phone className="w-4 h-4 text-text-muted shrink-0" />
               <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
@@ -234,7 +236,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
 
           {/* Password */}
           <div>
-            <label className="block text-text-secondary font-inter text-sm mb-1.5">Mot de passe</label>
+            <label className="block text-text-secondary font-inter text-sm mb-1.5">{t('Mot de passe')}</label>
             <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
               <ShieldCheck className="w-4 h-4 text-text-muted shrink-0" />
               <input
@@ -259,7 +261,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
 
           {/* Confirm Password */}
           <div>
-            <label className="block text-text-secondary font-inter text-sm mb-1.5">Confirmer le mot de passe</label>
+            <label className="block text-text-secondary font-inter text-sm mb-1.5">{t('Confirmer le mot de passe')}</label>
             <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
               <ShieldCheck className="w-4 h-4 text-text-muted shrink-0" />
               <input
@@ -285,10 +287,10 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
           {error && <p className="text-error text-sm font-inter" role="alert">{error}</p>}
 
           <p className="text-text-muted text-xs font-inter text-center">
-            En vous inscrivant, vous acceptez nos{' '}
-            <button type="button" onClick={(e) => { e.preventDefault(); setLegalModal('terms'); }} className="text-green-primary underline hover:text-green-dark">conditions</button>
-            {' '}et notre{' '}
-            <button type="button" onClick={(e) => { e.preventDefault(); setLegalModal('privacy'); }} className="text-green-primary underline hover:text-green-dark">politique de confidentialité</button>
+            {t("En vous inscrivant, vous acceptez nos")}{' '}
+            <button type="button" onClick={(e) => { e.preventDefault(); setLegalModal('terms'); }} className="text-green-primary underline hover:text-green-dark">{t("conditions")}</button>
+            {' '}{t("et notre")}{' '}
+            <button type="button" onClick={(e) => { e.preventDefault(); setLegalModal('privacy'); }} className="text-green-primary underline hover:text-green-dark">{t("politique de confidentialité")}</button>
             .
           </p>
 
@@ -300,10 +302,10 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
             {submitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Création du compte...
+                {t("Création du compte...")}
               </>
             ) : (
-              <>Créer mon compte <ArrowRight className="w-4 h-4" /></>
+              <>{t("Créer mon compte")} <ArrowRight className="w-4 h-4" /></>
             )}
           </button>
         </form>
@@ -312,7 +314,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
         {defaultRole === 'client' && (
           <div className="mt-6 pt-5 border-t border-border-light space-y-2">
             <p className="text-text-muted text-[11px] font-inter font-medium uppercase tracking-wider mb-3">
-              Vous êtes un professionnel ?
+              {t("Vous êtes un professionnel ?")}
             </p>
             <Link
               to="/inscription/restaurant"
@@ -323,10 +325,10 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
               </div>
               <div className="flex-1">
                 <p className="font-inter font-semibold text-text-primary text-sm group-hover:text-green-primary transition-colors">
-                  Inscription Restaurateur
+                  {t("Inscription Restaurateur")}
                 </p>
                 <p className="text-text-muted text-xs font-inter">
-                  Gérez votre restaurant et vos commandes sur MiamExpress.
+                  {t("Gérez votre restaurant et vos commandes sur MiamExpress.")}
                 </p>
               </div>
               <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-green-primary transition-colors shrink-0" />
@@ -340,10 +342,10 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
               </div>
               <div className="flex-1">
                 <p className="font-inter font-semibold text-text-primary text-sm group-hover:text-green-primary transition-colors">
-                  Inscription Livreur
+                  {t("Inscription Livreur")}
                 </p>
                 <p className="text-text-muted text-xs font-inter">
-                  Livrez quand vous voulez, gagnez ce dont vous avez besoin.
+                  {t("Livrez quand vous voulez, gagnez ce dont vous avez besoin.")}
                 </p>
               </div>
               <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-green-primary transition-colors shrink-0" />
@@ -353,12 +355,12 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
 
         {/* ── Footer: login ── */}
         <p className="text-center text-text-secondary font-inter text-sm mt-5">
-          Déjà un compte ?{' '}
+          {t("Déjà un compte ?")}{' '}
           <Link
             to={getLoginPath(defaultRole)}
             className="text-green-primary font-semibold hover:text-green-dark underline"
           >
-            Se connecter
+            {t("Se connecter")}
           </Link>
         </p>
         </div>

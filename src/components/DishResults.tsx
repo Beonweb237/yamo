@@ -34,6 +34,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from './ui/popover';
+import { useTranslation } from "react-i18next";
 
 // Vue « Plats » de la recherche unifiée (LOT-13 / CONF-33).
 // Extraite de l'ancienne page ExplorerMet : la recherche texte, la ville et le
@@ -82,6 +83,7 @@ interface DishResultsProps {
 }
 
 export default function DishResults({ restaurants, query, city, neighborhood, hasExplicitLocation, onLocationChange }: DishResultsProps) {
+    const { t } = useTranslation();
   const { favoriteDishes, toggleFavoriteDish } = useFavoriteDishes();
   const { user } = useAuth();
   const { items: cartItems, addToCart, removeFromCart, replaceCartWith } = useCart();
@@ -393,7 +395,7 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 mt-6 space-y-3 mb-6">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] font-inter font-semibold text-text-muted uppercase tracking-wider mr-1 shrink-0">
-            Je commande
+            {t("Je commande")}
           </span>
           <div className="flex bg-white border border-border-custom rounded-lg p-0.5">
             <button
@@ -405,7 +407,7 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                 }`}
             >
               <UserRound className="w-3.5 h-3.5" />
-              Pour moi
+              {t("Pour moi")}
             </button>
             <button
               type="button"
@@ -416,12 +418,12 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                 }`}
             >
               <Send className="w-3.5 h-3.5" />
-              Pour quelqu'un
+              {t("Pour quelqu'un")}
             </button>
           </div>
           {orderMode === 'other' && (
             <span className="text-[10px] font-inter text-text-muted">
-              Sélectionnez la ville du destinataire ci-dessus
+              {t("Sélectionnez la ville du destinataire ci-dessus")}
             </span>
           )}
           {orderMode === 'self' && (
@@ -436,7 +438,7 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                 }`}
             >
               {geoLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className="w-3.5 h-3.5" />}
-              Me localiser
+              {t("Me localiser")}
             </button>
           )}
         </div>
@@ -445,16 +447,16 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
         </div>
         <div className="flex gap-2 flex-wrap">
           {DIETARY_FILTERS.map(f => { const Icon = f.icon; const active = activeDietary.includes(f.id); return (<button key={f.id} onClick={() => toggleDietary(f.id)} className={`shrink-0 h-9 px-3 rounded-full text-xs font-inter font-semibold border transition-colors flex items-center gap-1.5 ${active ? 'bg-green-primary text-white border-green-primary' : 'bg-white border-border-custom text-text-secondary hover:text-text-primary'}`}><Icon className="w-3.5 h-3.5" />{f.label}</button>); })}
-          {activeDietary.length > 0 && (<button onClick={() => setActiveDietary([])} className="shrink-0 h-9 px-3 rounded-full text-xs font-inter font-medium text-error border border-error/30 hover:bg-error/5 flex items-center gap-1"><X className="w-3 h-3" />Effacer</button>)}
+          {activeDietary.length > 0 && (<button onClick={() => setActiveDietary([])} className="shrink-0 h-9 px-3 rounded-full text-xs font-inter font-medium text-error border border-error/30 hover:bg-error/5 flex items-center gap-1"><X className="w-3 h-3" />{t("Effacer")}</button>)}
         </div>
         <div className="flex items-center justify-between">
           <span className="text-text-muted text-xs font-inter">
-            {dishGroups.length} plat{dishGroups.length !== 1 ? 's' : ''} · {restaurantsCount} restaurant{restaurantsCount !== 1 ? 's' : ''}
+            {dishGroups.length} {t("plat")}{dishGroups.length !== 1 ? 's' : ''} · {restaurantsCount} {t("restaurant")}{restaurantsCount !== 1 ? 's' : ''}
           </span>
           <div className="flex items-center gap-1.5 bg-white rounded-lg border border-border-custom px-3 h-9">
             <ArrowUpDown className="w-3.5 h-3.5 text-text-muted" />
             <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)} className="bg-transparent text-xs font-inter font-semibold text-text-secondary outline-none">
-              <option value="popular">Populaires</option><option value="rating">Mieux notés</option><option value="priceAsc">Prix croissant</option><option value="priceDesc">Prix décroissant</option><option value="newest">Nouveautés</option>
+              <option value="popular">{t("Populaires")}</option><option value="rating">{t("Mieux notés")}</option><option value="priceAsc">{t("Prix croissant")}</option><option value="priceDesc">{t("Prix décroissant")}</option><option value="newest">{t("Nouveautés")}</option>
             </select>
           </div>
         </div>
@@ -464,13 +466,14 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
         {dishGroups.length === 0 ? (
           <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-12 text-center">
             <SlidersHorizontal className="w-12 h-12 text-text-muted mx-auto mb-4" />
-            <p className="text-text-secondary font-inter font-medium text-lg mb-1">Aucun plat trouvé</p>
-            <p className="text-text-muted text-sm font-inter mb-4">Essayez d'autres filtres ou élargissez votre recherche.</p>
-            <button onClick={() => { setQuickFilter('all'); setActiveDietary([]); onLocationChange('Douala', ''); }} className="text-green-primary font-inter text-sm font-medium hover:underline">Réinitialiser les filtres</button>
+            <p className="text-text-secondary font-inter font-medium text-lg mb-1">{t("Aucun plat trouvé")}</p>
+            <p className="text-text-muted text-sm font-inter mb-4">{t("Essayez d'autres filtres ou élargissez votre recherche.")}</p>
+            <button onClick={() => { setQuickFilter('all'); setActiveDietary([]); onLocationChange('Douala', ''); }} className="text-green-primary font-inter text-sm font-medium hover:underline">{t("Réinitialiser les filtres")}</button>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
             {dishGroups.map(group => {
+                const { t } = useTranslation();
               const isTrending = trendingKeys.has(group.key);
               const dishLocation = getDishLocationSummary(group.items);
               const visibleTags = [
@@ -499,7 +502,7 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                     <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-black/0" />
                     {isTrending && (
                       <span className="absolute top-2 left-2 flex items-center gap-1 bg-gold-accent text-white text-[10px] font-inter font-bold px-2 py-0.5 rounded-full shadow-sm">
-                        <Flame className="w-3 h-3" />Tendance
+                        <Flame className="w-3 h-3" />{t("Tendance")}
                       </span>
                     )}
                     {/* Pile verticale : sur carte étroite (2 col à 360px), une rangée
@@ -524,7 +527,7 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                   <div className="p-3">
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <span className="font-inter font-bold text-green-primary text-sm">
-                        {group.minPrice.toLocaleString()}{group.maxPrice > group.minPrice ? '+' : ''} FCFA
+                        {group.minPrice.toLocaleString()}{group.maxPrice > group.minPrice ? '+' : ''} {t("FCFA")}
                       </span>
                       <span className="flex items-center gap-1 text-text-muted text-xs font-inter shrink-0">
                         <Store className="w-3 h-3" />{group.totalRestaurants}
@@ -549,6 +552,7 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                       </span>
 
                       {(() => {
+                                  const { t } = useTranslation();
                         // Vérifier si un item de ce groupe est déjà dans le panier
                         const inCartItem = group.items.find(i => cartItemIds.has(i.id));
                         if (inCartItem) {
@@ -560,8 +564,8 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                             >
                               <Check className="w-3 h-3 group-hover/remove:hidden" />
                               <Minus className="w-3 h-3 hidden group-hover/remove:block" />
-                              <span className="group-hover/remove:hidden">Ajouté</span>
-                              <span className="hidden group-hover/remove:block">Retirer</span>
+                              <span className="group-hover/remove:hidden">{t("Ajouté")}</span>
+                              <span className="hidden group-hover/remove:block">{t("Retirer")}</span>
                             </button>
                           );
                         }
@@ -601,7 +605,7 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                               onOpenAutoFocus={(e) => e.preventDefault()}
                             >
                               <p className="text-[10px] font-inter font-semibold text-text-muted uppercase tracking-wider px-2 pb-1.5 pt-0.5">
-                                Choisir un restaurant
+                                {t("Choisir un restaurant")}
                               </p>
                               <div className="space-y-0.5 max-h-48 overflow-y-auto">
                                 {group.items
@@ -634,7 +638,7 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                                         </p>
                                       </div>
                                       <span className="text-xs font-inter font-bold text-green-primary shrink-0">
-                                        {item.price.toLocaleString()} FCFA
+                                        {item.price.toLocaleString()} {t("FCFA")}
                                       </span>
                                     </button>
                                   ))}
@@ -672,16 +676,15 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
               <div className="space-y-3">
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-sm font-inter text-amber-800">
-                    🚫 Vous êtes à <strong>{userCity}</strong>, mais ce restaurant est à <strong>{orderItemCity}</strong>.
-                    La livraison n'est pas possible dans votre ville.
+                    {t("🚫 Vous êtes à")} <strong>{userCity}</strong>{t(", mais ce restaurant est à")} <strong>{orderItemCity}</strong>{t(".\n                    La livraison n'est pas possible dans votre ville.")}
                   </p>
                 </div>
                 <div className="p-3 bg-green-light border border-green-primary/20 rounded-lg">
                   <p className="text-sm font-inter text-green-primary font-medium mb-2">
-                    💡 Vous pouvez commander ce plat pour quelqu'un d'autre à {orderItemCity} !
+                    {t("💡 Vous pouvez commander ce plat pour quelqu'un d'autre à")} {orderItemCity} !
                   </p>
                   <p className="text-xs font-inter text-text-secondary">
-                    Créez une demande sur mesure — un restaurant à {orderItemCity} préparera et livrera le plat au destinataire de votre choix.
+                    {t("Créez une demande sur mesure — un restaurant à")} {orderItemCity} {t("préparera et livrera le plat au destinataire de votre choix.")}
                   </p>
                 </div>
                 <div className="flex gap-3">
@@ -689,14 +692,14 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                     onClick={() => setQuickOrderItem(null)}
                     className="flex-1 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-sm font-medium hover:bg-bg-secondary transition-colors"
                   >
-                    Annuler
+                    {t("Annuler")}
                   </button>
                   <button
                     onClick={handleOrderForOther}
                     className="flex-1 h-10 rounded-lg bg-green-primary text-white font-inter text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-green-dark transition-colors"
                   >
                     <Send className="w-4 h-4" />
-                    Commander pour autrui
+                    {t("Commander pour autrui")}
                   </button>
                 </div>
               </div>
@@ -704,17 +707,17 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
               <div className="space-y-3">
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-sm font-inter text-amber-800">
-                    Votre panier contient déjà des plats d'un autre restaurant.
+                    {t("Votre panier contient déjà des plats d'un autre restaurant.")}
                   </p>
                   {cartRestaurant && (
                     <p className="text-sm font-inter text-amber-800 mt-1">
-                      Vous pouvez{' '}
+                      {t("Vous pouvez")}{' '}
                       <Link
                         to={`/restaurant/${cartRestaurant.slug || cartRestaurant.id}`}
                         onClick={() => setQuickOrderItem(null)}
                         className="font-semibold underline hover:text-amber-900"
                       >
-                        continuer vos achats chez {cartRestaurant.name}
+                        {t("continuer vos achats chez")} {cartRestaurant.name}
                       </Link>
                       .
                     </p>
@@ -725,13 +728,13 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                     onClick={() => setQuickOrderItem(null)}
                     className="flex-1 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-sm font-medium hover:bg-bg-secondary transition-colors"
                   >
-                    Annuler
+                    {t("Annuler")}
                   </button>
                   <button
                     onClick={handleReplaceCart}
                     className="flex-1 h-10 rounded-lg bg-green-primary text-white font-inter text-sm font-semibold hover:bg-green-dark transition-colors"
                   >
-                    Remplacer le panier
+                    {t("Remplacer le panier")}
                   </button>
                 </div>
               </div>

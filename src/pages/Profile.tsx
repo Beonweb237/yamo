@@ -4,6 +4,7 @@ import { User, MapPin, Save, Trash2, Plus, LogOut, Shield, Camera, Globe, Naviga
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { Switch } from '../components/ui/switch';
+import { useTranslation } from 'react-i18next';
 import { fetchOrders, type Order } from '../lib/orders';
 import { toast } from 'sonner';
 import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
@@ -59,6 +60,7 @@ function writeAddresses(addrs: SavedAddress[]) {
 }
 
 export default function Profile() {
+  const { t } = useTranslation();
   const { user, loading: authLoading, signOut, updateProfileName } = useAuth();
   const { dataSaver, setDataSaver } = useSettings();
   const navigate = useNavigate();
@@ -252,7 +254,7 @@ export default function Profile() {
     <div className="pt-[72px] min-h-screen bg-bg-secondary">
       <div className="max-w-[640px] mx-auto px-4 sm:px-6 py-10">
         <h1 className="font-poppins font-bold text-text-primary text-2xl sm:text-3xl mb-6">
-          Mon Profil
+          {t("Mon Profil")}
         </h1>
 
         {/* En-tête / Carte de Visite Premium */}
@@ -293,7 +295,7 @@ export default function Profile() {
               </div>
               {!user.isApproved && (
                 <div className="mt-3 inline-flex">
-                  <span className="text-xs font-medium px-3 py-1 rounded-full bg-gold-light text-amber-700 shadow-sm border border-gold-accent/20">Compte en attente de validation</span>
+                  <span className="text-xs font-medium px-3 py-1 rounded-full bg-gold-light text-amber-700 shadow-sm border border-gold-accent/20">{t("Compte en attente de validation")}</span>
                 </div>
               )}
             </div>
@@ -303,16 +305,16 @@ export default function Profile() {
                 <DialogTrigger asChild>
                   <button className="flex items-center gap-2 bg-bg-secondary text-text-primary font-inter font-medium px-4 py-2 rounded-lg hover:bg-border-light transition-colors text-sm shadow-sm">
                     <Edit2 className="w-4 h-4" />
-                    Modifier
+                    {t("Modifier")}
                   </button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Modifier mon profil</DialogTitle>
+                    <DialogTitle>{t("Modifier mon profil")}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-1.5">
-                      <label className="text-sm font-inter font-medium text-text-primary">Nom complet</label>
+                      <label className="text-sm font-inter font-medium text-text-primary">{t("Nom complet")}</label>
                       <input
                         type="text"
                         value={effectiveProfileName}
@@ -322,7 +324,7 @@ export default function Profile() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-sm font-inter font-medium text-text-primary">Langue préférée</label>
+                      <label className="text-sm font-inter font-medium text-text-primary">{t("Langue préférée")}</label>
                       <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 transition-all focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10">
                         <Globe className="w-4 h-4 text-text-muted shrink-0" />
                         <select
@@ -330,13 +332,13 @@ export default function Profile() {
                           onChange={(e) => setProfileLang(e.target.value)}
                           className="w-full bg-transparent text-text-primary font-inter text-sm outline-none cursor-pointer"
                         >
-                          <option value="fr">Français</option>
-                          <option value="en">English</option>
+                          <option value="fr">{t("Français")}</option>
+                          <option value="en">{t("English")}</option>
                         </select>
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-sm font-inter font-medium text-text-primary">Numéro WhatsApp</label>
+                      <label className="text-sm font-inter font-medium text-text-primary">{t("Numéro WhatsApp")}</label>
                       <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 transition-all focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10">
                         <MessageCircle className="w-4 h-4 text-[#25D366] shrink-0" />
                         <span className="text-text-primary font-inter text-sm font-semibold shrink-0 select-none">+237</span>
@@ -374,10 +376,10 @@ export default function Profile() {
               </div>
               <div className="min-w-0">
                 <label htmlFor="data-saver-switch" className="block font-inter font-semibold text-text-primary text-sm cursor-pointer">
-                  Économie de données
+                  {t("Économie de données")}
                 </label>
                 <p className="text-text-secondary font-inter text-xs mt-0.5">
-                  Désactive les animations et diffère le chargement des images — recommandé en 3G ou forfait limité.
+                  {t("Désactive les animations et diffère le chargement des images — recommandé en 3G ou forfait limité.")}
                 </p>
               </div>
             </div>
@@ -398,22 +400,22 @@ export default function Profile() {
           <section className="mb-8">
             <div className="flex items-center gap-2 mb-4 px-1">
               <ShoppingBag className="w-5 h-5 text-green-primary" />
-              <h2 className="font-poppins font-semibold text-text-primary text-lg">Mon Activité</h2>
+              <h2 className="font-poppins font-semibold text-text-primary text-lg">{t("Mon Activité")}</h2>
             </div>
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div className="bg-white rounded-2xl border border-border-custom p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
                 <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
                   <Package className="w-24 h-24 text-green-primary" />
                 </div>
-                <p className="text-text-muted text-sm font-inter mb-1">Commandes livrées</p>
+                <p className="text-text-muted text-sm font-inter mb-1">{t("Commandes livrées")}</p>
                 <p className="font-poppins font-bold text-text-primary text-3xl">{activityStats.orderCount}</p>
               </div>
               <div className="bg-white rounded-2xl border border-border-custom p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
                 <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
                   <Wallet className="w-24 h-24 text-green-primary" />
                 </div>
-                <p className="text-text-muted text-sm font-inter mb-1">Total dépensé</p>
-                <p className="font-poppins font-bold text-green-primary text-2xl truncate" title={`${activityStats.totalSpent.toLocaleString()} FCFA`}>{activityStats.totalSpent.toLocaleString()} FCFA</p>
+                <p className="text-text-muted text-sm font-inter mb-1">{t("Total dépensé")}</p>
+                <p className="font-poppins font-bold text-green-primary text-2xl truncate" title={`${activityStats.totalSpent.toLocaleString()} FCFA`}>{activityStats.totalSpent.toLocaleString()} {t("FCFA")}</p>
               </div>
             </div>
             
@@ -425,9 +427,9 @@ export default function Profile() {
                       <Award className="w-6 h-6 text-gold-accent" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-text-muted text-xs font-inter mb-0.5">Plat préféré</p>
+                      <p className="text-text-muted text-xs font-inter mb-0.5">{t("Plat préféré")}</p>
                       <p className="font-inter font-semibold text-text-primary text-sm truncate">{activityStats.favoriteDish.name}</p>
-                      <p className="text-green-primary text-xs font-medium">{activityStats.favoriteDish.count} commande{activityStats.favoriteDish.count > 1 ? 's' : ''}</p>
+                      <p className="text-green-primary text-xs font-medium">{activityStats.favoriteDish.count} {t("commande")}{activityStats.favoriteDish.count > 1 ? 's' : ''}</p>
                     </div>
                   </div>
                 )}
@@ -437,9 +439,9 @@ export default function Profile() {
                       <Store className="w-6 h-6 text-gold-accent" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-text-muted text-xs font-inter mb-0.5">Restaurant favori</p>
+                      <p className="text-text-muted text-xs font-inter mb-0.5">{t("Restaurant favori")}</p>
                       <p className="font-inter font-semibold text-text-primary text-sm truncate">{activityStats.favoriteRestaurant.name}</p>
-                      <p className="text-green-primary text-xs font-medium">{activityStats.favoriteRestaurant.count} commande{activityStats.favoriteRestaurant.count > 1 ? 's' : ''}</p>
+                      <p className="text-green-primary text-xs font-medium">{activityStats.favoriteRestaurant.count} {t("commande")}{activityStats.favoriteRestaurant.count > 1 ? 's' : ''}</p>
                     </div>
                   </div>
                 )}
@@ -451,14 +453,14 @@ export default function Profile() {
         {/* ── Accès rapides ── */}
         <section className="mb-8">
           <h2 className="font-poppins font-semibold text-text-primary text-sm uppercase tracking-wider text-text-muted mb-4 px-1">
-            Raccourcis
+            {t("Raccourcis")}
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {[
-              { to: '/commandes', icon: Package, label: 'Mes commandes', desc: 'Historique et suivi' },
-              { to: '/favoris', icon: Heart, label: 'Favoris', desc: 'Restos & plats' },
-              { to: '/demandes/mes-demandes', icon: UtensilsCrossed, label: 'Mes demandes', desc: 'Commandes sur mesure' },
-              { to: '/restaurants?mode=plats', icon: Search, label: 'Explorer', desc: 'Trouver un plat' },
+              { to: '/commandes', icon: Package, label: t('Mes commandes'), desc: t('Historique et suivi') },
+              { to: '/favoris', icon: Heart, label: t('Favoris'), desc: t('Restos & plats') },
+              { to: '/demandes/mes-demandes', icon: UtensilsCrossed, label: t('Mes demandes'), desc: t('Commandes sur mesure') },
+              { to: '/restaurants?mode=plats', icon: Search, label: t('Explorer'), desc: t('Trouver un plat') },
             ].map((link) => (
               <Link
                 key={link.to}
@@ -486,7 +488,7 @@ export default function Profile() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-poppins font-semibold text-text-primary text-lg flex items-center gap-2">
               <MapPin className="w-5 h-5 text-green-primary" />
-              Adresses de livraison
+              {t("Adresses de livraison")}
             </h2>
             {!showForm && addresses.length < MAX_ADDRESSES && (
               <button
@@ -494,12 +496,12 @@ export default function Profile() {
                 className="flex items-center gap-1.5 text-green-primary font-inter font-medium text-sm min-h-11"
               >
                 <Plus className="w-4 h-4" />
-                Ajouter
+                {t("Ajouter")}
               </button>
             )}
             {!showForm && addresses.length >= MAX_ADDRESSES && (
               <p className="text-text-muted text-xs font-inter">
-                Maximum {MAX_ADDRESSES} adresses
+                {t("Maximum")} {MAX_ADDRESSES} {t("adresses")}
               </p>
             )}
           </div>
@@ -546,7 +548,7 @@ export default function Profile() {
                   disabled={!fullText}
                   className="bg-green-primary text-white font-inter font-medium text-sm px-5 h-10 rounded-lg hover:bg-green-dark transition-colors flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  <Save className="w-4 h-4" /> Enregistrer
+                  <Save className="w-4 h-4" /> {t("Enregistrer")}
                 </button>
                 <button
                   type="button"
@@ -562,12 +564,12 @@ export default function Profile() {
                   onClick={resetForm}
                   className="text-text-secondary font-inter text-sm px-4 h-10 rounded-lg hover:bg-border-light transition-colors"
                 >
-                  Annuler
+                  {t("Annuler")}
                 </button>
               </div>
               {geoCoords && (
                 <div className="pt-1">
-                  <p className="text-xs text-text-muted font-inter mb-1">📍 Cliquez sur la carte pour ajuster la position</p>
+                  <p className="text-xs text-text-muted font-inter mb-1">{t("📍 Cliquez sur la carte pour ajuster la position")}</p>
                   <LazyDeliveryMap
                     height="180px"
                     scrollWheelZoom={false}
@@ -581,7 +583,7 @@ export default function Profile() {
               )}
               {!geoCoords && showForm && (
                 <div className="pt-1">
-                  <p className="text-xs text-text-muted font-inter mb-1">📍 Cliquez sur la carte pour placer votre adresse</p>
+                  <p className="text-xs text-text-muted font-inter mb-1">{t("📍 Cliquez sur la carte pour placer votre adresse")}</p>
                   <LazyDeliveryMap
                     height="180px"
                     scrollWheelZoom={false}
@@ -599,10 +601,10 @@ export default function Profile() {
           {addresses.length === 0 && !showForm ? (
             <div className="text-center py-4">
               <p className="text-text-secondary font-inter text-sm mb-1">
-                Aucune adresse enregistrée.
+                {t("Aucune adresse enregistrée.")}
               </p>
               <p className="text-amber-700 bg-gold-light inline-block rounded-lg px-3 py-1.5 font-inter text-xs mb-4">
-                Sans adresse, vous ne pourrez pas passer commande.
+                {t("Sans adresse, vous ne pourrez pas passer commande.")}
               </p>
               <div>
                 <button
@@ -610,7 +612,7 @@ export default function Profile() {
                   className="inline-flex items-center gap-2 bg-green-primary text-white font-inter font-medium text-sm px-5 h-10 rounded-lg hover:bg-green-dark transition-colors"
                 >
                   <Plus className="w-4 h-4" />
-                  Ajouter mon adresse
+                  {t("Ajouter mon adresse")}
                 </button>
               </div>
             </div>
@@ -629,7 +631,7 @@ export default function Profile() {
                             <p className="font-inter font-semibold text-text-primary text-sm sm:text-base">{addr.label}</p>
                           )}
                           {addrIdx === 0 && (
-                            <span className="text-[10px] font-inter font-medium text-green-primary bg-green-light px-2 py-0.5 rounded-full border border-green-primary/20">par défaut</span>
+                            <span className="text-[10px] font-inter font-medium text-green-primary bg-green-light px-2 py-0.5 rounded-full border border-green-primary/20">{t("par défaut")}</span>
                           )}
                         </div>
                         <p className="text-text-secondary text-xs sm:text-sm font-inter mt-0.5">{addr.fullText}</p>
@@ -684,7 +686,7 @@ export default function Profile() {
             className="w-full bg-white rounded-2xl border border-border-custom p-4 text-center font-inter font-medium text-error hover:bg-error hover:text-white transition-all flex items-center justify-center gap-2 shadow-sm"
           >
             <LogOut className="w-5 h-5" />
-            Se déconnecter
+            {t("Se déconnecter")}
           </button>
         </section>
       </div>
@@ -693,13 +695,13 @@ export default function Profile() {
       <AlertDialog open={!!deleteTargetAddr} onOpenChange={(open) => { if (!open) setDeleteTargetAddr(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer cette adresse ?</AlertDialogTitle>
+            <AlertDialogTitle>{t("Supprimer cette adresse ?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              L'adresse <strong>{deleteTargetAddr?.label || deleteTargetAddr?.fullText}</strong> sera déplacée dans la corbeille pour 7 jours.
+              {t("L'adresse")} <strong>{deleteTargetAddr?.label || deleteTargetAddr?.fullText}</strong> {t("sera déplacée dans la corbeille pour 7 jours.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("Annuler")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (deleteTargetAddr) handleDelete(deleteTargetAddr.id);
@@ -707,7 +709,7 @@ export default function Profile() {
               }}
               className="bg-error text-white hover:bg-error/90"
             >
-              Supprimer
+              {t("Supprimer")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

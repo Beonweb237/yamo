@@ -33,3 +33,5 @@ dist-ssr
 
 # Scratch agent parallèle
 .codex-tmp/
+
+wrap_t.cjs

@@ -24,6 +24,7 @@ import { isEffectivelyOpen } from '../lib/hours';
 import AppImage from '../components/AppImage';
 import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
 import DishResults from '../components/DishResults';
+import { useTranslation } from 'react-i18next';
 
 type QuickFilterId = 'open' | 'freeDelivery' | 'fast' | 'premium';
 
@@ -63,6 +64,7 @@ function ratingForRanking(restaurant: Restaurant): number {
 }
 
 export default function Restaurants() {
+  const { t } = useTranslation();
   const { restaurants, loading } = useRestaurants();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -247,9 +249,9 @@ export default function Restaurants() {
             transition={{ duration: 0.4 }}
             className="hidden sm:block text-white/60 text-xs font-inter mb-4"
           >
-            <Link to="/" className="hover:text-white transition-colors">Accueil</Link>
+            <Link to="/" className="hover:text-white transition-colors">{t("Accueil")}</Link>
             <span className="mx-2">/</span>
-            <span className="text-white">{mode === 'plats' ? 'Explorer les plats' : 'Restaurants'}</span>
+            <span className="text-white">{mode === 'plats' ? t('Explorer les plats') : t('Restaurants')}</span>
           </motion.div>
 
           <motion.h1
@@ -296,7 +298,7 @@ export default function Restaurants() {
                   }`}
               >
                 <Store className="w-4 h-4" />
-                Restaurants
+                {t("Restaurants")}
               </button>
               <button
                 type="button"
@@ -309,7 +311,7 @@ export default function Restaurants() {
                   }`}
               >
                 <UtensilsCrossed className="w-4 h-4" />
-                Plats
+                {t("Plats")}
               </button>
             </div>
             <span className="text-xs font-inter text-text-muted hidden sm:inline">
@@ -344,7 +346,7 @@ export default function Restaurants() {
                 >
                   <MapPin className="w-4 h-4 text-text-muted" />
                   <div className="text-left">
-                    <span className="text-[10px] text-text-muted font-inter block leading-none">Ville</span>
+                    <span className="text-[10px] text-text-muted font-inter block leading-none">{t("Ville")}</span>
                     <span className="text-sm text-text-primary font-inter font-medium">{selectedCity}</span>
                   </div>
                   <ChevronDown className="w-4 h-4 text-text-muted ml-auto sm:ml-0" />
@@ -364,7 +366,7 @@ export default function Restaurants() {
                     </div>
                     <div className="max-h-56 overflow-y-auto py-1">
                       {filteredCities.length === 0 ? (
-                        <p className="px-4 py-2 text-sm text-text-muted font-inter">Aucune ville trouvée</p>
+                        <p className="px-4 py-2 text-sm text-text-muted font-inter">{t("Aucune ville trouvée")}</p>
                       ) : (
                         filteredCities.map((city) => (
                           <button
@@ -401,7 +403,7 @@ export default function Restaurants() {
                 >
                   <SlidersHorizontal className="w-4 h-4 text-text-muted" />
                   <div className="text-left">
-                    <span className="text-[10px] text-text-muted font-inter block leading-none">Quartier</span>
+                    <span className="text-[10px] text-text-muted font-inter block leading-none">{t("Quartier")}</span>
                     <span className="text-sm text-text-primary font-inter font-medium">{selectedNeighborhood || 'Tous'}</span>
                   </div>
                   <ChevronDown className="w-4 h-4 text-text-muted ml-auto sm:ml-0" />
@@ -432,10 +434,10 @@ export default function Restaurants() {
                           : 'text-text-secondary hover:bg-bg-secondary'
                           }`}
                       >
-                        Tous
+                        {t("Tous")}
                       </button>
                       {filteredNeighborhoods.length === 0 ? (
-                        <p className="px-4 py-2 text-sm text-text-muted font-inter">Aucun quartier trouvé</p>
+                        <p className="px-4 py-2 text-sm text-text-muted font-inter">{t("Aucun quartier trouvé")}</p>
                       ) : (
                         filteredNeighborhoods.map((n) => (
                           <button
@@ -473,7 +475,7 @@ export default function Restaurants() {
                   >
                     <Star className={`w-4 h-4 ${minRating > 0 ? 'text-gold-accent fill-gold-accent' : 'text-text-muted'}`} />
                     <div className="text-left">
-                      <span className="text-[10px] text-text-muted font-inter block leading-none">Note</span>
+                      <span className="text-[10px] text-text-muted font-inter block leading-none">{t("Note")}</span>
                       <span className={`text-sm font-inter font-medium ${minRating > 0 ? 'text-amber-700' : 'text-text-primary'}`}>
                         {minRating > 0 ? `${minRating.toFixed(1)}+` : 'Toutes'}
                       </span>
@@ -510,7 +512,7 @@ export default function Restaurants() {
                 onClick={handleSearch}
                 className={`${mode === 'restaurants' ? '' : 'col-span-2'} sm:flex-none bg-green-primary text-white font-inter font-medium text-sm h-12 px-6 rounded-lg hover:bg-green-dark active:scale-[0.98] transition-all`}
               >
-                Rechercher
+                {t("Rechercher")}
               </button>
             </div>
           </div>
@@ -563,7 +565,7 @@ export default function Restaurants() {
                 <div className="flex-1">
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <span className="text-text-secondary font-inter text-sm min-w-0 truncate">
-                      <span className="font-semibold text-text-primary">{filtered.length}</span> restaurant{filtered.length !== 1 ? 's' : ''}
+                      <span className="font-semibold text-text-primary">{filtered.length}</span> {t("restaurant")}{filtered.length !== 1 ? 's' : ''}
                       {selectedNeighborhood ? ` à ${selectedNeighborhood}` : ` à ${selectedCity}`}
                     </span>
                     <div className="flex items-center gap-1 shrink-0">
@@ -575,7 +577,7 @@ export default function Restaurants() {
                           className="lg:hidden flex items-center gap-1.5 text-text-secondary font-inter text-sm hover:text-green-primary min-h-11 px-2 transition-colors"
                         >
                           <MapPin className="w-4 h-4" />
-                          Carte
+                          {t("Carte")}
                         </button>
                       )}
                       <div className="relative">
@@ -583,7 +585,7 @@ export default function Restaurants() {
                           onClick={() => setShowSort(!showSort)}
                           className="flex items-center gap-1.5 text-text-secondary font-inter text-sm hover:text-text-primary min-h-11 px-2 whitespace-nowrap transition-colors"
                         >
-                          Trier : {sortOptions.find((o) => o.value === sortBy)?.label}
+                          {t("Trier :")} {sortOptions.find((o) => o.value === sortBy)?.label}
                           <ChevronDown className="w-4 h-4" />
                         </button>
                         {showSort && (
@@ -648,6 +650,7 @@ export default function Restaurants() {
                         </div>
                       ))
                     ) : filtered.map((resto, i) => {
+                        const { t } = useTranslation();
                       const isOpen = isEffectivelyOpen(resto);
                       return (
                         <motion.div
@@ -676,7 +679,7 @@ export default function Restaurants() {
                               {!isOpen && (
                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
                                   <span className="bg-white/95 text-text-primary text-xs font-inter font-semibold px-3 py-1.5 rounded-full shadow-sm">
-                                    Fermé actuellement
+                                    {t("Fermé actuellement")}
                                   </span>
                                 </div>
                               )}
@@ -697,7 +700,7 @@ export default function Restaurants() {
                               </button>
                               {resto.isPremium && (
                                 <span className="absolute top-3 left-3 bg-green-primary text-white text-[11px] font-inter font-semibold px-2.5 py-1 rounded-full">
-                                  Premium
+                                  {t("Premium")}
                                 </span>
                               )}
                             </div>
@@ -737,7 +740,7 @@ export default function Restaurants() {
                               <div className="flex items-center justify-between gap-2 mt-2 text-xs text-text-muted font-inter">
                                 <span className="flex items-center gap-1 min-w-0">
                                   <MapPin className="w-3 h-3 shrink-0" />
-                                  <span className="truncate">{resto.neighborhood}, {resto.city} · {stableDistance(resto.id)} km</span>
+                                  <span className="truncate">{resto.neighborhood}, {resto.city} · {stableDistance(resto.id)} {t("km")}</span>
                                 </span>
                                 {/* Gamme de prix en ₣ (contexte FCFA) — la donnée reste
                                     stockée en « € » côté catalogue, conversion à l'affichage. */}
@@ -758,10 +761,10 @@ export default function Restaurants() {
                         <Search className="w-8 h-8 text-green-primary" />
                       </div>
                       <p className="text-text-primary font-inter font-semibold mb-1">
-                        Aucun restaurant ne correspond
+                        {t("Aucun restaurant ne correspond")}
                       </p>
                       <p className="text-text-secondary font-inter text-sm mb-5">
-                        Essayez d&apos;élargir vos filtres ou de changer de quartier.
+                        {t("Essayez d&apos;élargir vos filtres ou de changer de quartier.")}
                       </p>
                       <button
                         onClick={() => {
@@ -775,7 +778,7 @@ export default function Restaurants() {
                         }}
                         className="h-11 px-5 rounded-lg border border-green-primary text-green-primary hover:bg-green-light font-inter text-sm font-medium transition-colors"
                       >
-                        Réinitialiser les filtres
+                        {t("Réinitialiser les filtres")}
                       </button>
                     </div>
                   )}
@@ -801,13 +804,13 @@ export default function Restaurants() {
                         </button>
                         <div className="absolute bottom-3 left-3 right-12 bg-white/90 backdrop-blur-sm rounded-lg border border-border-custom px-3 py-2 text-xs font-inter text-text-secondary shadow-sm pointer-events-none">
                           <MapPin className="w-3.5 h-3.5 text-green-primary inline mr-1" />
-                          {mapPoints.length} restaurant{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
+                          {mapPoints.length} {t("restaurant")}{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
                         </div>
                       </div>
                     ) : (
                       <div className="h-full flex flex-col items-center justify-center text-text-muted p-4">
                         <MapPin className="w-10 h-10 mb-3 opacity-30" />
-                        <p className="text-sm font-inter text-center">Aucun restaurant à afficher</p>
+                        <p className="text-sm font-inter text-center">{t("Aucun restaurant à afficher")}</p>
                       </div>
                     )}
                   </div>
@@ -829,7 +832,7 @@ export default function Restaurants() {
                         </button>
                         <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm rounded-lg border border-border-custom px-2.5 py-1.5 text-[11px] font-inter text-text-secondary shadow-sm pointer-events-none">
                           <MapPin className="w-3 h-3 text-green-primary inline mr-1" />
-                          {mapPoints.length} restaurant{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
+                          {mapPoints.length} {t("restaurant")}{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
                         </div>
                       </div>
                     </div>
@@ -851,7 +854,7 @@ export default function Restaurants() {
                         <div className="flex items-center gap-2">
                           <MapPin className="w-4 h-4 text-green-primary" />
                           <span className="font-inter font-semibold text-text-primary text-sm">
-                            {mapPoints.length} restaurant{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
+                            {mapPoints.length} {t("restaurant")}{mapPoints.length !== 1 ? 's' : ''} {selectedCity ? `à ${selectedCity}` : ''}
                           </span>
                         </div>
                         <button
@@ -870,7 +873,7 @@ export default function Restaurants() {
                       {/* Footer hint */}
                       <div className="px-4 py-2 border-t border-border-light bg-bg-secondary shrink-0">
                         <p className="text-[11px] font-inter text-text-muted text-center">
-                          🖱️ Molette pour zoomer · Glissez pour naviguer · Échap ou clic extérieur pour fermer
+                          {t("🖱️ Molette pour zoomer · Glissez pour naviguer · Échap ou clic extérieur pour fermer")}
                         </p>
                       </div>
                     </div>

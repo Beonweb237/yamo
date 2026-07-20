@@ -42,6 +42,7 @@ import { restaurantMenuCategories } from '../data/mockData';
 import type { MenuItem } from '../data/mockData';
 import LazyDeliveryMap from '../components/LazyDeliveryMap';
 import type { MapPoint } from '../components/DeliveryMap';
+import { useTranslation } from "react-i18next";
 
 function timeAgoFr(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -63,6 +64,7 @@ const categoryOrder = [
 ];
 
 export default function RestaurantDetail() {
+    const { t } = useTranslation();
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { restaurant: fetchedById, loading: restaurantLoading } = useRestaurant(slug);
@@ -427,16 +429,16 @@ export default function RestaurantDetail() {
             <Store className="w-8 h-8 text-green-primary" />
           </div>
           <h1 className="font-poppins font-bold text-text-primary text-xl mb-2">
-            Restaurant introuvable
+            {t("Restaurant introuvable")}
           </h1>
           <p className="text-text-secondary font-inter text-sm mb-6">
-            Ce restaurant n&apos;existe pas ou n&apos;est plus disponible sur MiamExpress.
+            {t("Ce restaurant n&apos;existe pas ou n&apos;est plus disponible sur MiamExpress.")}
           </p>
           <Link
             to="/restaurants"
             className="inline-flex items-center justify-center bg-green-primary text-white font-inter font-semibold h-11 px-6 rounded-lg hover:bg-green-dark transition-colors"
           >
-            Voir les restaurants
+            {t("Voir les restaurants")}
           </Link>
         </div>
       </div>
@@ -460,7 +462,7 @@ export default function RestaurantDetail() {
             className="absolute bottom-4 right-4 inline-flex min-h-11 items-center gap-2 rounded-full bg-white/95 px-4 text-sm font-inter font-semibold text-text-primary shadow-lg backdrop-blur hover:bg-white transition-colors"
           >
             <Camera className="w-4 h-4 text-green-primary" />
-            Voir les photos
+            {t("Voir les photos")}
             <span className="rounded-full bg-green-light px-2 py-0.5 text-xs text-green-primary">
               {galleryImages.length}
             </span>
@@ -482,7 +484,7 @@ export default function RestaurantDetail() {
                 <span className="inline-flex items-center gap-1 rounded-full bg-green-light px-2.5 py-1 text-xs font-inter font-semibold text-green-primary">
                   <Circle className={`w-2 h-2 ${restaurantOpen ? 'fill-success text-success' : 'fill-error text-error'}`} />
                   {restaurantOpen
-                    ? parsedHours ? <>Ouvert jusqu&apos;&agrave; {parsedHours.close}</> : 'Ouvert maintenant'
+                    ? parsedHours ? <>{t("Ouvert jusqu&apos;&agrave;")} {parsedHours.close}</> : 'Ouvert maintenant'
                     : restaurant.isOpen && parsedHours ? `Fermé · ouvre à ${parsedHours.open}` : 'Fermé actuellement'}
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-gold-light px-2.5 py-1 text-xs font-inter font-semibold text-amber-700">
@@ -497,7 +499,7 @@ export default function RestaurantDetail() {
                 {restaurant.verified && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-600 px-2.5 py-0.5 text-xs font-inter font-semibold border border-blue-200" title="Restaurant vérifié par MiamExpress">
                     <BadgeCheck className="w-4 h-4" />
-                    Vérifié
+                    {t("Vérifié")}
                   </span>
                 )}
               </h1>
@@ -513,7 +515,7 @@ export default function RestaurantDetail() {
                 >
                   <Star className="w-4 h-4 fill-gold-accent text-gold-accent" />
                   {displayRating.toFixed(1)}
-                  <span className="font-normal text-amber-800/80">({displayReviewCount} avis)</span>
+                  <span className="font-normal text-amber-800/80">({displayReviewCount} {t("avis)")}</span>
                 </button>
                 <span className="inline-flex min-h-9 items-center gap-1 rounded-full bg-bg-secondary px-3 text-sm font-inter text-text-secondary">
                   <Clock className="w-4 h-4" />
@@ -524,7 +526,7 @@ export default function RestaurantDetail() {
                 </span>
                 {restaurant.minOrder > 0 && (
                   <span className="inline-flex min-h-9 items-center gap-1 rounded-full bg-bg-secondary px-3 text-sm font-inter text-text-secondary">
-                    Min. {restaurant.minOrder.toLocaleString()} FCFA
+                    {t("Min.")} {restaurant.minOrder.toLocaleString()} {t("FCFA")}
                   </span>
                 )}
                 <span className="inline-flex min-h-9 items-center gap-1 rounded-full bg-bg-secondary px-3 text-sm font-inter text-text-secondary">
@@ -555,17 +557,17 @@ export default function RestaurantDetail() {
 
           <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 border-y border-border-light divide-y lg:divide-y-0 lg:divide-x divide-border-light">
             <div className="py-3 lg:px-4 lg:first:pl-0">
-              <p className="text-[11px] uppercase font-inter font-semibold text-text-muted">Délai estimé</p>
+              <p className="text-[11px] uppercase font-inter font-semibold text-text-muted">{t("Délai estimé")}</p>
               <p className="font-inter font-semibold text-text-primary text-sm mt-1">{restaurant.deliveryTime}</p>
             </div>
             <div className="py-3 lg:px-4">
-              <p className="text-[11px] uppercase font-inter font-semibold text-text-muted">Livraison</p>
+              <p className="text-[11px] uppercase font-inter font-semibold text-text-muted">{t("Livraison")}</p>
               <p className="font-inter font-semibold text-text-primary text-sm mt-1">
                 {restaurant.deliveryFee === 0 ? 'Gratuite' : `${restaurant.deliveryFee.toLocaleString()} FCFA`}
               </p>
             </div>
             <div className="py-3 lg:px-4">
-              <p className="text-[11px] uppercase font-inter font-semibold text-text-muted">Minimum</p>
+              <p className="text-[11px] uppercase font-inter font-semibold text-text-muted">{t("Minimum")}</p>
               <p className="font-inter font-semibold text-text-primary text-sm mt-1">
                 {restaurant.minOrder > 0 ? `${restaurant.minOrder.toLocaleString()} FCFA` : 'Aucun minimum'}
               </p>
@@ -575,8 +577,8 @@ export default function RestaurantDetail() {
               onClick={() => jumpToTab('Avis')}
               className="py-3 text-left lg:px-4 hover:bg-bg-secondary transition-colors"
             >
-              <p className="text-[11px] uppercase font-inter font-semibold text-text-muted">Avis clients</p>
-              <p className="font-inter font-semibold text-text-primary text-sm mt-1">{displayReviewCount} avis vérifiés</p>
+              <p className="text-[11px] uppercase font-inter font-semibold text-text-muted">{t("Avis clients")}</p>
+              <p className="font-inter font-semibold text-text-primary text-sm mt-1">{displayReviewCount} {t("avis vérifiés")}</p>
             </button>
           </div>
 
@@ -627,6 +629,7 @@ export default function RestaurantDetail() {
 
         {/* ── Contenu de l'onglet ── */}
         {(() => {
+                  const { t } = useTranslation();
           const isMenuTab = currentTab !== 'À propos' && currentTab !== 'Carte' && currentTab !== 'Avis';
 
           if (isMenuTab) {
@@ -644,7 +647,7 @@ export default function RestaurantDetail() {
                       >
                         <div className="flex items-center gap-3 mb-4">
                           <h2 className="font-poppins font-semibold text-text-primary text-xl">
-                            Les Plus Populaires
+                            {t("Les Plus Populaires")}
                           </h2>
                           <div className="w-10 h-[3px] bg-green-primary rounded-full" />
                         </div>
@@ -691,7 +694,7 @@ export default function RestaurantDetail() {
                           ))
                         ) : (
                           <div className="p-8 text-center text-text-secondary font-inter">
-                            Aucun plat dans cette cat&eacute;gorie pour le moment.
+                            {t("Aucun plat dans cette cat&eacute;gorie pour le moment.")}
                           </div>
                         )}
                       </div>
@@ -721,7 +724,7 @@ export default function RestaurantDetail() {
                   className="bg-white rounded-xl border border-border-custom p-6 sm:p-8"
                 >
                   <h2 className="font-poppins font-semibold text-text-primary text-xl mb-4">
-                    À propos de {restaurant.name}
+                    {t("À propos de")} {restaurant.name}
                   </h2>
                   <p className="text-text-secondary text-[15px] font-inter leading-relaxed mb-6">
                     {restaurant.description}
@@ -731,7 +734,7 @@ export default function RestaurantDetail() {
                     <div className="flex items-start gap-3 p-3 bg-bg-secondary rounded-lg">
                       <MapPin className="w-5 h-5 text-green-primary mt-0.5 shrink-0" />
                       <div>
-                        <p className="font-inter font-semibold text-text-primary text-sm">Adresse</p>
+                        <p className="font-inter font-semibold text-text-primary text-sm">{t("Adresse")}</p>
                         <p className="text-text-secondary text-sm font-inter">{restaurant.address}</p>
                         <p className="text-text-muted text-xs font-inter">{restaurant.neighborhood}, {restaurant.city}</p>
                       </div>
@@ -739,14 +742,14 @@ export default function RestaurantDetail() {
                     <div className="flex items-start gap-3 p-3 bg-bg-secondary rounded-lg">
                       <Clock className="w-5 h-5 text-green-primary mt-0.5 shrink-0" />
                       <div>
-                        <p className="font-inter font-semibold text-text-primary text-sm">Horaires</p>
+                        <p className="font-inter font-semibold text-text-primary text-sm">{t("Horaires")}</p>
                         <p className="text-text-secondary text-sm font-inter">{restaurant.hours}</p>
                         {parsedHours && (
                           <p className="text-text-muted text-xs font-inter">
                             {restaurantOpen ? (
-                              <>Ouvert · ferme à {parsedHours.close}</>
+                              <>{t("Ouvert · ferme à")} {parsedHours.close}</>
                             ) : (
-                              <>Fermé · ouvre à {parsedHours.open}</>
+                              <>{t("Fermé · ouvre à")} {parsedHours.open}</>
                             )}
                           </p>
                         )}
@@ -755,7 +758,7 @@ export default function RestaurantDetail() {
                     <div className="flex items-start gap-3 p-3 bg-bg-secondary rounded-lg">
                       <ShoppingCart className="w-5 h-5 text-green-primary mt-0.5 shrink-0" />
                       <div>
-                        <p className="font-inter font-semibold text-text-primary text-sm">Livraison</p>
+                        <p className="font-inter font-semibold text-text-primary text-sm">{t("Livraison")}</p>
                         <p className="text-text-secondary text-sm font-inter">{restaurant.deliveryTime}</p>
                         <p className="text-text-muted text-xs font-inter">
                           {restaurant.deliveryFee === 0 ? 'Livraison gratuite' : `${restaurant.deliveryFee.toLocaleString()} FCFA`}
@@ -766,7 +769,7 @@ export default function RestaurantDetail() {
                     <div className="flex items-start gap-3 p-3 bg-bg-secondary rounded-lg">
                       <Store className="w-5 h-5 text-green-primary mt-0.5 shrink-0" />
                       <div>
-                        <p className="font-inter font-semibold text-text-primary text-sm">Catégorie</p>
+                        <p className="font-inter font-semibold text-text-primary text-sm">{t("Catégorie")}</p>
                         <p className="text-text-secondary text-sm font-inter">{restaurant.category}</p>
                         <p className="text-text-muted text-xs font-inter">{restaurant.tags.join(' · ')}</p>
                       </div>
@@ -775,7 +778,7 @@ export default function RestaurantDetail() {
                       <div className="flex items-start gap-3 p-3 bg-bg-secondary rounded-lg sm:col-span-2">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-primary mt-0.5 shrink-0"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
                         <div>
-                          <p className="font-inter font-semibold text-text-primary text-sm">Téléphone</p>
+                          <p className="font-inter font-semibold text-text-primary text-sm">{t("Téléphone")}</p>
                           <a href={`tel:${restaurant.phone}`} className="text-green-primary text-sm font-inter hover:underline">{restaurant.phone}</a>
                         </div>
                       </div>
@@ -796,14 +799,15 @@ export default function RestaurantDetail() {
                         <Camera className="w-4 h-4 text-green-primary" />
                       </div>
                       <h2 className="font-poppins font-semibold text-text-primary text-lg">
-                        Galerie de nos plats
+                        {t("Galerie de nos plats")}
                       </h2>
                       <span className="text-text-muted text-xs font-inter">
-                        ({galleryImages.length} photos)
+                        ({galleryImages.length} {t("photos)")}
                       </span>
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
                       {galleryImages.slice(0, 4).map((img, idx) => {
+                          const { t } = useTranslation();
                         const linkedItem = imageToMenuItem.get(img);
                         const isOverflowTile = idx === 3 && galleryImages.length > 4;
                         const galleryLabel = isOverflowTile
@@ -837,6 +841,7 @@ export default function RestaurantDetail() {
                               alt={`${restaurant.name} - plat ${idx + 1}`}
                               className="w-full h-full object-cover aspect-[4/3] group-hover:scale-105 transition-transform duration-300"
                               onError={(e) => {
+                                  const { t } = useTranslation();
                                 (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent(
                                   `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="#fdf5e0" width="100%" height="100%"/><text x="50%" y="50%" fill="#8a6d1f" font-size="14" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Photo ${idx + 1}</text></svg>`
                                 )}`;
@@ -846,7 +851,7 @@ export default function RestaurantDetail() {
                               <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/75 via-black/35 to-transparent opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                                 <p className="text-white text-xs font-inter font-semibold truncate">{linkedItem.name}</p>
                                 <div className="flex items-center justify-between mt-1">
-                                  <span className="text-white text-xs font-inter font-bold">{linkedItem.price.toLocaleString()} FCFA</span>
+                                  <span className="text-white text-xs font-inter font-bold">{linkedItem.price.toLocaleString()} {t("FCFA")}</span>
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); handleAdd(linkedItem); }}
@@ -864,7 +869,7 @@ export default function RestaurantDetail() {
                               <div className="absolute inset-0 bg-black/55 flex flex-col items-center justify-center text-white">
                                 <Camera className="w-5 h-5 mb-1" />
                                 <span className="font-inter font-semibold text-sm">
-                                  +{galleryImages.length - 3} photos
+                                  +{galleryImages.length - 3} {t("photos")}
                                 </span>
                               </div>
                             )}
@@ -888,10 +893,10 @@ export default function RestaurantDetail() {
                         <Sparkles className="w-4 h-4 text-gold-accent" />
                       </div>
                       <h2 className="font-poppins font-semibold text-text-primary text-lg">
-                        Coulisses du restaurant
+                        {t("Coulisses du restaurant")}
                       </h2>
                       <span className="text-text-muted text-xs font-inter">
-                        ({ambianceImages.length} photos)
+                        ({ambianceImages.length} {t("photos)")}
                       </span>
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
@@ -914,6 +919,7 @@ export default function RestaurantDetail() {
                             alt={`${restaurant.name} - coulisses ${idx + 1}`}
                             className="w-full h-full object-cover aspect-[4/3] group-hover:scale-105 transition-transform duration-300"
                             onError={(e) => {
+                                const { t } = useTranslation();
                               (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent(
                                 `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="#fdf5e0" width="100%" height="100%"/><text x="50%" y="50%" fill="#8a6d1f" font-size="14" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Photo ${idx + 1}</text></svg>`
                               )}`;
@@ -970,7 +976,7 @@ export default function RestaurantDetail() {
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 font-inter font-medium text-xs px-4 h-9 rounded-lg hover:bg-blue-100 transition-colors"
                       >
-                        <Navigation className="w-3.5 h-3.5" /> Waze
+                        <Navigation className="w-3.5 h-3.5" /> {t("Waze")}
                       </a>
                       <a
                         href={`https://www.google.com/maps/dir/?api=1&destination=${restaurant.lat},${restaurant.lng}`}
@@ -978,7 +984,7 @@ export default function RestaurantDetail() {
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 font-inter font-medium text-xs px-4 h-9 rounded-lg hover:bg-red-100 transition-colors"
                       >
-                        <MapPin className="w-3.5 h-3.5" /> Google Maps
+                        <MapPin className="w-3.5 h-3.5" /> {t("Google Maps")}
                       </a>
                     </div>
                   </div>
@@ -1010,7 +1016,7 @@ export default function RestaurantDetail() {
                         <span className="font-poppins font-bold text-text-primary text-5xl">
                           {displayRating.toFixed(1)}
                         </span>
-                        <span className="text-text-secondary font-inter text-base mb-1">sur 5</span>
+                        <span className="text-text-secondary font-inter text-base mb-1">{t("sur 5")}</span>
                       </div>
                       <div className="flex gap-1 mb-2">
                         {Array.from({ length: 5 }).map((_, i) => (
@@ -1026,7 +1032,7 @@ export default function RestaurantDetail() {
                         ))}
                       </div>
                       <p className="text-text-muted text-sm font-inter mb-6">
-                        Bas&eacute; sur {displayReviewCount} avis
+                        {t("Bas&eacute; sur")} {displayReviewCount} {t("avis")}
                       </p>
                       <div className="space-y-2">
                         {ratingBreakdown.map((rb) => (
@@ -1049,15 +1055,15 @@ export default function RestaurantDetail() {
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                         <div>
                           <h3 className="font-poppins font-semibold text-text-primary text-lg">
-                            Avis r&eacute;cents
+                            {t("Avis r&eacute;cents")}
                           </h3>
                           <p className="text-text-muted text-xs font-inter">
-                            Notes enregistrées après une commande livrée.
+                            {t("Notes enregistrées après une commande livrée.")}
                           </p>
                         </div>
                         {reviewsError && (
                           <span className="inline-flex items-center rounded-full bg-error/10 px-2.5 py-1 text-xs font-inter font-semibold text-error">
-                            Avis indisponibles pour le moment
+                            {t("Avis indisponibles pour le moment")}
                           </span>
                         )}
                       </div>
@@ -1081,10 +1087,10 @@ export default function RestaurantDetail() {
                         <div className="rounded-xl border border-dashed border-border-custom bg-bg-secondary px-5 py-7 text-center">
                           <MessageSquare className="w-9 h-9 text-green-primary mx-auto mb-3" />
                           <p className="font-inter font-semibold text-text-primary text-sm mb-1">
-                            Aucun avis vérifié pour le moment
+                            {t("Aucun avis vérifié pour le moment")}
                           </p>
                           <p className="text-text-secondary font-inter text-sm max-w-[420px] mx-auto">
-                            Les avis apparaissent ici après une commande livrée et notée par un client.
+                            {t("Les avis apparaissent ici après une commande livrée et notée par un client.")}
                           </p>
                         </div>
                       ) : (
@@ -1108,7 +1114,7 @@ export default function RestaurantDetail() {
                                       {review.authorName || 'Client vérifié'}
                                     </span>
                                     <span className="inline-flex items-center gap-0.5 bg-green-light text-green-primary text-[10px] font-inter font-semibold px-1.5 py-0.5 rounded-full">
-                                      Commande vérifiée
+                                      {t("Commande vérifiée")}
                                     </span>
                                     <span className="text-text-muted text-xs font-inter">
                                       {timeAgoFr(review.createdAt)}
@@ -1143,7 +1149,7 @@ export default function RestaurantDetail() {
                               {review.ownerReply?.status === 'published' && (
                                 <div className="mt-3 ml-4 sm:ml-6 bg-bg-secondary rounded-lg p-3 border-l-2 border-green-primary">
                                   <p className="text-[11px] font-inter font-semibold text-green-primary uppercase tracking-wide mb-1">
-                                    Réponse de {restaurant.name}
+                                    {t("Réponse de")} {restaurant.name}
                                     <span className="normal-case font-normal text-text-muted">
                                       {' '}· {timeAgoFr(review.ownerReply.createdAt)}
                                       {review.ownerReply.updatedAt && ' · modifiée'}
@@ -1171,7 +1177,7 @@ export default function RestaurantDetail() {
         {/* Similar Restaurants */}
         <section className="pb-16">
           <h2 className="font-poppins font-bold text-text-primary text-2xl mb-6">
-            Vous Aimerez Aussi
+            {t("Vous Aimerez Aussi")}
           </h2>
           <div className="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4">
             {restaurants.filter((r) => r.id !== restaurant.id).slice(0, 4).map((resto) => (
@@ -1222,11 +1228,11 @@ export default function RestaurantDetail() {
               <span className="flex items-center gap-2 min-w-0">
                 <ShoppingCart className="w-4 h-4 shrink-0" />
                 <span className="font-inter font-semibold text-sm truncate">
-                  {totalItems} article{totalItems > 1 ? 's' : ''} · {cartOrderTotal.toLocaleString()} FCFA
+                  {totalItems} {t("article")}{totalItems > 1 ? 's' : ''} · {cartOrderTotal.toLocaleString()} {t("FCFA")}
                 </span>
               </span>
               <span className="flex items-center gap-0.5 font-inter text-sm font-medium shrink-0">
-                Voir le panier
+                {t("Voir le panier")}
                 <ChevronRight className="w-4 h-4" />
               </span>
             </button>
@@ -1254,7 +1260,7 @@ export default function RestaurantDetail() {
               style={{ maxHeight: '82vh' }}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-poppins font-semibold text-lg">Votre Commande</h3>
+                <h3 className="font-poppins font-semibold text-lg">{t("Votre Commande")}</h3>
                 <button
                   onClick={() => setMobileCartOpen(false)}
                   aria-label="Fermer le panier"
@@ -1278,7 +1284,7 @@ export default function RestaurantDetail() {
           <div className="space-y-4 py-2">
             {customizing?.variants?.length ? (
               <div>
-                <p className="text-sm font-inter font-medium text-text-primary mb-2">Taille / Portion</p>
+                <p className="text-sm font-inter font-medium text-text-primary mb-2">{t("Taille / Portion")}</p>
                 <div className="space-y-2">
                   {customizing.variants.map((v, i) => (
                     <label key={i} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${selectedVariant === i ? 'border-green-primary bg-green-light' : 'border-border-custom hover:bg-bg-secondary'}`}>
@@ -1294,7 +1300,7 @@ export default function RestaurantDetail() {
             ) : null}
             {customizing?.supplements?.length ? (
               <div>
-                <p className="text-sm font-inter font-medium text-text-primary mb-2">Suppléments</p>
+                <p className="text-sm font-inter font-medium text-text-primary mb-2">{t("Suppléments")}</p>
                 <div className="space-y-2">
                   {customizing.supplements.map((s, i) => (
                     <label key={i} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${selectedSupplements.has(i) ? 'border-green-primary bg-green-light' : 'border-border-custom hover:bg-bg-secondary'}`}>
@@ -1302,7 +1308,7 @@ export default function RestaurantDetail() {
                         <input type="checkbox" checked={selectedSupplements.has(i)} onChange={() => { const next = new Set(selectedSupplements); if (next.has(i)) next.delete(i); else next.add(i); setSelectedSupplements(next); }} className="accent-green-primary" />
                         <span className="text-sm font-inter text-text-primary">{s.name}</span>
                       </div>
-                      <span className="text-sm font-inter font-medium text-text-primary">+{s.price.toLocaleString()} FCFA</span>
+                      <span className="text-sm font-inter font-medium text-text-primary">+{s.price.toLocaleString()} {t("FCFA")}</span>
                     </label>
                   ))}
                 </div>
@@ -1310,9 +1316,9 @@ export default function RestaurantDetail() {
             ) : null}
           </div>
           <DialogFooter>
-            <button onClick={() => setCustomizing(null)} className="px-4 h-10 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">Annuler</button>
+            <button onClick={() => setCustomizing(null)} className="px-4 h-10 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">{t("Annuler")}</button>
             <button onClick={confirmCustomized} className="px-5 h-10 rounded-lg bg-green-primary text-white font-inter font-medium text-sm hover:bg-green-dark transition-colors">
-              Ajouter — {customPrice.toLocaleString()} FCFA
+              {t("Ajouter —")} {customPrice.toLocaleString()} {t("FCFA")}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -1322,20 +1328,18 @@ export default function RestaurantDetail() {
       <Dialog open={!!conflictItem} onOpenChange={(open) => { if (!open) setConflictItem(null); }}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle>Commencer un nouveau panier ?</DialogTitle>
+            <DialogTitle>{t("Commencer un nouveau panier ?")}</DialogTitle>
           </DialogHeader>
           <p className="text-sm font-inter text-text-secondary">
-            Votre panier contient des plats de{' '}
-            <span className="font-semibold text-text-primary">{cartRestaurantName ?? 'un autre restaurant'}</span>.
-            Une commande ne peut concerner qu&apos;un seul restaurant à la fois.
-            Voulez-vous le vider et ajouter{' '}
+            {t("Votre panier contient des plats de")}{' '}
+            <span className="font-semibold text-text-primary">{cartRestaurantName ?? 'un autre restaurant'}</span>{t(".\n            Une commande ne peut concerner qu&apos;un seul restaurant à la fois.\n            Voulez-vous le vider et ajouter")}{' '}
             <span className="font-semibold text-text-primary">{conflictItem?.item.name}</span>
-            {' '}de <span className="font-semibold text-text-primary">{restaurant.name}</span> ?
+            {' '}{t("de")} <span className="font-semibold text-text-primary">{restaurant.name}</span> ?
           </p>
           <DialogFooter>
-            <button onClick={() => setConflictItem(null)} className="px-4 h-10 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">Garder mon panier</button>
+            <button onClick={() => setConflictItem(null)} className="px-4 h-10 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">{t("Garder mon panier")}</button>
             <button onClick={confirmReplaceCart} className="px-5 h-10 rounded-lg bg-green-primary text-white font-inter font-medium text-sm hover:bg-green-dark transition-colors">
-              Vider et ajouter
+              {t("Vider et ajouter")}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -1384,6 +1388,7 @@ export default function RestaurantDetail() {
               className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
               onError={(e) => {
+                  const { t } = useTranslation();
                 (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent(
                   `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect fill="#1a1a1a" width="100%" height="100%"/><text x="50%" y="50%" fill="#fff" font-size="20" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Photo ${galleryIndex + 1}</text></svg>`
                 )}`;
@@ -1427,6 +1432,7 @@ function MenuRow({
   /** Restaurant fermé : les ajouts sont désactivés (retraits toujours possibles) */
   disabled?: boolean;
 }) {
+    const { t } = useTranslation();
   const qty = getQty(item.id);
   // Un plat personnalisable peut exister en plusieurs lignes du panier (ids
   // composites) : le "−" du stepper ne saurait pas laquelle décrémenter. On
@@ -1450,17 +1456,17 @@ function MenuRow({
           </h4>
           {item.isPopular && (
             <span className="shrink-0 bg-gold-light text-amber-700 text-[11px] font-inter font-semibold px-2 py-0.5 rounded-full">
-              Populaire
+              {t("Populaire")}
             </span>
           )}
           {customizable && (
             <span className="shrink-0 bg-green-light text-green-primary text-[11px] font-inter font-semibold px-2 py-0.5 rounded-full">
-              Options
+              {t("Options")}
             </span>
           )}
           {!itemAvailable && (
             <span className="shrink-0 bg-error/10 text-error text-[11px] font-inter font-semibold px-2 py-0.5 rounded-full">
-              Indisponible
+              {t("Indisponible")}
             </span>
           )}
         </div>
@@ -1468,7 +1474,7 @@ function MenuRow({
           {item.description}
         </p>
         <span className="font-inter font-bold text-text-primary text-base">
-          {item.price.toLocaleString()} FCFA
+          {item.price.toLocaleString()} {t("FCFA")}
         </span>
       </div>
       <div className="shrink-0 relative">
@@ -1545,6 +1551,7 @@ function CartContent({
   onUpdate: (id: string, qty: number) => void;
   onCheckout: () => void;
 }) {
+    const { t } = useTranslation();
   const belowMinimum = minOrder > 0 && totalPrice < minOrder;
   const missingForMinimum = belowMinimum ? minOrder - totalPrice : 0;
   const orderTotal = totalPrice + deliveryFee;
@@ -1554,10 +1561,10 @@ function CartContent({
       <div className="flex flex-col items-center justify-center py-10">
         <ShoppingCart className="w-12 h-12 text-text-muted mb-3" />
         <p className="text-text-secondary font-inter font-medium text-base mb-1">
-          Votre panier est vide
+          {t("Votre panier est vide")}
         </p>
         <p className="text-text-muted font-inter text-sm text-center">
-          Ajoutez des plats d&eacute;licieux &agrave; votre commande
+          {t("Ajoutez des plats d&eacute;licieux &agrave; votre commande")}
         </p>
       </div>
     );
@@ -1566,9 +1573,9 @@ function CartContent({
   return (
     <div>
       <h3 className="font-poppins font-semibold text-text-primary text-lg mb-4">
-        Votre Commande
+        {t("Votre Commande")}
         <span className="ml-2 text-text-muted text-sm font-inter font-normal">
-          ({totalItems} article{totalItems > 1 ? 's' : ''})
+          ({totalItems} {t("article")}{totalItems > 1 ? 's' : ''})
         </span>
       </h3>
       <div className="space-y-3 mb-4 max-h-[300px] overflow-y-auto">
@@ -1577,7 +1584,7 @@ function CartContent({
             <div className="flex-1 min-w-0">
               <p className="font-inter text-sm text-text-primary truncate">{item.name}</p>
               <p className="text-text-muted text-xs font-inter">
-                {(item.price * quantity).toLocaleString()} FCFA
+                {(item.price * quantity).toLocaleString()} {t("FCFA")}
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
@@ -1606,24 +1613,24 @@ function CartContent({
       </div>
       <div className="border-t border-border-light pt-4 space-y-2">
         <div className="flex justify-between text-sm font-inter text-text-secondary">
-          <span>Sous-total</span>
-          <span>{totalPrice.toLocaleString()} FCFA</span>
+          <span>{t("Sous-total")}</span>
+          <span>{totalPrice.toLocaleString()} {t("FCFA")}</span>
         </div>
         <div className="flex justify-between text-sm font-inter">
-          <span className="text-text-secondary">Livraison</span>
+          <span className="text-text-secondary">{t("Livraison")}</span>
           <span className={deliveryFee === 0 ? 'text-success font-medium' : 'text-text-primary font-medium'}>
             {deliveryFee === 0 ? 'Gratuit' : `${deliveryFee.toLocaleString()} FCFA`}
           </span>
         </div>
         <div className="border-t border-border-light pt-2 flex justify-between font-inter">
-          <span className="text-text-primary font-bold text-lg">Total</span>
-          <span className="text-text-primary font-bold text-lg">{orderTotal.toLocaleString()} FCFA</span>
+          <span className="text-text-primary font-bold text-lg">{t("Total")}</span>
+          <span className="text-text-primary font-bold text-lg">{orderTotal.toLocaleString()} {t("FCFA")}</span>
         </div>
       </div>
       {belowMinimum && (
         <p className="mt-3 bg-gold-light text-amber-700 rounded-lg px-3 py-2 text-xs font-inter" role="status">
-          <span className="font-semibold">Commande minimum : {minOrder.toLocaleString()} FCFA.</span>{' '}
-          Ajoutez {missingForMinimum.toLocaleString()} FCFA d&apos;articles.
+          <span className="font-semibold">{t("Commande minimum :")} {minOrder.toLocaleString()} {t("FCFA.")}</span>{' '}
+          {t("Ajoutez")} {missingForMinimum.toLocaleString()} {t("FCFA d&apos;articles.")}
         </p>
       )}
       <button
@@ -1633,7 +1640,7 @@ function CartContent({
         title={belowMinimum ? `Commande minimum : ${minOrder.toLocaleString()} FCFA` : undefined}
         className="w-full mt-4 bg-green-primary text-white font-inter font-semibold h-[52px] rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        Commander &mdash; {orderTotal.toLocaleString()} FCFA
+        {t("Commander &mdash;")} {orderTotal.toLocaleString()} {t("FCFA")}
       </button>
     </div>
   );

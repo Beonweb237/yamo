@@ -14,6 +14,7 @@ import {
 import { partnerReviews, partnerFAQ } from '../data/mockData';
 import ApplicationForm from '../components/ApplicationForm';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { useTranslation } from "react-i18next";
 
 const benefits = [
   {
@@ -101,6 +102,7 @@ function Accordion({ items }: { items: { question: string; answer: string }[] })
 }
 
 export default function Partenaires() {
+    const { t } = useTranslation();
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -122,7 +124,7 @@ export default function Partenaires() {
                 transition={{ delay: 0.2, duration: 0.3 }}
                 className="text-gold-accent text-xs font-inter font-semibold tracking-normal uppercase"
               >
-                Espace Restaurateur
+                {t("Espace Restaurateur")}
               </motion.span>
               <motion.h1
                 initial={{ opacity: 0, y: 40 }}
@@ -130,7 +132,7 @@ export default function Partenaires() {
                 transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 className="font-poppins font-semibold text-white text-[34px]/[1.18] sm:text-[40px]/[1.16] lg:text-[44px]/[1.16] tracking-normal mt-4 mb-5 max-w-[560px]"
               >
-                D&eacute;veloppez Votre Activit&eacute; avec MiamExpress
+                {t("D&eacute;veloppez Votre Activit&eacute; avec MiamExpress")}
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
@@ -138,7 +140,7 @@ export default function Partenaires() {
                 transition={{ delay: 0.8, duration: 0.5 }}
                 className="text-white/70 font-inter text-base leading-relaxed max-w-[500px] mb-8"
               >
-                Rejoignez le r&eacute;seau de livraison le plus dynamique du Cameroun. Touchez de nouveaux clients chaque jour, augmentez votre chiffre d&apos;affaires, et laissez-nous g&eacute;rer la logistique.
+                {t("Rejoignez le r&eacute;seau de livraison le plus dynamique du Cameroun. Touchez de nouveaux clients chaque jour, augmentez votre chiffre d&apos;affaires, et laissez-nous g&eacute;rer la logistique.")}
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -147,14 +149,14 @@ export default function Partenaires() {
                 className="flex flex-wrap gap-3 mb-10"
               >
                 <Link to="/inscription/restaurant" className="bg-green-primary text-white font-inter font-medium text-sm px-6 h-12 rounded-lg hover:bg-green-dark transition-colors inline-flex items-center">
-                  Devenir Partenaire
+                  {t("Devenir Partenaire")}
                 </Link>
                 <a href="#howitworks" className="border border-white text-white font-inter font-medium text-sm px-6 h-12 rounded-lg hover:bg-white/10 transition-colors inline-flex items-center">
-                  En Savoir Plus
+                  {t("En Savoir Plus")}
                 </a>
                 {!isSupabaseConfigured && (
                   <Link to="/partenaires/dashboard" className="border border-white/40 text-white/80 font-inter font-medium text-sm px-6 h-12 rounded-lg hover:bg-white/10 transition-colors inline-flex items-center">
-                    Accéder à l'espace restaurant (démo)
+                    {t("Accéder à l'espace restaurant (démo)")}
                   </Link>
                 )}
               </motion.div>
@@ -206,10 +208,10 @@ export default function Partenaires() {
             className="text-center mb-12"
           >
             <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
-              Pourquoi Rejoindre MiamExpress ?
+              {t("Pourquoi Rejoindre MiamExpress ?")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              Une solution compl&egrave;te pour faire cro&icirc;tre votre restaurant sans complexit&eacute;
+              {t("Une solution compl&egrave;te pour faire cro&icirc;tre votre restaurant sans complexit&eacute;")}
             </p>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -248,10 +250,10 @@ export default function Partenaires() {
             className="text-center mb-12"
           >
             <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
-              Comment &Ccedil;a Marche ?
+              {t("Comment &Ccedil;a Marche ?")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              Quatre &eacute;tapes simples pour commencer &agrave; recevoir des commandes
+              {t("Quatre &eacute;tapes simples pour commencer &agrave; recevoir des commandes")}
             </p>
           </motion.div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 relative">
@@ -290,7 +292,7 @@ export default function Partenaires() {
             transition={{ duration: 0.5 }}
             className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal text-center mb-12"
           >
-            Ils Nous Font Confiance
+            {t("Ils Nous Font Confiance")}
           </motion.h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {partnerReviews.map((review, i) => (
@@ -320,7 +322,7 @@ export default function Partenaires() {
                   ))}
                 </div>
                 <p className="text-text-primary font-inter text-sm italic leading-relaxed relative z-10">
-                  &ldquo;{review.comment}&rdquo;
+                  {t("&ldquo;")}{review.comment}{t("&rdquo;")}
                 </p>
               </motion.div>
             ))}
@@ -339,10 +341,10 @@ export default function Partenaires() {
             className="text-center mb-10"
           >
             <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
-              Une Commission Transparente
+              {t("Une Commission Transparente")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              Pas de frais cach&eacute;s, pas d&apos;abonnement. Vous ne payez que lorsque vous vendez.
+              {t("Pas de frais cach&eacute;s, pas d&apos;abonnement. Vous ne payez que lorsque vous vendez.")}
             </p>
           </motion.div>
           <motion.div
@@ -357,7 +359,7 @@ export default function Partenaires() {
                 15%
               </span>
               <p className="text-text-secondary font-inter text-base mt-1">
-                de commission par commande
+                {t("de commission par commande")}
               </p>
             </div>
             <div className="border-t border-border-light my-6" />
@@ -380,7 +382,7 @@ export default function Partenaires() {
               to="/inscription/restaurant"
               className="block w-full mt-8 bg-green-primary text-white font-inter font-semibold h-12 rounded-lg hover:bg-green-dark transition-colors text-center leading-[48px]"
             >
-              Rejoindre MiamExpress
+              {t("Rejoindre MiamExpress")}
             </Link>
           </motion.div>
         </div>
@@ -396,7 +398,7 @@ export default function Partenaires() {
             transition={{ duration: 0.5 }}
             className="font-poppins font-semibold text-white text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-4"
           >
-            Pr&ecirc;t &agrave; Faire Cro&icirc;tre Votre Restaurant ?
+            {t("Pr&ecirc;t &agrave; Faire Cro&icirc;tre Votre Restaurant ?")}
           </motion.h2>
           <motion.p
             initial={{ opacity: 0 }}
@@ -405,7 +407,7 @@ export default function Partenaires() {
             transition={{ delay: 0.15, duration: 0.5 }}
             className="text-white/80 font-inter text-base max-w-[560px] mx-auto mb-8"
           >
-            Rejoignez les premiers restaurants partenaires de MiamExpress. Inscrivez-vous aujourd&apos;hui et recevez votre premi&egrave;re commande sous 48h.
+            {t("Rejoignez les premiers restaurants partenaires de MiamExpress. Inscrivez-vous aujourd&apos;hui et recevez votre premi&egrave;re commande sous 48h.")}
           </motion.p>
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -424,7 +426,7 @@ export default function Partenaires() {
             className="flex items-center justify-center gap-2 text-white/60 font-inter text-sm"
           >
             <Phone className="w-4 h-4" />
-            Questions ? Contactez-nous au 677 77 77 77
+            {t("Questions ? Contactez-nous au 677 77 77 77")}
           </motion.p>
         </div>
       </section>
@@ -439,7 +441,7 @@ export default function Partenaires() {
             transition={{ duration: 0.5 }}
             className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal text-center mb-10"
           >
-            Questions Fr&eacute;quentes
+            {t("Questions Fr&eacute;quentes")}
           </motion.h2>
           <Accordion items={partnerFAQ} />
         </div>

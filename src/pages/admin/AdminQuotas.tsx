@@ -6,6 +6,7 @@ import {
   getQuotaConfig, setQuotaConfig, getUserCounts, checkQuota,
   QUOTA_ROLES, type QuotaConfig,
 } from '../../lib/quotas';
+import { useTranslation } from "react-i18next";
 
 const ROLE_ICONS: Record<string, typeof Users> = {
   client: Users,
@@ -15,6 +16,7 @@ const ROLE_ICONS: Record<string, typeof Users> = {
 };
 
 export default function AdminQuotas() {
+    const { t } = useTranslation();
   const [config, setConfig] = useState<QuotaConfig>(getQuotaConfig());
   const [counts, setCounts] = useState(getUserCounts());
   const [editing, setEditing] = useState(false);
@@ -44,19 +46,18 @@ export default function AdminQuotas() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <h1 className="font-poppins font-bold text-text-primary text-2xl mb-6 flex items-center gap-2">
-        <AlertTriangle className="w-6 h-6 text-amber-500" />Quotas des profils
+        <AlertTriangle className="w-6 h-6 text-amber-500" />{t("Quotas des profils")}
       </h1>
 
       {/* Info banner */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-sm text-blue-800 font-inter">
-        <strong>Fonctionnement :</strong> Une fois le quota atteint pour un type de profil,
-        plus aucune inscription de ce type n'est acceptée. Les quotas évitent la création
-        massive de profils lors des tests.
+        <strong>{t("Fonctionnement :")}</strong> {t("Une fois le quota atteint pour un type de profil,\r\n        plus aucune inscription de ce type n'est acceptée. Les quotas évitent la création\r\n        massive de profils lors des tests.")}
       </div>
 
       {/* Quota cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {QUOTA_ROLES.map(({ role, label, icon }) => {
+            const { t } = useTranslation();
           const Icon = ROLE_ICONS[role] ?? Users;
           const max = config[role as UserRole] ?? 0;
           const current = counts[role as UserRole] ?? 0;
@@ -88,12 +89,12 @@ export default function AdminQuotas() {
                 </span>
                 {isFull && (
                   <span className="text-[10px] font-inter font-semibold text-white bg-red-500 rounded-full px-2 py-0.5">
-                    COMPLET
+                    {t("COMPLET")}
                   </span>
                 )}
                 {isWarning && !isFull && (
                   <span className="text-[10px] font-inter font-semibold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">
-                    {100 - pct}% restant
+                    {100 - pct}{t("% restant")}
                   </span>
                 )}
               </div>
@@ -108,11 +109,11 @@ export default function AdminQuotas() {
           onClick={() => { setDraft({ ...config }); setEditing(true); }}
           className="flex items-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl bg-green-primary text-white hover:bg-green-dark transition-colors"
         >
-          <Save className="w-4 h-4" /> Modifier les quotas
+          <Save className="w-4 h-4" /> {t("Modifier les quotas")}
         </button>
       ) : (
         <div className="bg-white rounded-xl border border-border-custom p-5 max-w-lg">
-          <h3 className="font-inter font-semibold text-text-primary text-sm mb-4">Définir les quotas maximum</h3>
+          <h3 className="font-inter font-semibold text-text-primary text-sm mb-4">{t("Définir les quotas maximum")}</h3>
           <div className="space-y-3 mb-4">
             {QUOTA_ROLES.map(({ role, label, icon }) => (
               <div key={role} className="flex items-center gap-3">
@@ -134,13 +135,13 @@ export default function AdminQuotas() {
               onClick={handleSave}
               className="flex items-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl bg-green-primary text-white hover:bg-green-dark transition-colors"
             >
-              <Save className="w-4 h-4" /> Enregistrer
+              <Save className="w-4 h-4" /> {t("Enregistrer")}
             </button>
             <button
               onClick={() => setEditing(false)}
               className="flex items-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl border border-border-custom hover:bg-bg-secondary transition-colors text-text-primary"
             >
-              Annuler
+              {t("Annuler")}
             </button>
           </div>
         </div>

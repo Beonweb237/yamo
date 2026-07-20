@@ -4,8 +4,10 @@ import { Clock, XCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchMyApplications, type Application } from '../lib/applications';
 import ApplicationForm from '../components/ApplicationForm';
+import { useTranslation } from "react-i18next";
 
 export default function Candidature() {
+    const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -38,7 +40,7 @@ export default function Candidature() {
   if (authLoading || checking) {
     return (
       <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
-        <p className="text-text-secondary font-inter text-sm">Vérification de votre dossier...</p>
+        <p className="text-text-secondary font-inter text-sm">{t("Vérification de votre dossier...")}</p>
       </div>
     );
   }
@@ -63,12 +65,12 @@ export default function Candidature() {
           {existingApp.status === 'approved' ? (
             <button onClick={() => navigate(type === 'restaurant' ? '/partenaires/dashboard' : '/livreurs/dashboard')}
               className="bg-green-primary text-white font-inter font-semibold px-6 h-11 rounded-lg hover:bg-green-dark">
-              Accéder à mon espace
+              {t("Accéder à mon espace")}
             </button>
           ) : (
             <button onClick={() => navigate('/')}
               className="bg-green-primary text-white font-inter font-semibold px-6 h-11 rounded-lg hover:bg-green-dark">
-              Retour à l'accueil
+              {t("Retour à l'accueil")}
             </button>
           )}
         </div>
@@ -80,7 +82,7 @@ export default function Candidature() {
   if (!type) {
     return (
       <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
-        <p className="text-text-secondary font-inter text-sm">Rôle non reconnu.</p>
+        <p className="text-text-secondary font-inter text-sm">{t("Rôle non reconnu.")}</p>
       </div>
     );
   }

@@ -10,6 +10,7 @@ import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import GlobalSearch from './GlobalSearch';
+import { useTranslation } from 'react-i18next';
 
 // ── Mega Menu Structure ──
 interface MegaLink {
@@ -53,6 +54,13 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { items, totalItems, totalPrice, updateQuantity } = useCart();
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
+
+  const toggleLanguage = () => {
+    const newLang = i18n.language === 'fr' ? 'en' : 'fr';
+    i18n.changeLanguage(newLang);
+    localStorage.setItem('miamexpress_lang', newLang);
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -95,14 +103,14 @@ export default function Navbar() {
   };
 
   const accountLink = !user
-    ? { to: '/connexion', label: 'Se Connecter' }
+    ? { to: '/connexion', label: t("Se Connecter") }
     : user.role === 'admin'
-      ? { to: '/admin/dashboard', label: 'Back-office' }
+      ? { to: '/admin/dashboard', label: t("Back-office") }
       : user.role === 'restaurant'
-        ? { to: '/partenaires/dashboard', label: 'Tableau de bord' }
+        ? { to: '/partenaires/dashboard', label: t("Espace Resto") }
         : user.role === 'livreur'
-          ? { to: '/livreurs/dashboard', label: 'Mes livraisons' }
-          : { to: '/profil', label: 'Mon compte' };
+          ? { to: '/livreurs/dashboard', label: t("Espace Livreur") }
+          : { to: '/profil', label: t("Profil") };
 
   const linkClass = (active: boolean) =>
     `px-3 py-2 rounded-lg text-sm font-medium font-inter transition-colors ${active
@@ -131,7 +139,7 @@ export default function Navbar() {
             <img src="/logo-icon.png" alt="MiamExpress Logo" className="w-10 h-10 object-contain" />
             <div className="flex items-baseline gap-1.5">
               <span className={`font-inter font-semibold text-xl tracking-normal ${isSolid ? 'text-green-primary' : 'text-white'}`}>
-                MiamExpress
+                {t("MiamExpress")}
               </span>
             </div>
           </Link>
@@ -139,12 +147,13 @@ export default function Navbar() {
           {/* Desktop Mega Menu */}
           <nav className="hidden lg:flex items-center gap-1">
             {mainLinks.map((item) => {
+                const { t } = useTranslation();
               if ('path' in item) {
-                // Simple link
+                const link = item as MegaLink;
                 return (
-                  <Link key={item.path} to={item.path} className={linkClass(isActive(item.path))}>
-                    {item.icon && <item.icon className={`w-4 h-4 inline mr-1.5 ${iconClass(isActive(item.path))}`} />}
-                    {item.name}
+                  <Link key={link.name} to={link.path} className={linkClass(isActive(link.path))}>
+                    {link.icon && <link.icon className={`w-4 h-4 inline mr-1.5 ${iconClass(isActive(link.path))}`} />}
+                    {t('nav.' + link.name.toLowerCase(), link.name)}
                   </Link>
                 );
               }
@@ -163,7 +172,7 @@ export default function Navbar() {
                     className={`${linkClass(false)} flex items-center gap-1`}
                     onClick={() => setOpenDropdown(isOpen ? null : section.title)}
                   >
-                    {section.title}
+                    {t('nav.' + section.title.toLowerCase(), section.title)}
                     <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </button>
                   <AnimatePresence>
@@ -191,9 +200,9 @@ export default function Navbar() {
                               </div>
                             )}
                             <div>
-                              <p className="font-inter font-medium text-sm text-text-primary">{link.name}</p>
+                              <p className="font-inter font-medium text-sm text-text-primary">{t('nav.' + link.name.toLowerCase(), link.name)}</p>
                               {link.description && (
-                                <p className="text-text-muted text-xs font-inter mt-0.5">{link.description}</p>
+                                <p className="text-text-muted text-xs font-inter mt-0.5">{t('nav.' + link.name.toLowerCase() + '_desc', link.description)}</p>
                               )}
                             </div>
                           </Link>
@@ -208,6 +217,17 @@ export default function Navbar() {
 
           {/* Right actions */}
           <div className="flex items-center gap-2">
+            {/* Language Toggle */}
+            <button
+              type="button"
+              onClick={toggleLanguage}
+              className={`min-w-10 min-h-10 inline-flex items-center justify-center rounded-lg text-lg transition-colors ${isSolid ? 'hover:bg-bg-secondary' : 'hover:bg-white/10'
+                }`}
+              title={i18n.language === 'fr' ? 'Switch to English' : 'Passer en Français'}
+            >
+              {i18n.language === 'fr' ? '🇫🇷' : '🇬🇧'}
+            </button>
+
             {/* Recherche globale — barre premium (desktop) */}
             <button
               type="button"
@@ -216,11 +236,11 @@ export default function Navbar() {
                 ? 'bg-bg-secondary text-text-muted border-border-custom hover:bg-white hover:border-border-light'
                 : 'bg-white/10 text-white/85 border-white/25 hover:bg-white/20'
                 }`}
-              aria-label="Rechercher un plat ou un restaurant"
+              aria-label={t("Rechercher un plat ou un restaurant")}
             >
               <Search className="w-4 h-4 shrink-0" />
-              <span className="flex-1 text-left truncate">Rechercher…</span>
-              <kbd className={`text-[11px] font-sans px-1.5 py-0.5 rounded border ${isSolid ? 'border-border-custom text-text-muted' : 'border-white/30 text-white/70'}`}>⌘K</kbd>
+              <span className="flex-1 text-left truncate">{t("Rechercher…")}</span>
+              <kbd className={`text-[11px] font-sans px-1.5 py-0.5 rounded border ${isSolid ? 'border-border-custom text-text-muted' : 'border-white/30 text-white/70'}`}>{t("⌘K")}</kbd>
             </button>
 
             {/* Recherche globale — icône (mobile / tablette) */}
@@ -240,7 +260,7 @@ export default function Navbar() {
                 className={`hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium font-inter transition-all ${isSolid ? 'bg-green-primary text-white hover:bg-green-dark' : 'bg-white text-green-primary hover:bg-green-light'
                   }`}
               >
-                S'inscrire
+                {t("S'inscrire")}
               </Link>
             )}
             <Link
@@ -270,7 +290,7 @@ export default function Navbar() {
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-80 p-4">
                   {items.length === 0 ? (
-                    <p className="text-text-secondary font-inter text-sm text-center py-4">Votre panier est vide</p>
+                    <p className="text-text-secondary font-inter text-sm text-center py-4">{t("Votre panier est vide")}</p>
                   ) : (
                     <>
                       <div className="space-y-3 mb-3 max-h-[280px] overflow-y-auto">
@@ -278,7 +298,7 @@ export default function Navbar() {
                           <div key={item.id} className="flex items-center gap-2">
                             <div className="flex-1 min-w-0">
                               <p className="font-inter text-sm text-text-primary truncate">{item.name}</p>
-                              <p className="text-text-muted text-xs font-inter">{(item.price * quantity).toLocaleString()} FCFA</p>
+                              <p className="text-text-muted text-xs font-inter">{(item.price * quantity).toLocaleString()} {t("FCFA")}</p>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                               <button onClick={() => updateQuantity(item.id, quantity - 1)} className="w-6 h-6 rounded-full bg-bg-secondary flex items-center justify-center hover:bg-border-light transition-colors">
@@ -293,11 +313,11 @@ export default function Navbar() {
                         ))}
                       </div>
                       <div className="border-t border-border-light pt-3 mb-3 flex justify-between font-inter">
-                        <span className="text-text-primary font-semibold text-sm">Total</span>
-                        <span className="text-text-primary font-bold text-sm">{totalPrice.toLocaleString()} FCFA</span>
+                        <span className="text-text-primary font-semibold text-sm">{t("Total")}</span>
+                        <span className="text-text-primary font-bold text-sm">{totalPrice.toLocaleString()} {t("FCFA")}</span>
                       </div>
                       <button onClick={() => { setCartOpen(false); navigate('/checkout'); }} className="w-full bg-green-primary text-white font-inter font-semibold h-11 rounded-lg hover:bg-green-dark transition-colors">
-                        Voir le panier
+                        {t("Voir le panier")}
                       </button>
                     </>
                   )}
@@ -336,7 +356,7 @@ export default function Navbar() {
                 <Link to="/" className="flex items-center gap-2" onClick={() => setMobileOpen(false)}>
                   <img src="/logo-icon.png" alt="MiamExpress Logo" className="w-8 h-8 object-contain" />
                   <div className="flex items-baseline gap-1">
-                    <span className="font-inter font-semibold text-lg text-green-primary">MiamExpress</span>
+                    <span className="font-inter font-semibold text-lg text-green-primary">{t("MiamExpress")}</span>
                   </div>
                 </Link>
                 <button onClick={() => setMobileOpen(false)} className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg text-text-secondary hover:text-text-primary" aria-label="Fermer">
@@ -382,7 +402,7 @@ export default function Navbar() {
                 {!user && (
                   <Link to="/inscription" onClick={() => setMobileOpen(false)}
                     className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium bg-green-primary text-white hover:bg-green-dark">
-                    S'inscrire
+                    {t("S'inscrire")}
                   </Link>
                 )}
               </div>

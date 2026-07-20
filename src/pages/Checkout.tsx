@@ -12,6 +12,7 @@ import { haversineDistance, estimateTime } from '../lib/utils';
 import LazyAddressPickerMap from '../components/LazyAddressPickerMap';
 import { toast } from 'sonner';
 import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
+import { useTranslation } from "react-i18next";
 
 interface SavedAddress {
   id: string;
@@ -71,6 +72,7 @@ const paymentOptions: {
   ];
 
 export default function Checkout() {
+    const { t } = useTranslation();
   const { items, restaurantId, totalPrice, totalItems, clearCart } = useCart();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -364,7 +366,7 @@ export default function Checkout() {
   if (authLoading || !user) {
     return (
       <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
-        <p className="text-text-secondary font-inter text-sm">Chargement...</p>
+        <p className="text-text-secondary font-inter text-sm">{t("Chargement...")}</p>
       </div>
     );
   }
@@ -379,7 +381,7 @@ export default function Checkout() {
               <div className="absolute inset-0 border-4 border-green-primary/30 rounded-full animate-pulse" />
             </div>
             <h1 className="font-poppins font-bold text-text-primary text-2xl mb-2">
-              Validation en attente
+              {t("Validation en attente")}
             </h1>
             <p className="text-text-secondary font-inter text-sm mb-6">
               {paymentNotice}
@@ -389,14 +391,14 @@ export default function Checkout() {
                 00:{validationCountdown.toString().padStart(2, '0')}
               </span>
               <p className="text-text-muted text-xs mt-1">
-                Le paiement devrait apparaître sur votre écran.
+                {t("Le paiement devrait apparaître sur votre écran.")}
               </p>
             </div>
             <button
               onClick={() => setValidationCountdown(0)}
               className="w-full bg-bg-secondary text-text-primary font-inter font-medium h-[52px] rounded-xl hover:bg-border-light transition-all"
             >
-              Je n'ai rien reçu, continuer
+              {t("Je n'ai rien reçu, continuer")}
             </button>
           </div>
         </div>
@@ -410,10 +412,10 @@ export default function Checkout() {
             <CheckCircle2 className="w-8 h-8 text-green-primary" />
           </div>
           <h1 className="font-poppins font-bold text-text-primary text-2xl mb-2">
-            Commande confirmée !
+            {t("Commande confirmée !")}
           </h1>
           <p className="text-text-secondary font-inter text-sm mb-4">
-            Référence : <span className="font-semibold text-text-primary">{placedOrderId.slice(0, 8)}</span>
+            {t("Référence :")} <span className="font-semibold text-text-primary">{placedOrderId.slice(0, 8)}</span>
           </p>
 
           {/* Tracker visuel */}
@@ -422,19 +424,19 @@ export default function Checkout() {
                 <div className="absolute top-1/2 left-6 right-6 h-1 bg-green-light -z-10 -translate-y-1/2" />
                 <div className="flex flex-col items-center gap-1">
                    <div className="w-6 h-6 rounded-full bg-green-primary text-white flex items-center justify-center shadow-sm"><CheckCircle2 className="w-4 h-4"/></div>
-                   <span className="text-[10px] font-semibold text-text-primary">Confirmée</span>
+                   <span className="text-[10px] font-semibold text-text-primary">{t("Confirmée")}</span>
                 </div>
                 <div className="flex flex-col items-center gap-1">
                    <div className="w-6 h-6 rounded-full bg-bg-secondary border-2 border-border-custom text-text-muted flex items-center justify-center opacity-50"><div className="w-2 h-2 rounded-full bg-current" /></div>
-                   <span className="text-[10px] font-medium text-text-muted opacity-50">Préparation</span>
+                   <span className="text-[10px] font-medium text-text-muted opacity-50">{t("Préparation")}</span>
                 </div>
                 <div className="flex flex-col items-center gap-1">
                    <div className="w-6 h-6 rounded-full bg-bg-secondary border-2 border-border-custom text-text-muted flex items-center justify-center opacity-50"><div className="w-2 h-2 rounded-full bg-current" /></div>
-                   <span className="text-[10px] font-medium text-text-muted opacity-50">En route</span>
+                   <span className="text-[10px] font-medium text-text-muted opacity-50">{t("En route")}</span>
                 </div>
                 <div className="flex flex-col items-center gap-1">
                    <div className="w-6 h-6 rounded-full bg-bg-secondary border-2 border-border-custom text-text-muted flex items-center justify-center opacity-50"><div className="w-2 h-2 rounded-full bg-current" /></div>
-                   <span className="text-[10px] font-medium text-text-muted opacity-50">Livré</span>
+                   <span className="text-[10px] font-medium text-text-muted opacity-50">{t("Livré")}</span>
                 </div>
              </div>
           </div>
@@ -442,7 +444,7 @@ export default function Checkout() {
           {placedEta && (
             <p className="inline-flex items-center gap-1.5 bg-green-light text-green-primary font-inter text-sm font-medium px-3 py-1.5 rounded-full mb-6">
               <Clock className="w-4 h-4" />
-              Livraison estimée : {placedEta}
+              {t("Livraison estimée :")} {placedEta}
             </p>
           )}
           {!placedEta && <span className="block mb-4" />}
@@ -452,7 +454,7 @@ export default function Checkout() {
               onClick={() => navigate('/commandes')}
               className="flex-1 bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark hover:shadow-lg active:scale-95 transition-all"
             >
-              Suivre
+              {t("Suivre")}
             </button>
             <a
               href={`https://wa.me/237600000000?text=${encodeURIComponent(`Bonjour MiamExpress, je vous contacte concernant ma commande ${placedOrderId.slice(0, 8)}.`)}`}
@@ -461,7 +463,7 @@ export default function Checkout() {
               className="flex-1 bg-[#25D366]/10 text-[#25D366] font-inter font-semibold h-[52px] rounded-xl hover:bg-[#25D366]/20 transition-all flex items-center justify-center gap-2"
             >
               <Phone className="w-4 h-4" />
-              Support WhatsApp
+              {t("Support WhatsApp")}
             </a>
           </div>
         </div>
@@ -477,17 +479,17 @@ export default function Checkout() {
       <section className="bg-green-primary pt-12 pb-16 sm:pt-16 sm:pb-20 relative">
         <div className="max-w-[720px] mx-auto px-4 sm:px-6">
           <div className="text-white/60 text-xs font-inter mb-4">
-            <Link to="/" className="hover:text-white transition-colors">Accueil</Link>
+            <Link to="/" className="hover:text-white transition-colors">{t("Accueil")}</Link>
             <span className="mx-2">/</span>
-            <Link to="/restaurants" className="hover:text-white transition-colors">Restaurants</Link>
+            <Link to="/restaurants" className="hover:text-white transition-colors">{t("Restaurants")}</Link>
             <span className="mx-2">/</span>
-            <span className="text-white">Commander</span>
+            <span className="text-white">{t("Commander")}</span>
           </div>
           <h1 className="font-poppins font-semibold text-white text-3xl sm:text-4xl tracking-normal mb-3">
-            Finaliser la commande
+            {t("Finaliser la commande")}
           </h1>
           <p className="text-white/75 font-inter text-base">
-            {totalItems} article{totalItems !== 1 ? 's' : ''} · {total.toLocaleString()} FCFA
+            {totalItems} {t("article")}{totalItems !== 1 ? 's' : ''} · {total.toLocaleString()} {t("FCFA")}
           </p>
         </div>
       </section>
@@ -499,7 +501,7 @@ export default function Checkout() {
           <div className="flex items-center gap-2 mb-4">
             <UserRound className="w-5 h-5 text-green-primary" />
             <h2 className="font-poppins font-semibold text-text-primary text-lg">
-              Destinataire
+              {t("Destinataire")}
             </h2>
           </div>
 
@@ -512,10 +514,10 @@ export default function Checkout() {
             />
             <span>
               <span className="block font-inter font-semibold text-text-primary text-sm">
-                Je commande pour quelqu&apos;un d&apos;autre
+                {t("Je commande pour quelqu&apos;un d&apos;autre")}
               </span>
               <span className="block text-text-muted text-xs font-inter mt-0.5">
-                Le livreur contactera ce bénéficiaire à la livraison.
+                {t("Le livreur contactera ce bénéficiaire à la livraison.")}
               </span>
             </span>
           </label>
@@ -523,7 +525,7 @@ export default function Checkout() {
           {orderForSomeoneElse && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <div>
-                <label className="block text-text-secondary font-inter text-sm mb-1.5">Nom du bénéficiaire</label>
+                <label className="block text-text-secondary font-inter text-sm mb-1.5">{t("Nom du bénéficiaire")}</label>
                 <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                   <UserRound className="w-4 h-4 text-text-muted shrink-0" />
                   <input
@@ -537,7 +539,7 @@ export default function Checkout() {
                 </div>
               </div>
               <div>
-                <label className="block text-text-secondary font-inter text-sm mb-1.5">Téléphone du bénéficiaire</label>
+                <label className="block text-text-secondary font-inter text-sm mb-1.5">{t("Téléphone du bénéficiaire")}</label>
                 <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                   <Phone className="w-4 h-4 text-text-muted shrink-0" />
                   <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
@@ -559,7 +561,7 @@ export default function Checkout() {
                   className="mt-1 h-4 w-4 accent-green-primary"
                 />
                 <span className="text-text-secondary text-xs font-inter">
-                  Appeler le bénéficiaire uniquement quand le livreur arrive.
+                  {t("Appeler le bénéficiaire uniquement quand le livreur arrive.")}
                 </span>
               </label>
             </div>
@@ -571,14 +573,14 @@ export default function Checkout() {
           <div className="flex items-center gap-2 mb-4">
             <MapPin className="w-5 h-5 text-green-primary" />
             <h2 className="font-poppins font-semibold text-text-primary text-lg">
-              Adresse de livraison
+              {t("Adresse de livraison")}
             </h2>
           </div>
 
           {savedAddresses.length > 0 && (
             <div className="mb-4">
               <label className="block text-text-secondary font-inter text-sm mb-1.5">
-                Adresses enregistrées
+                {t("Adresses enregistrées")}
               </label>
               <select
                 onChange={(e) => {
@@ -588,7 +590,7 @@ export default function Checkout() {
                 className="w-full bg-white rounded-xl border border-border-custom px-4 h-12 text-text-primary font-inter text-[15px] outline-none focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
                 defaultValue=""
               >
-                <option value="" disabled>Sélectionner une adresse</option>
+                <option value="" disabled>{t("Sélectionner une adresse")}</option>
                 {savedAddresses.map((addr) => (
                   <option key={addr.id} value={addr.id}>
                     {addr.label || addr.fullText}
@@ -601,8 +603,8 @@ export default function Checkout() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-text-secondary font-inter text-sm mb-1.5">
-                Ville de livraison
-                {cityLocked && <span className="text-green-primary text-[11px] ml-1">(fixée par le restaurant)</span>}
+                {t("Ville de livraison")}
+                {cityLocked && <span className="text-green-primary text-[11px] ml-1">{t("(fixée par le restaurant)")}</span>}
               </label>
               <select
                 value={city}
@@ -617,7 +619,7 @@ export default function Checkout() {
             </div>
             <div>
               <label className="block text-text-secondary font-inter text-sm mb-1.5">
-                Quartier
+                {t("Quartier")}
               </label>
               {useOtherNeighborhood ? (
                 <div className="flex gap-2">
@@ -635,7 +637,7 @@ export default function Checkout() {
                     onClick={() => { setUseOtherNeighborhood(false); setCustomNeighborhood(''); }}
                     className="shrink-0 px-3 h-12 rounded-xl border border-border-custom text-text-secondary font-inter text-sm hover:bg-bg-secondary"
                   >
-                    Liste
+                    {t("Liste")}
                   </button>
                 </div>
               ) : (
@@ -652,18 +654,18 @@ export default function Checkout() {
                   className="w-full bg-white rounded-xl border border-border-custom px-4 h-12 text-text-primary font-inter text-[15px] outline-none focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
                   required
                 >
-                  <option value="">Sélectionnez un quartier</option>
+                  <option value="">{t("Sélectionnez un quartier")}</option>
                   {neighborhoods.map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
-                  <option value="__other__">Mon quartier n&apos;est pas listé</option>
+                  <option value="__other__">{t("Mon quartier n&apos;est pas listé")}</option>
                 </select>
               )}
             </div>
             <div className="sm:col-span-2">
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-text-secondary font-inter text-sm">
-                  Repère sur la carte
+                  {t("Repère sur la carte")}
                 </label>
                 <button
                   type="button"
@@ -682,7 +684,7 @@ export default function Checkout() {
                   className="w-full bg-bg-secondary border border-border-custom border-dashed rounded-xl h-14 flex items-center justify-center gap-2 text-text-secondary font-inter text-sm hover:bg-border-light transition-colors"
                 >
                   <MapPin className="w-4 h-4" />
-                  + Afficher la carte pour plus de précision (optionnel)
+                  {t("+ Afficher la carte pour plus de précision (optionnel)")}
                 </button>
               ) : (
                 <LazyAddressPickerMap
@@ -694,16 +696,16 @@ export default function Checkout() {
               )}
               {pinCoords && (
                 <p className="text-green-primary text-[11px] font-inter mt-1.5 font-medium">
-                  📍 Coordonnées : {pinCoords.lat.toFixed(6)}, {pinCoords.lng.toFixed(6)}
+                  {t("📍 Coordonnées :")} {pinCoords.lat.toFixed(6)}, {pinCoords.lng.toFixed(6)}
                 </p>
               )}
               <p className="text-text-muted text-[11px] font-inter mt-1.5">
-                Déplacez le repère rouge à l&apos;endroit exact de la livraison. Le point de repère ci-dessous reste indispensable (adressage informel).
+                {t("Déplacez le repère rouge à l&apos;endroit exact de la livraison. Le point de repère ci-dessous reste indispensable (adressage informel).")}
               </p>
             </div>
             <div className="sm:col-span-2">
               <label className="block text-text-secondary font-inter text-sm mb-1.5">
-                Point de repère
+                {t("Point de repère")}
               </label>
               <input
                 type="text"
@@ -721,21 +723,21 @@ export default function Checkout() {
                   <>
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
                     <span>
-                      Livraison possible · ~{deliveryInfo.distanceKm?.toFixed(1)} km · ~{deliveryInfo.estimatedMin} min
+                      {t("Livraison possible · ~")}{deliveryInfo.distanceKm?.toFixed(1)} {t("km · ~")}{deliveryInfo.estimatedMin} {t("min")}
                       {deliveryInfo.radius ? ` · Rayon ${deliveryInfo.radius} km` : ''}
                     </span>
                   </>
                 ) : (
                   <>
                     <span className="text-lg shrink-0">⚠️</span>
-                    <span>Hors zone de livraison ({deliveryInfo.distanceKm?.toFixed(1)} km / max {deliveryInfo.radius} km)</span>
+                    <span>{t("Hors zone de livraison (")}{deliveryInfo.distanceKm?.toFixed(1)} {t("km / max")} {deliveryInfo.radius} {t("km)")}</span>
                   </>
                 )}
               </div>
             )}
             <div className="sm:col-span-2">
               <label className="block text-text-secondary font-inter text-sm mb-1.5">
-                Instructions pour le livreur (optionnel)
+                {t("Instructions pour le livreur (optionnel)")}
               </label>
               <textarea
                 value={notes}
@@ -750,7 +752,7 @@ export default function Checkout() {
         {/* Payment */}
         <section className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 sm:p-6 mb-6">
           <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">
-            Mode de paiement
+            {t("Mode de paiement")}
           </h2>
           <div className="space-y-3">
             {paymentOptions.map((opt) => (
@@ -794,11 +796,11 @@ export default function Checkout() {
         {/* Summary */}
         <section className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 sm:p-6 mb-6">
           <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">
-            Récapitulatif
+            {t("Récapitulatif")}
           </h2>
           {orderForSomeoneElse && (
             <div className="mb-4 rounded-lg bg-green-light/60 px-3 py-2 text-xs font-inter text-text-secondary">
-              Pour <span className="font-semibold text-text-primary">{recipientName || 'bénéficiaire'}</span>
+              {t("Pour")} <span className="font-semibold text-text-primary">{recipientName || 'bénéficiaire'}</span>
               {recipientPhone && <span> · {displayCameroonPhone(recipientPhone)}</span>}
             </div>
           )}
@@ -806,7 +808,7 @@ export default function Checkout() {
             {items.map(({ item, quantity }) => (
               <div key={item.id} className="flex justify-between text-sm font-inter">
                 <span className="text-text-secondary">{quantity} × {item.name}</span>
-                <span className="text-text-primary">{(item.price * quantity).toLocaleString()} FCFA</span>
+                <span className="text-text-primary">{(item.price * quantity).toLocaleString()} {t("FCFA")}</span>
               </div>
             ))}
           </div>
@@ -819,22 +821,22 @@ export default function Checkout() {
               className="w-full bg-white rounded-xl border border-border-custom px-4 py-2.5 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted uppercase focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
             />
             <p className="text-text-muted text-xs font-inter mt-1">
-              Le code promo sera vérifié à la confirmation de la commande.
+              {t("Le code promo sera vérifié à la confirmation de la commande.")}
             </p>
           </div>
           <div className="border-t border-border-light pt-3 space-y-2">
             <div className="flex justify-between text-sm font-inter text-text-secondary">
-              <span>Sous-total</span>
-              <span>{totalPrice.toLocaleString()} FCFA</span>
+              <span>{t("Sous-total")}</span>
+              <span>{totalPrice.toLocaleString()} {t("FCFA")}</span>
             </div>
             {appliedDiscount > 0 && (
               <div className="flex justify-between text-sm font-inter">
-                <span className="text-text-secondary">Remise ({promoCode})</span>
-                <span className="text-success font-medium">-{appliedDiscount.toLocaleString()} FCFA</span>
+                <span className="text-text-secondary">{t("Remise (")}{promoCode})</span>
+                <span className="text-success font-medium">-{appliedDiscount.toLocaleString()} {t("FCFA")}</span>
               </div>
             )}
             <div className="flex justify-between items-center text-sm font-inter">
-              <span className="text-text-secondary">Livraison</span>
+              <span className="text-text-secondary">{t("Livraison")}</span>
               {restaurantReady ? (
                 <span className={deliveryFee === 0 ? 'text-success font-medium' : 'text-text-primary font-medium'}>
                   {deliveryFee === 0 ? 'Gratuit' : `${deliveryFee.toLocaleString()} FCFA`}
@@ -844,9 +846,9 @@ export default function Checkout() {
               )}
             </div>
             <div className="border-t border-border-light pt-2 flex justify-between items-center font-inter">
-              <span className="text-text-primary font-bold text-lg">Total</span>
+              <span className="text-text-primary font-bold text-lg">{t("Total")}</span>
               {restaurantReady ? (
-                <span className="text-text-primary font-bold text-lg">{total.toLocaleString()} FCFA</span>
+                <span className="text-text-primary font-bold text-lg">{total.toLocaleString()} {t("FCFA")}</span>
               ) : (
                 <Skeleton className="h-6 w-24" aria-label="Total en cours de chargement" />
               )}
@@ -856,23 +858,23 @@ export default function Checkout() {
 
         {isPreviewOnlyRestaurant && (
           <p className="text-amber-700 bg-gold-light rounded-lg px-3 py-2 text-sm font-inter mb-4">
-            Ce restaurant est un aperçu de démonstration et n&apos;est pas encore disponible à la commande.
+            {t("Ce restaurant est un aperçu de démonstration et n&apos;est pas encore disponible à la commande.")}
           </p>
         )}
         {cartRestaurantMissing && (
           <div className="bg-error/10 text-error rounded-lg px-3 py-2.5 text-sm font-inter mb-4" role="alert">
-            <span className="font-semibold">Le restaurant de votre panier n&apos;est plus disponible.</span>{' '}
+            <span className="font-semibold">{t("Le restaurant de votre panier n&apos;est plus disponible.")}</span>{' '}
             <Link to="/restaurants" className="underline font-medium hover:opacity-80">
-              Choisir un autre restaurant
+              {t("Choisir un autre restaurant")}
             </Link>
           </div>
         )}
         {belowMinimum && (
           <div className="bg-gold-light text-amber-700 rounded-lg px-3 py-2.5 text-sm font-inter mb-4" role="status">
-            <span className="font-semibold">Commande minimum : {minOrder.toLocaleString()} FCFA.</span>{' '}
-            Ajoutez {missingForMinimum.toLocaleString()} FCFA d&apos;articles pour valider.{' '}
+            <span className="font-semibold">{t("Commande minimum :")} {minOrder.toLocaleString()} {t("FCFA.")}</span>{' '}
+            {t("Ajoutez")} {missingForMinimum.toLocaleString()} {t("FCFA d&apos;articles pour valider.")}{' '}
             <Link to={`/restaurant/${restaurantId}`} className="underline font-medium hover:opacity-80">
-              Retourner au menu
+              {t("Retourner au menu")}
             </Link>
           </div>
         )}
@@ -885,7 +887,7 @@ export default function Checkout() {
         >
           {submitting ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" /> Validation...
+              <Loader2 className="w-4 h-4 animate-spin" /> {t("Validation...")}
             </>
           ) : (
             `Confirmer la commande — ${total.toLocaleString()} FCFA`

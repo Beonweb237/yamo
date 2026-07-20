@@ -7,6 +7,7 @@ import PageHeader from '../components/PageHeader';
 import {
   UtensilsCrossed, MapPin, ArrowLeft, Send, CheckCircle2, ChevronDown,
 } from 'lucide-react';
+import { useTranslation } from "react-i18next";
 
 const FORM_STORAGE_KEY = 'miam_draft_food_request';
 
@@ -15,6 +16,7 @@ function saveDraft(data: unknown) { localStorage.setItem(FORM_STORAGE_KEY, JSON.
 function clearDraft() { localStorage.removeItem(FORM_STORAGE_KEY); }
 
 export default function FoodRequestCreate() {
+    const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -74,7 +76,7 @@ export default function FoodRequestCreate() {
   if (authLoading) {
     return (
       <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
-        <p className="text-text-secondary font-inter text-sm">Chargement...</p>
+        <p className="text-text-secondary font-inter text-sm">{t("Chargement...")}</p>
       </div>
     );
   }
@@ -90,11 +92,11 @@ export default function FoodRequestCreate() {
           <div className="w-16 h-16 rounded-2xl bg-green-light flex items-center justify-center mx-auto mb-5">
             <CheckCircle2 className="w-8 h-8 text-green-primary" />
           </div>
-          <h1 className="font-poppins font-bold text-text-primary text-2xl mb-2">Demande publiée !</h1>
+          <h1 className="font-poppins font-bold text-text-primary text-2xl mb-2">{t("Demande publiée !")}</h1>
           <p className="text-text-secondary font-inter text-sm mb-2">
-            Les restaurants de {city} peuvent maintenant vous contacter.
+            {t("Les restaurants de")} {city} {t("peuvent maintenant vous contacter.")}
           </p>
-          <p className="text-text-muted font-inter text-xs">Redirection vers vos demandes...</p>
+          <p className="text-text-muted font-inter text-xs">{t("Redirection vers vos demandes...")}</p>
         </div>
       </div>
     );
@@ -105,14 +107,14 @@ export default function FoodRequestCreate() {
       <div className="max-w-[600px] mx-auto px-4 sm:px-6 py-6">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs font-inter text-text-muted mb-4">
-          <Link to="/" className="hover:text-text-primary transition-colors">Accueil</Link>
+          <Link to="/" className="hover:text-text-primary transition-colors">{t("Accueil")}</Link>
           <span>/</span>
-          <Link to="/demandes/mes-demandes" className="hover:text-text-primary transition-colors">Demandes</Link>
+          <Link to="/demandes/mes-demandes" className="hover:text-text-primary transition-colors">{t("Demandes")}</Link>
           <span>/</span>
-          <span className="text-text-secondary font-medium">Nouvelle</span>
+          <span className="text-text-secondary font-medium">{t("Nouvelle")}</span>
         </div>
         <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm font-inter text-text-secondary hover:text-text-primary mb-4 transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Retour
+          <ArrowLeft className="w-4 h-4" /> {t("Retour")}
         </button>
 
         <PageHeader
@@ -133,7 +135,7 @@ export default function FoodRequestCreate() {
             {/* Titre */}
             <div>
               <label className="block text-sm font-inter font-semibold text-text-primary mb-1.5">
-                Que voulez-vous ? <span className="text-error">*</span>
+                {t("Que voulez-vous ?")} <span className="text-error">*</span>
               </label>
               <input
                 ref={titleRef}
@@ -149,7 +151,7 @@ export default function FoodRequestCreate() {
             {/* Description */}
             <div>
               <label className="block text-sm font-inter font-semibold text-text-primary mb-1.5">
-                Décrivez votre besoin <span className="text-error">*</span>
+                {t("Décrivez votre besoin")} <span className="text-error">*</span>
               </label>
               <textarea
                 value={description}
@@ -158,13 +160,13 @@ export default function FoodRequestCreate() {
                 placeholder="Quel type de cuisine ? Quels plats ? Pour combien de personnes ? Régime particulier (diabétique, sans sel, halal…) ? Livraison à quel moment ? Pour vous ou quelqu'un d'autre ?"
                 className="w-full px-4 py-3 rounded-xl border border-border-custom focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 outline-none text-sm font-inter transition-all resize-none"
               />
-              <p className="text-xs font-inter text-text-muted mt-1">{description.length} car. (min 10)</p>
+              <p className="text-xs font-inter text-text-muted mt-1">{description.length} {t("car. (min 10)")}</p>
             </div>
 
             {/* Ville */}
             <div>
               <label className="block text-sm font-inter font-semibold text-text-primary mb-1.5">
-                <MapPin className="w-3.5 h-3.5 inline mr-1" />Ville <span className="text-error">*</span>
+                <MapPin className="w-3.5 h-3.5 inline mr-1" />{t("Ville")} <span className="text-error">*</span>
               </label>
               <div className="relative">
                 <select
@@ -172,7 +174,7 @@ export default function FoodRequestCreate() {
                   onChange={(e) => setCity(e.target.value)}
                   className="w-full px-4 h-12 rounded-xl border border-border-custom focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 outline-none text-sm font-inter transition-all appearance-none bg-white cursor-pointer"
                 >
-                  <option value="">-- Sélectionnez --</option>
+                  <option value="">{t("-- Sélectionnez --")}</option>
                   {CAMEROON_CITIES.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
                 </select>
                 <ChevronDown className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
@@ -182,7 +184,7 @@ export default function FoodRequestCreate() {
             {/* Budget */}
             <div>
               <label className="block text-sm font-inter font-semibold text-text-primary mb-1.5">
-                Budget maximum (FCFA)
+                {t("Budget maximum (FCFA)")}
               </label>
               <div className="flex items-center gap-2">
                 <button
@@ -193,7 +195,7 @@ export default function FoodRequestCreate() {
                   −1000
                 </button>
                 <div className="relative flex-1">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-inter text-text-muted">FCFA</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-inter text-text-muted">{t("FCFA")}</span>
                   <input
                     type="number"
                     value={budget}
@@ -214,8 +216,8 @@ export default function FoodRequestCreate() {
             {/* Adresse */}
             <div>
               <label className="block text-sm font-inter font-semibold text-text-primary mb-1.5">
-                <MapPin className="w-3 h-3 inline mr-1" />Adresse de livraison
-                <span className="text-text-muted font-normal text-xs ml-1">(optionnel)</span>
+                <MapPin className="w-3 h-3 inline mr-1" />{t("Adresse de livraison")}
+                <span className="text-text-muted font-normal text-xs ml-1">{t("(optionnel)")}</span>
               </label>
               <input
                 type="text"
@@ -241,8 +243,7 @@ export default function FoodRequestCreate() {
             </button>
 
             <p className="text-xs font-inter text-text-muted text-center">
-              Visible par les restaurants de {city || 'votre ville'} pendant 48h.
-              Brouillon sauvegardé automatiquement.
+              {t("Visible par les restaurants de")} {city || 'votre ville'} {t("pendant 48h.\r\n              Brouillon sauvegardé automatiquement.")}
             </p>
           </form>
         </div>

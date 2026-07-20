@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from "react-i18next";
 
 /**
  * Indicateur de connexion réseau (CONF-29) — crucial sur les réseaux 3G
@@ -9,6 +10,7 @@ import { toast } from 'sonner';
  * toast de confirmation au retour de la connexion.
  */
 export default function NetworkBanner({ topOffset = 72 }: { topOffset?: number }) {
+    const { t } = useTranslation();
   const [offline, setOffline] = useState(() => !navigator.onLine);
   const wasOffline = useRef(!navigator.onLine);
 
@@ -42,7 +44,7 @@ export default function NetworkBanner({ topOffset = 72 }: { topOffset?: number }
       className="fixed left-0 right-0 z-[60] bg-error text-white text-center text-sm font-inter font-medium px-4 py-2 flex items-center justify-center gap-2"
     >
       <WifiOff className="w-4 h-4 shrink-0" />
-      Hors connexion — vos actions seront envoyées quand le réseau reviendra.
+      {t("Hors connexion — vos actions seront envoyées quand le réseau reviendra.")}
     </div>
   );
 }

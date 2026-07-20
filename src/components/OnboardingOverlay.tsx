@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UtensilsCrossed, MapPin, Bike } from 'lucide-react';
 import { activeCities } from '../data/locations';
+import { useTranslation } from "react-i18next";
 
 // Onboarding première visite (CONF-28 / DOC-UX P1-01) : 3 écrans, skippable
 // à tout moment, jamais réaffiché (clé yamo_onboarding_completed — réservée
@@ -26,6 +27,7 @@ function markCompleted() {
 }
 
 export default function OnboardingOverlay({ onClose }: { onClose: () => void }) {
+    const { t } = useTranslation();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [city, setCity] = useState('Douala');
@@ -91,7 +93,7 @@ export default function OnboardingOverlay({ onClose }: { onClose: () => void }) 
             onClick={close}
             className="text-text-secondary font-inter text-sm hover:text-text-primary px-3 min-h-11 inline-flex items-center rounded-lg"
           >
-            Passer
+            {t("Passer")}
           </button>
         </div>
 
@@ -104,7 +106,7 @@ export default function OnboardingOverlay({ onClose }: { onClose: () => void }) 
         {step === 1 && (
           <div className="mb-6">
             <label htmlFor="onboarding-city" className="block text-text-secondary font-inter text-sm mb-1.5">
-              Votre ville
+              {t("Votre ville")}
             </label>
             <select
               id="onboarding-city"
@@ -126,7 +128,7 @@ export default function OnboardingOverlay({ onClose }: { onClose: () => void }) 
               onClick={() => setStep(step - 1)}
               className="px-4 h-12 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors"
             >
-              Retour
+              {t("Retour")}
             </button>
           )}
           <button

@@ -9,6 +9,7 @@ import {
   type AdminRoleDefinition,
   type AdminUserAccessRecord,
 } from '../../lib/adminRbac';
+import { useTranslation } from "react-i18next";
 
 const scopeLabels: Record<string, string> = {
   global: 'Global',
@@ -29,6 +30,7 @@ function formatDate(value?: string | null) {
 }
 
 export default function AdminRoles() {
+    const { t } = useTranslation();
   const [summary, setSummary] = useState<AdminRbacSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -100,7 +102,7 @@ export default function AdminRoles() {
   if (loading && !summary) {
     return (
       <div className="p-6 sm:p-8">
-        <p className="text-text-secondary text-sm">Chargement des roles...</p>
+        <p className="text-text-secondary text-sm">{t("Chargement des roles...")}</p>
       </div>
     );
   }
@@ -109,8 +111,8 @@ export default function AdminRoles() {
     return (
       <div className="p-6 sm:p-8">
         <div className="bg-white border border-border-custom rounded-xl p-6">
-          <h1 className="font-poppins font-bold text-text-primary text-xl mb-2">RBAC indisponible</h1>
-          <p className="text-text-secondary text-sm">Cette page necessite l'API VPS.</p>
+          <h1 className="font-poppins font-bold text-text-primary text-xl mb-2">{t("RBAC indisponible")}</h1>
+          <p className="text-text-secondary text-sm">{t("Cette page necessite l'API VPS.")}</p>
         </div>
       </div>
     );
@@ -127,7 +129,7 @@ export default function AdminRoles() {
             onClick={load}
             className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors"
           >
-            <RefreshCw className="w-4 h-4" />Actualiser
+            <RefreshCw className="w-4 h-4" />{t("Actualiser")}
           </button>
         }
       />
@@ -136,7 +138,7 @@ export default function AdminRoles() {
         <section className="bg-white rounded-xl border border-border-custom shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-border-light flex items-center gap-2">
             <Users className="w-4 h-4 text-green-primary" />
-            <h2 className="font-poppins font-semibold text-text-primary text-sm">Administrateurs</h2>
+            <h2 className="font-poppins font-semibold text-text-primary text-sm">{t("Administrateurs")}</h2>
           </div>
           <div className="divide-y divide-border-light">
             {summary.admins.map((admin) => {
@@ -171,7 +173,7 @@ export default function AdminRoles() {
           <section className="bg-white rounded-xl border border-border-custom shadow-sm p-5">
             <div className="flex items-start justify-between gap-4 mb-5">
               <div>
-                <h2 className="font-poppins font-bold text-text-primary text-lg">Affectation du profil</h2>
+                <h2 className="font-poppins font-bold text-text-primary text-lg">{t("Affectation du profil")}</h2>
                 <p className="text-text-secondary text-sm font-inter">
                   {selectedAdmin ? `${selectedAdmin.fullName || selectedAdmin.phone} · ${selectedAdmin.phone}` : 'Selectionnez un administrateur'}
                 </p>
@@ -181,7 +183,7 @@ export default function AdminRoles() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <label className="block">
-                <span className="block text-text-muted text-xs font-inter mb-1">Profil</span>
+                <span className="block text-text-muted text-xs font-inter mb-1">{t("Profil")}</span>
                 <select
                   value={roleCode}
                   onChange={(e) => setRoleCode(e.target.value)}
@@ -193,7 +195,7 @@ export default function AdminRoles() {
                 </select>
               </label>
               <label className="block">
-                <span className="block text-text-muted text-xs font-inter mb-1">Périmètre</span>
+                <span className="block text-text-muted text-xs font-inter mb-1">{t("Périmètre")}</span>
                 <select
                   value={scopeType}
                   onChange={(e) => setScopeType(e.target.value)}
@@ -203,7 +205,7 @@ export default function AdminRoles() {
                 </select>
               </label>
               <label className="block">
-                <span className="block text-text-muted text-xs font-inter mb-1">Valeur</span>
+                <span className="block text-text-muted text-xs font-inter mb-1">{t("Valeur")}</span>
                 <input
                   value={scopeValue}
                   onChange={(e) => setScopeValue(e.target.value)}
@@ -215,7 +217,7 @@ export default function AdminRoles() {
             </div>
 
             <label className="block mt-3">
-              <span className="block text-text-muted text-xs font-inter mb-1">Motif d'audit</span>
+              <span className="block text-text-muted text-xs font-inter mb-1">{t("Motif d'audit")}</span>
               <input
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -238,7 +240,7 @@ export default function AdminRoles() {
           <section className="bg-white rounded-xl border border-border-custom shadow-sm p-5">
             <div className="flex items-center gap-2 mb-3">
               <KeyRound className="w-4 h-4 text-green-primary" />
-              <h2 className="font-poppins font-semibold text-text-primary text-sm">Privileges du profil selectionne</h2>
+              <h2 className="font-poppins font-semibold text-text-primary text-sm">{t("Privileges du profil selectionne")}</h2>
             </div>
             <p className="text-text-secondary text-sm font-inter mb-4">{selectedRole?.description}</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -257,11 +259,11 @@ export default function AdminRoles() {
           <section className="bg-white rounded-xl border border-border-custom shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-border-light flex items-center gap-2">
               <Activity className="w-4 h-4 text-green-primary" />
-              <h2 className="font-poppins font-semibold text-text-primary text-sm">Derniers audits</h2>
+              <h2 className="font-poppins font-semibold text-text-primary text-sm">{t("Derniers audits")}</h2>
             </div>
             <div className="divide-y divide-border-light">
               {summary.auditLogs.length === 0 ? (
-                <p className="p-4 text-text-secondary text-sm">Aucun audit accessible.</p>
+                <p className="p-4 text-text-secondary text-sm">{t("Aucun audit accessible.")}</p>
               ) : summary.auditLogs.slice(0, 12).map((log) => (
                 <div key={log.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">

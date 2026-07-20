@@ -5,6 +5,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, MapPin, Loader2, Navigation } from 'lucide-react';
 import { searchLocal } from '../data/cities';
+import { useTranslation } from "react-i18next";
 
 export interface AddressSuggestion {
   display: string;
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export default function AddressAutocomplete({ value, onChange, placeholder, className, onNavigate }: Props) {
+    const { t } = useTranslation();
   const [query, setQuery] = useState(value || '');
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [open, setOpen] = useState(false);
@@ -142,7 +144,7 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
       {selectedCoords && (
         <p className="text-text-muted text-xs font-inter mt-1 ml-1 flex items-center gap-1">
           <MapPin className="w-3 h-3" />
-          GPS : {selectedCoords.lat.toFixed(4)}, {selectedCoords.lng.toFixed(4)}
+          {t("GPS :")} {selectedCoords.lat.toFixed(4)}, {selectedCoords.lng.toFixed(4)}
         </p>
       )}
 
@@ -159,7 +161,7 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
               <MapPin className={`w-4 h-4 shrink-0 ${s.source === 'local' ? 'text-green-primary' : 'text-amber-500'}`} />
               <span className="truncate">{s.display}</span>
               {s.source === 'local' && (
-                <span className="text-[10px] bg-green-light text-green-primary px-1.5 py-0.5 rounded font-medium shrink-0">Local</span>
+                <span className="text-[10px] bg-green-light text-green-primary px-1.5 py-0.5 rounded font-medium shrink-0">{t("Local")}</span>
               )}
             </button>
           ))}

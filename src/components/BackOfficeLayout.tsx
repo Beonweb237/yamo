@@ -11,6 +11,7 @@ import { fetchAllOrders } from '../lib/orders';
 import { fetchAllIncidents } from '../lib/incidents';
 import NetworkBanner from './NetworkBanner';
 import ScrollToTop from './ScrollToTop';
+import { useTranslation } from "react-i18next";
 
 interface SidebarLink {
   name: string;
@@ -65,6 +66,7 @@ const adminTopLinks = [
 ];
 
 export default function BackOfficeLayout({ children }: { children?: ReactNode }) {
+    const { t } = useTranslation();
   const location = useLocation();
   const { user, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -130,7 +132,7 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
             </button>
             <Link to={user?.role === 'admin' ? '/admin/dashboard' : '/'} className="flex items-center gap-2">
               <img src="/logo-icon.png" alt="MiamExpress" className="w-7 h-7 object-contain" />
-              <span className="font-poppins font-bold text-white text-base">MiamExpress</span>
+              <span className="font-poppins font-bold text-white text-base">{t("MiamExpress")}</span>
             </Link>
 
             {/* Admin quick-jump links (desktop only) */}
@@ -182,7 +184,7 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
                         className="flex items-center gap-2 px-3 h-9 rounded-lg text-sm text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors"
                       >
                         <UserCircle className="w-4 h-4" />
-                        Mon profil
+                        {t("Mon profil")}
                       </Link>
                       <Link
                         to="/"
@@ -190,14 +192,14 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
                         className="flex items-center gap-2 px-3 h-9 rounded-lg text-sm text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors"
                       >
                         <Home className="w-4 h-4" />
-                        Voir le site
+                        {t("Voir le site")}
                       </Link>
                       <button
                         onClick={() => { signOut(); setProfileOpen(false); }}
                         className="w-full flex items-center gap-2 px-3 h-9 rounded-lg text-sm text-error hover:bg-error/5 transition-colors"
                       >
                         <LogOut className="w-4 h-4" />
-                        Se déconnecter
+                        {t("Se déconnecter")}
                       </button>
                     </div>
                   </div>
@@ -206,7 +208,7 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
             </div>
           ) : (
             <Link to="/connexion" className="text-sm font-inter font-medium text-white/70 hover:text-white transition-colors">
-              Connexion
+              {t("Connexion")}
             </Link>
           )}
         </div>
@@ -229,7 +231,7 @@ export default function BackOfficeLayout({ children }: { children?: ReactNode })
       >
         <div className="p-4 pt-6">
           <div className="flex items-center justify-between mb-6 lg:hidden">
-            <span className="font-poppins font-semibold text-text-primary text-sm">Navigation</span>
+            <span className="font-poppins font-semibold text-text-primary text-sm">{t("Navigation")}</span>
             <button
               onClick={() => setSidebarOpen(false)}
               className="w-11 h-11 rounded-lg text-text-secondary hover:bg-bg-secondary flex items-center justify-center"

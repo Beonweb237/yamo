@@ -19,6 +19,7 @@ import AppImage from './AppImage';
 import { useRestaurants } from '../hooks/useCatalog';
 import { menuItems as mockMenuItems } from '../data/mockData';
 import { buildEnrichedItems, groupDishes, dishSlug, type DishGroup } from '../lib/dishes';
+import { useTranslation } from 'react-i18next';
 
 // Recherche globale live (palette ⌘K). Filtrage 100 % en mémoire — les données
 // sont déjà côté client (comme la vue « Tous les plats », CONF-33) : aucun appel
@@ -56,6 +57,7 @@ interface GlobalSearchProps {
 }
 
 export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { restaurants } = useRestaurants();
   const [query, setQuery] = useState('');
@@ -130,8 +132,8 @@ export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogHeader className="sr-only">
-        <DialogTitle>Rechercher</DialogTitle>
-        <DialogDescription>Trouvez un plat ou un restaurant</DialogDescription>
+        <DialogTitle>{t("Rechercher")}</DialogTitle>
+        <DialogDescription>{t("Trouvez un plat ou un restaurant")}</DialogDescription>
       </DialogHeader>
       <DialogContent className="overflow-hidden p-0 gap-0 top-[12%] translate-y-0 sm:max-w-[580px] rounded-2xl border-border-custom shadow-2xl">
         <Command
@@ -141,7 +143,7 @@ export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) 
           <CommandInput
             value={query}
             onValueChange={setQuery}
-            placeholder="Rechercher un plat, un restaurant…"
+            placeholder={t("Rechercher un plat, un restaurant…")}
             className="text-[15px]"
           />
           <CommandList className="max-h-[min(62vh,440px)] px-2 py-1">
@@ -151,21 +153,21 @@ export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) 
                   <Search className="w-5 h-5 text-text-muted" />
                 </div>
                 <p className="text-sm text-text-secondary font-inter">
-                  Aucun résultat pour <span className="font-medium text-text-primary">« {trimmed} »</span>
+                  {t("Aucun résultat pour")} <span className="font-medium text-text-primary">« {trimmed} »</span>
                 </p>
                 <button
                   type="button"
                   onClick={goAll}
                   className="mt-4 inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-green-primary text-white text-sm font-medium hover:bg-green-dark transition-colors"
                 >
-                  Voir tous les résultats
+                  {t("Voir tous les résultats")}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             )}
 
             {restaurantMatches.length > 0 && (
-              <CommandGroup heading={groupHeading(<Store className="w-3.5 h-3.5" />, q ? 'Restaurants' : 'Restaurants populaires', restaurantMatches.length)}>
+              <CommandGroup heading={groupHeading(<Store className="w-3.5 h-3.5" />, q ? t("Restaurants") : t("Restaurants populaires"), restaurantMatches.length)}>
                 {restaurantMatches.map((r) => (
                   <CommandItem
                     key={r.id}
@@ -214,7 +216,7 @@ export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) 
             )}
 
             {dishMatches.length > 0 && (
-              <CommandGroup heading={groupHeading(<UtensilsCrossed className="w-3.5 h-3.5" />, q ? 'Plats' : 'Plats les plus proposés', dishMatches.length)}>
+              <CommandGroup heading={groupHeading(<UtensilsCrossed className="w-3.5 h-3.5" />, q ? t("Plats") : t("Plats les plus proposés"), dishMatches.length)}>
                 {dishMatches.map((g) => (
                   <CommandItem
                     key={g.key}
@@ -234,11 +236,11 @@ export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) 
                       <p className="text-sm font-medium text-text-primary font-inter truncate">{highlight(g.displayName, q)}</p>
                       <p className="text-xs text-text-secondary font-inter truncate flex items-center gap-1 mt-0.5">
                         <Store className="w-3 h-3 shrink-0 text-text-muted" />
-                        {g.totalRestaurants} restaurant{g.totalRestaurants > 1 ? 's' : ''}
+                        {g.totalRestaurants} {t("restaurant")}{g.totalRestaurants > 1 ? 's' : ''}
                       </p>
                     </div>
                     <span className="shrink-0 text-xs font-medium text-green-primary bg-green-light px-2 py-1 rounded-md whitespace-nowrap">
-                      dès {g.minPrice.toLocaleString()} F
+                      {t("dès")} {g.minPrice.toLocaleString()} F
                     </span>
                   </CommandItem>
                 ))}
@@ -249,11 +251,11 @@ export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) 
           <div className="flex items-center justify-between px-3 py-2.5 border-t border-border-custom bg-bg-secondary">
             <div className="hidden sm:flex items-center gap-2 text-[11px] text-text-muted font-inter">
               <kbd className="px-1.5 py-0.5 rounded border border-border-custom bg-white font-sans">↑↓</kbd>
-              naviguer
+              {t("naviguer")}
               <kbd className="px-1.5 py-0.5 rounded border border-border-custom bg-white font-sans ml-1">↵</kbd>
-              ouvrir
-              <kbd className="px-1.5 py-0.5 rounded border border-border-custom bg-white font-sans ml-1">esc</kbd>
-              fermer
+              {t("ouvrir")}
+              <kbd className="px-1.5 py-0.5 rounded border border-border-custom bg-white font-sans ml-1">{t("esc")}</kbd>
+              {t("fermer")}
             </div>
             {hasResults && (
               <button
@@ -261,7 +263,7 @@ export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) 
                 onClick={goAll}
                 className="inline-flex items-center gap-1 text-xs font-medium text-green-primary hover:gap-1.5 transition-all ml-auto"
               >
-                Voir tous les résultats
+                {t("Voir tous les résultats")}
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}

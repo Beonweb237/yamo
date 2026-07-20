@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { DollarSign, Save, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import PageHeader from '../../components/PageHeader';
+import { useTranslation } from "react-i18next";
 
 const STORAGE_KEY = 'miam_delivery_fees';
 
@@ -29,6 +30,7 @@ function writeConfig(c: FeeConfig) {
 }
 
 export default function AdminDeliveryFees() {
+    const { t } = useTranslation();
   const [config, setConfig] = useState<FeeConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,7 +58,7 @@ export default function AdminDeliveryFees() {
     fee: Math.max(config.minFee, Math.min(config.maxFee, Math.round((km * config.pricePerKm) / 100) * 100)),
   }));
 
-  if (loading) return <div className="p-8 text-center text-text-muted">Chargement...</div>;
+  if (loading) return <div className="p-8 text-center text-text-muted">{t("Chargement...")}</div>;
 
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-8">
@@ -70,7 +72,7 @@ export default function AdminDeliveryFees() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div>
             <label className="block text-sm font-inter font-medium text-text-primary mb-2">
-              Prix par km (FCFA)
+              {t("Prix par km (FCFA)")}
             </label>
             <div className="relative">
               <input
@@ -80,14 +82,14 @@ export default function AdminDeliveryFees() {
                 onChange={e => setConfig({ ...config, pricePerKm: parseInt(e.target.value) || 200 })}
                 className="w-full bg-bg-secondary rounded-lg px-4 h-12 text-text-primary font-inter text-sm outline-none border border-border-custom focus:border-green-primary transition-colors"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">FCFA/km</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">{t("FCFA/km")}</span>
             </div>
-            <p className="text-text-muted text-xs font-inter mt-1.5">Recommandé : 200 FCFA/km</p>
+            <p className="text-text-muted text-xs font-inter mt-1.5">{t("Recommandé : 200 FCFA/km")}</p>
           </div>
 
           <div>
             <label className="block text-sm font-inter font-medium text-text-primary mb-2">
-              Frais minimum
+              {t("Frais minimum")}
             </label>
             <div className="relative">
               <input
@@ -97,13 +99,13 @@ export default function AdminDeliveryFees() {
                 onChange={e => setConfig({ ...config, minFee: parseInt(e.target.value) || 500 })}
                 className="w-full bg-bg-secondary rounded-lg px-4 h-12 text-text-primary font-inter text-sm outline-none border border-border-custom focus:border-green-primary transition-colors"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">FCFA</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">{t("FCFA")}</span>
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-inter font-medium text-text-primary mb-2">
-              Frais maximum (plafond)
+              {t("Frais maximum (plafond)")}
             </label>
             <div className="relative">
               <input
@@ -113,7 +115,7 @@ export default function AdminDeliveryFees() {
                 onChange={e => setConfig({ ...config, maxFee: parseInt(e.target.value) || 3000 })}
                 className="w-full bg-bg-secondary rounded-lg px-4 h-12 text-text-primary font-inter text-sm outline-none border border-border-custom focus:border-green-primary transition-colors"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">FCFA</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">{t("FCFA")}</span>
             </div>
           </div>
         </div>
@@ -125,7 +127,7 @@ export default function AdminDeliveryFees() {
           </button>
           <button type="button" onClick={() => setConfig({ pricePerKm: 200, minFee: 500, maxFee: 3000 })}
             className="text-text-secondary font-inter text-sm px-4 h-11 rounded-lg hover:bg-bg-secondary transition-colors flex items-center gap-2">
-            <RotateCcw className="w-4 h-4" /> Réinitialiser
+            <RotateCcw className="w-4 h-4" /> {t("Réinitialiser")}
           </button>
         </div>
       </form>
@@ -133,20 +135,19 @@ export default function AdminDeliveryFees() {
       {/* Aperçu des frais */}
       <div className="bg-white border border-border-custom rounded-xl overflow-hidden">
         <div className="px-6 py-4 bg-bg-secondary border-b border-border-custom">
-          <h2 className="font-inter font-semibold text-text-primary">Aperçu — Grille tarifaire</h2>
+          <h2 className="font-inter font-semibold text-text-primary">{t("Aperçu — Grille tarifaire")}</h2>
         </div>
         <div className="p-6">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {computedFees.map(({ km, fee }) => (
               <div key={km} className="bg-bg-secondary rounded-lg p-3 text-center">
-                <p className="text-text-muted text-xs font-inter mb-1">{km} km</p>
-                <p className="text-green-primary font-poppins font-bold text-lg">{fee.toLocaleString()} FCFA</p>
+                <p className="text-text-muted text-xs font-inter mb-1">{km} {t("km")}</p>
+                <p className="text-green-primary font-poppins font-bold text-lg">{fee.toLocaleString()} {t("FCFA")}</p>
               </div>
             ))}
           </div>
           <p className="text-text-muted text-xs font-inter mt-4 text-center">
-            💡 Les frais sont automatiquement arrondis au multiple de 100 FCFA le plus proche.
-            Minimum : {config.minFee} FCFA · Maximum : {config.maxFee} FCFA · Tarif : {config.pricePerKm} FCFA/km
+            {t("💡 Les frais sont automatiquement arrondis au multiple de 100 FCFA le plus proche.\r\n            Minimum :")} {config.minFee} {t("FCFA · Maximum :")} {config.maxFee} {t("FCFA · Tarif :")} {config.pricePerKm} {t("FCFA/km")}
           </p>
         </div>
       </div>

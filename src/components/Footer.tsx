@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
+import { useTranslation } from "react-i18next";
 
 const quickLinks = [
   { name: 'Accueil', path: '/' },
@@ -45,6 +46,7 @@ Sécurité — Les accès aux données sont protégés par des règles de sécur
 Vos droits — Vous pouvez à tout moment demander l'accès, la correction ou la suppression de vos données personnelles en contactant le support MiamExpress.`;
 
 export default function Footer() {
+    const { t } = useTranslation();
   const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null);
 
   return (
@@ -63,7 +65,7 @@ export default function Footer() {
               <img src="/logo-compact.png" alt="MiamExpress" className="h-10 w-auto object-contain" />
             </Link>
             <p className="text-text-secondary text-sm font-inter leading-relaxed max-w-[280px]">
-              La plateforme de livraison de repas qui célèbre la richesse culinaire du Cameroun. De Douala à Yaoundé, savourez l&apos;excellence à domicile.
+              {t("La plateforme de livraison de repas qui célèbre la richesse culinaire du Cameroun. De Douala à Yaoundé, savourez l&apos;excellence à domicile.")}
             </p>
             <div className="flex items-center gap-2 mt-4">
               {[Facebook, Instagram, Twitter].map((Icon, i) => (
@@ -81,7 +83,7 @@ export default function Footer() {
           {/* Quick Links */}
           <div>
             <h4 className="font-inter font-semibold text-sm text-text-primary mb-4">
-              Liens Rapides
+              {t("Liens Rapides")}
             </h4>
             <ul className="space-y-2.5">
               {quickLinks.map((link) => (
@@ -100,7 +102,7 @@ export default function Footer() {
           {/* Categories */}
           <div>
             <h4 className="font-inter font-semibold text-sm text-text-primary mb-4">
-              Catégories
+              {t("Catégories")}
             </h4>
             <ul className="space-y-2.5">
               {cuisineCategories.map((cat) => (
@@ -119,12 +121,12 @@ export default function Footer() {
           {/* Contact */}
           <div>
             <h4 className="font-inter font-semibold text-sm text-text-primary mb-4">
-              Nous Contacter
+              {t("Nous Contacter")}
             </h4>
             <ul className="space-y-3">
               <li className="flex items-center gap-2 text-text-secondary text-sm font-inter">
                 <Mail className="w-4 h-4" />
-                support@miamexpress.cm
+                {t("support@miamexpress.cm")}
               </li>
               <li className="flex items-center gap-2 text-text-secondary text-sm font-inter">
                 <Phone className="w-4 h-4" />
@@ -138,16 +140,16 @@ export default function Footer() {
                   className="flex items-center gap-2 text-text-secondary text-sm font-inter hover:text-green-primary transition-colors"
                 >
                   <MessageCircle className="w-4 h-4" />
-                  Support WhatsApp
+                  {t("Support WhatsApp")}
                 </a>
               </li>
               <li className="flex items-center gap-2 text-text-secondary text-sm font-inter">
                 <MapPin className="w-4 h-4" />
-                Douala & Yaoundé, Cameroun
+                {t("Douala & Yaoundé, Cameroun")}
               </li>
             </ul>
             <p className="text-text-muted text-xs font-inter mt-3">
-              Lun&ndash;Sam, 8h&ndash;22h
+              {t("Lun&ndash;Sam, 8h&ndash;22h")}
             </p>
           </div>
         </div>
@@ -155,7 +157,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="mt-12 pt-6 border-t border-border-custom flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-text-muted text-xs font-inter">
-            &copy; 2026 MiamExpress. Tous droits réservés.
+            {t("&copy; 2026 MiamExpress. Tous droits réservés.")}
           </p>
           <div className="flex items-center gap-4">
             <button
@@ -163,14 +165,14 @@ export default function Footer() {
               onClick={() => setLegalModal('privacy')}
               className="text-text-muted text-xs font-inter hover:text-text-secondary transition-colors py-2"
             >
-              Politique de confidentialité
+              {t("Politique de confidentialité")}
             </button>
             <button
               type="button"
               onClick={() => setLegalModal('terms')}
               className="text-text-muted text-xs font-inter hover:text-text-secondary transition-colors py-2"
             >
-              Conditions d&apos;utilisation
+              {t("Conditions d&apos;utilisation")}
             </button>
           </div>
         </div>

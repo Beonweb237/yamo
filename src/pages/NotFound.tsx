@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Home, Search, MapPin } from 'lucide-react';
+import { useTranslation } from "react-i18next";
 
 export default function NotFound() {
+    const { t } = useTranslation();
   return (
     <div className="pt-[72px] min-h-screen bg-gradient-to-b from-green-50/50 to-bg-secondary flex items-center justify-center px-4">
       <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-8 sm:p-10 text-center max-w-md w-full">
@@ -10,10 +12,10 @@ export default function NotFound() {
         </div>
         <p className="font-poppins font-bold text-green-primary text-6xl mb-2">404</p>
         <h1 className="font-poppins font-bold text-text-primary text-xl mb-3">
-          Page introuvable
+          {t("Page introuvable")}
         </h1>
         <p className="text-text-secondary font-inter text-sm mb-8">
-          Cette page n&apos;existe pas ou a été déplacée. Retournez à l&apos;accueil ou explorez nos restaurants.
+          {t("Cette page n&apos;existe pas ou a été déplacée. Retournez à l&apos;accueil ou explorez nos restaurants.")}
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
@@ -21,14 +23,14 @@ export default function NotFound() {
             className="inline-flex items-center justify-center gap-2 bg-green-primary text-white font-inter font-medium text-sm h-11 px-6 rounded-xl hover:bg-green-dark hover:shadow-lg active:scale-95 transition-all"
           >
             <Home className="w-4 h-4" />
-            Accueil
+            {t("Accueil")}
           </Link>
           <Link
             to="/restaurants"
             className="inline-flex items-center justify-center gap-2 border border-border-custom text-text-primary font-inter font-medium text-sm h-11 px-6 rounded-xl hover:bg-bg-secondary transition-colors"
           >
             <Search className="w-4 h-4" />
-            Restaurants
+            {t("Restaurants")}
           </Link>
         </div>
       </div>

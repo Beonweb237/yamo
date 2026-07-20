@@ -8,6 +8,7 @@ import PageHeader from '../../components/PageHeader';
 import { approveAdminApplication, createAdminAccount, rejectAdminApplication } from '../../lib/admin';
 import { ADMIN_DEFAULT_PASSWORD } from '../../contexts/AuthContext';
 import { displayCameroonPhone, normalizeCameroonPhone } from '../../lib/phone';
+import { useTranslation } from "react-i18next";
 
 type Tab = 'pending' | 'approved' | 'rejected';
 
@@ -28,6 +29,7 @@ function timeAgo(iso: string) {
 }
 
 export default function AdminApplications() {
+    const { t } = useTranslation();
   const { restaurants } = useRestaurants();
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
@@ -175,13 +177,13 @@ export default function AdminApplications() {
         action={
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => openCreate('livreur')} className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors">
-              <Plus className="w-4 h-4" />Livreur validé
+              <Plus className="w-4 h-4" />{t("Livreur validé")}
             </button>
             <button onClick={() => openCreate('restaurant')} className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors">
-              <Plus className="w-4 h-4" />Restaurant validé
+              <Plus className="w-4 h-4" />{t("Restaurant validé")}
             </button>
             <button onClick={load} className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors">
-              <RefreshCw className="w-4 h-4" />Actualiser
+              <RefreshCw className="w-4 h-4" />{t("Actualiser")}
             </button>
           </div>
         }
@@ -191,15 +193,15 @@ export default function AdminApplications() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 flex items-center gap-3 hover:shadow-md transition-shadow">
           <div className="w-10 h-10 rounded-lg bg-gold-light flex items-center justify-center shrink-0"><Clock className="w-5 h-5 text-gold-accent" /></div>
-          <div><p className="text-text-muted text-xs font-inter">En attente</p><p className="font-poppins font-bold text-text-primary text-xl">{byStatus.pending.length}</p></div>
+          <div><p className="text-text-muted text-xs font-inter">{t("En attente")}</p><p className="font-poppins font-bold text-text-primary text-xl">{byStatus.pending.length}</p></div>
         </div>
         <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 flex items-center gap-3 hover:shadow-md transition-shadow">
           <div className="w-10 h-10 rounded-lg bg-green-light flex items-center justify-center shrink-0"><ThumbsUp className="w-5 h-5 text-green-primary" /></div>
-          <div><p className="text-text-muted text-xs font-inter">Approuvées</p><p className="font-poppins font-bold text-text-primary text-xl">{byStatus.approved.length}</p></div>
+          <div><p className="text-text-muted text-xs font-inter">{t("Approuvées")}</p><p className="font-poppins font-bold text-text-primary text-xl">{byStatus.approved.length}</p></div>
         </div>
         <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 flex items-center gap-3 hover:shadow-md transition-shadow">
           <div className="w-10 h-10 rounded-lg bg-error/10 flex items-center justify-center shrink-0"><ThumbsDown className="w-5 h-5 text-error" /></div>
-          <div><p className="text-text-muted text-xs font-inter">Rejetées</p><p className="font-poppins font-bold text-text-primary text-xl">{byStatus.rejected.length}</p></div>
+          <div><p className="text-text-muted text-xs font-inter">{t("Rejetées")}</p><p className="font-poppins font-bold text-text-primary text-xl">{byStatus.rejected.length}</p></div>
         </div>
       </div>
 
@@ -235,7 +237,7 @@ export default function AdminApplications() {
       {/* List */}
       {loading ? (
         <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-8 text-center">
-          <p className="text-text-secondary text-sm">Chargement...</p>
+          <p className="text-text-secondary text-sm">{t("Chargement...")}</p>
         </div>
       ) : visible.length === 0 ? (
         <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-10 text-center">
@@ -249,6 +251,7 @@ export default function AdminApplications() {
       ) : (
         <div className="space-y-3">
           {visible.map((app) => {
+              const { t } = useTranslation();
             const cfg = typeConfig[app.type];
             const Icon = cfg.icon;
             const docsExpanded = expandedDocs[app.id] ?? false;
@@ -303,7 +306,7 @@ export default function AdminApplications() {
 
                   {app.status === 'rejected' && app.rejectionReason && (
                     <p className="bg-error/5 text-error font-inter text-xs rounded-lg px-3 py-2 mb-2">
-                      Motif de rejet : {app.rejectionReason}
+                      {t("Motif de rejet :")} {app.rejectionReason}
                     </p>
                   )}
 
@@ -315,7 +318,7 @@ export default function AdminApplications() {
                       >
                         {docsExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         <Image className="w-3.5 h-3.5" />
-                        {docFields.length} document{docFields.length > 1 ? 's' : ''}
+                        {docFields.length} {t("document")}{docFields.length > 1 ? 's' : ''}
                       </button>
                       {docsExpanded && (
                         <div className="mt-3 flex flex-wrap gap-3">
@@ -340,20 +343,20 @@ export default function AdminApplications() {
                       )}
                     </div>
                   ) : (
-                    <p className="text-text-muted text-xs font-inter italic mb-2">Aucun document fourni</p>
+                    <p className="text-text-muted text-xs font-inter italic mb-2">{t("Aucun document fourni")}</p>
                   )}
 
                   {tab === 'pending' && (
                     <>
                       {app.type === 'restaurant' && (
                         <div className="mb-3 mt-2">
-                          <label className="block text-text-muted text-xs mb-1">Lier à un restaurant existant (optionnel)</label>
+                          <label className="block text-text-muted text-xs mb-1">{t("Lier à un restaurant existant (optionnel)")}</label>
                           <select
                             value={selectedRestaurantByApp[app.id] ?? ''}
                             onChange={(e) => setSelectedRestaurantByApp((p) => ({ ...p, [app.id]: e.target.value }))}
                             className="w-full sm:w-80 bg-bg-secondary rounded-lg px-3 h-10 text-text-primary text-sm outline-none"
                           >
-                            <option value="">Créer un nouveau restaurant</option>
+                            <option value="">{t("Créer un nouveau restaurant")}</option>
                             {restaurants.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                           </select>
                         </div>
@@ -372,7 +375,7 @@ export default function AdminApplications() {
                           disabled={reviewingId === app.id}
                           className="flex items-center gap-1.5 border border-error text-error font-medium text-sm px-4 h-9 rounded-lg hover:bg-error/5 transition-colors disabled:opacity-60"
                         >
-                          <X className="w-3.5 h-3.5" />Rejeter
+                          <X className="w-3.5 h-3.5" />{t("Rejeter")}
                         </button>
                       </div>
                     </>
@@ -397,7 +400,7 @@ export default function AdminApplications() {
               </h3>
             </div>
             <p className="text-text-secondary text-sm font-inter mb-4">
-              Le compte est créé avec mot de passe, candidature approuvée, et accès immédiat au tableau de bord.
+              {t("Le compte est créé avec mot de passe, candidature approuvée, et accès immédiat au tableau de bord.")}
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
@@ -407,46 +410,46 @@ export default function AdminApplications() {
               </label>
               {createType === 'restaurant' && (
                 <label className="block sm:col-span-2">
-                  <span className="block text-text-muted text-xs font-inter mb-1">Nom du restaurant</span>
+                  <span className="block text-text-muted text-xs font-inter mb-1">{t("Nom du restaurant")}</span>
                   <input value={createForm.restaurantName} onChange={(e) => updateCreateForm('restaurantName', e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" placeholder="Ex: Saveurs du Mboa" />
                 </label>
               )}
               <label className="block">
-                <span className="block text-text-muted text-xs font-inter mb-1">Téléphone</span>
+                <span className="block text-text-muted text-xs font-inter mb-1">{t("Téléphone")}</span>
                 <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-11">
                   <span className="text-text-primary font-inter text-sm font-semibold shrink-0">+237</span>
                   <input value={displayCameroonPhone(createForm.contactPhone)} onChange={(e) => updateCreateForm('contactPhone', normalizeCameroonPhone(e.target.value))} className="flex-1 min-w-0 bg-transparent text-text-primary font-inter text-sm outline-none" placeholder="690000000" />
                 </div>
               </label>
               <label className="block">
-                <span className="block text-text-muted text-xs font-inter mb-1">Mot de passe</span>
+                <span className="block text-text-muted text-xs font-inter mb-1">{t("Mot de passe")}</span>
                 <input value={createForm.password} onChange={(e) => updateCreateForm('password', e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" placeholder={ADMIN_DEFAULT_PASSWORD} />
               </label>
               <label className="block">
-                <span className="block text-text-muted text-xs font-inter mb-1">Ville</span>
+                <span className="block text-text-muted text-xs font-inter mb-1">{t("Ville")}</span>
                 <input value={createForm.city} onChange={(e) => updateCreateForm('city', e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" placeholder="Douala" />
               </label>
               <label className="block">
-                <span className="block text-text-muted text-xs font-inter mb-1">Quartier</span>
+                <span className="block text-text-muted text-xs font-inter mb-1">{t("Quartier")}</span>
                 <input value={createForm.neighborhood} onChange={(e) => updateCreateForm('neighborhood', e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" placeholder="Bonamoussadi" />
               </label>
               <label className="block sm:col-span-2">
-                <span className="block text-text-muted text-xs font-inter mb-1">Adresse</span>
+                <span className="block text-text-muted text-xs font-inter mb-1">{t("Adresse")}</span>
                 <input value={createForm.address} onChange={(e) => updateCreateForm('address', e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" placeholder="Adresse opérationnelle" />
               </label>
               <label className="block sm:col-span-2">
-                <span className="block text-text-muted text-xs font-inter mb-1">Notes internes</span>
+                <span className="block text-text-muted text-xs font-inter mb-1">{t("Notes internes")}</span>
                 <textarea value={createForm.notes} onChange={(e) => updateCreateForm('notes', e.target.value)} rows={3} className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none" placeholder="Infos utiles pour l'équipe admin" />
               </label>
             </div>
 
             <div className="flex gap-2 justify-end">
               <button onClick={() => setCreateType(null)} disabled={creating} className="px-4 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors disabled:opacity-60">
-                Annuler
+                {t("Annuler")}
               </button>
               <button onClick={handleCreateAccount} disabled={creating} className="inline-flex items-center gap-1.5 px-4 h-10 rounded-lg bg-green-primary text-white font-inter text-sm font-medium hover:bg-green-dark transition-colors disabled:opacity-60">
                 {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                Créer et valider
+                {t("Créer et valider")}
               </button>
             </div>
           </div>
@@ -463,10 +466,10 @@ export default function AdminApplications() {
               <div className="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center shrink-0">
                 <X className="w-5 h-5 text-error" />
               </div>
-              <h3 className="font-poppins font-bold text-text-primary text-lg">Motif de rejet</h3>
+              <h3 className="font-poppins font-bold text-text-primary text-lg">{t("Motif de rejet")}</h3>
             </div>
             <p className="text-text-secondary text-sm font-inter mb-4">
-              Expliquez pourquoi cette candidature est rejetée (optionnel).
+              {t("Expliquez pourquoi cette candidature est rejetée (optionnel).")}
             </p>
             <textarea
               value={rejectReason}
@@ -480,7 +483,7 @@ export default function AdminApplications() {
                 onClick={() => setRejectTarget(null)}
                 className="px-4 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors"
               >
-                Annuler
+                {t("Annuler")}
               </button>
               <button
                 onClick={() => handleReject(rejectTarget)}

@@ -15,6 +15,7 @@ import { matchLocationQuery } from '../data/locations';
 import { useRestaurants } from '../hooks/useCatalog';
 import AppImage from '../components/AppImage';
 import { APP_STORE_URL, PLAY_STORE_URL } from '../data/launchConfig';
+import { useTranslation } from 'react-i18next';
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 30 },
@@ -27,6 +28,7 @@ const stagger = {
 };
 
 export default function Home() {
+  const { t } = useTranslation();
   const { restaurants } = useRestaurants();
   const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState('');
@@ -61,6 +63,7 @@ export default function Home() {
             alt="Cameroonian food spread"
             className="w-full h-full object-cover"
             onError={(e) => {
+                const { t } = useTranslation();
               (e.target as HTMLImageElement).src =
                 'data:image/svg+xml,' +
                 encodeURIComponent(
@@ -81,7 +84,7 @@ export default function Home() {
               className="inline-block mb-5"
             >
               <span className="inline-flex items-center px-3 py-1.5 border border-gold-accent rounded-full text-gold-accent text-xs font-inter font-semibold tracking-normal uppercase">
-                Livraison de repas au Cameroun
+                {t("Livraison de repas au Cameroun")}
               </span>
             </motion.div>
 
@@ -92,17 +95,17 @@ export default function Home() {
               transition={{ duration: 0.6, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
               className="font-poppins font-semibold text-white text-[38px]/[1.15] sm:text-[46px]/[1.13] lg:text-[52px]/[1.12] tracking-normal mb-5 max-w-[620px]"
             >
-              D&eacute;couvrez les Meilleures Saveurs du Cameroun, Livr&eacute;es Chez Vous
+              {t("Découvrez les Meilleures Saveurs du Cameroun, ")}<span className="text-gold-accent">{t("Livrées Chez Vous")}</span>
             </motion.h1>
 
             {/* Subheadline */}
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.9 }}
-              className="text-white/75 font-inter text-base sm:text-lg leading-relaxed mb-8 max-w-[520px]"
+              transition={{ duration: 0.5, delay: 0.6 }}
+              className="text-white/70 font-inter text-base sm:text-lg leading-relaxed max-w-[500px] mb-8"
             >
-              Dans les grandes villes du Cameroun, de la cuisine camerounaise authentique aux saveurs internationales &mdash; commandez en quelques clics et savourez sans attendre.
+              {t("La meilleure sélection de restaurants et boutiques à Douala et Yaoundé. Rapide, fiable et toujours chaud.")}
             </motion.p>
 
             {/* Search Bar */}
@@ -128,7 +131,7 @@ export default function Home() {
                 className="shrink-0 bg-green-primary text-white font-inter font-medium text-sm px-5 h-11 rounded-lg hover:bg-green-dark transition-colors flex items-center gap-2"
               >
                 <Search className="w-4 h-4" />
-                <span className="hidden sm:inline">Explorer</span>
+                <span className="hidden sm:inline">{t("Explorer")}</span>
               </button>
             </motion.div>
 
@@ -139,11 +142,11 @@ export default function Home() {
               transition={{ duration: 0.4, delay: 1.3 }}
               className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-6 text-white/80 text-[13px] font-inter"
             >
-              <span>Les meilleurs restaurants de Douala et Yaoundé</span>
-              <span>&bull;</span>
-              <span>Livraison en 30 min</span>
-              <span>&bull;</span>
-              <span>Paiement s&eacute;curis&eacute;</span>
+              <span>{t("Les meilleurs restaurants de Douala et Yaoundé")}</span>
+              <span>{t("&bull;")}</span>
+              <span>{t("Livraison en 30 min")}</span>
+              <span>{t("&bull;")}</span>
+              <span>{t("Paiement s&eacute;curis&eacute;")}</span>
             </motion.div>
           </div>
         </div>
@@ -161,10 +164,10 @@ export default function Home() {
             className="mb-10"
           >
             <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
-              Explorez par Type de Cuisine
+              {t("Explorez par Type de Cuisine")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              Des saveurs locales aux d&eacute;couvertes internationales
+              {t("Des saveurs locales aux d&eacute;couvertes internationales")}
             </p>
           </motion.div>
 
@@ -219,13 +222,13 @@ export default function Home() {
             className="flex items-baseline justify-between mb-10"
           >
             <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal">
-              Restaurants Populaires
+              {t("Restaurants Populaires")}
             </h2>
             <Link
               to="/restaurants"
               className="hidden sm:flex items-center gap-1 text-green-primary font-inter text-sm font-medium hover:underline"
             >
-              Explorer tous les restaurants
+              {t("Explorer tous les restaurants")}
               <ArrowRight className="w-4 h-4" />
             </Link>
           </motion.div>
@@ -304,10 +307,10 @@ export default function Home() {
             className="text-center mb-12"
           >
             <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
-              Commandez en 3 &Eacute;tapes Simples
+              {t("Commandez en 3 &Eacute;tapes Simples")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              Une exp&eacute;rience fluide, de la d&eacute;couverte &agrave; la d&eacute;gustation
+              {t("Une exp&eacute;rience fluide, de la d&eacute;couverte &agrave; la d&eacute;gustation")}
             </p>
           </motion.div>
 
@@ -382,13 +385,13 @@ export default function Home() {
               className="flex-1 text-center lg:text-left"
             >
               <span className="text-gold-accent text-xs font-inter font-semibold tracking-normal uppercase">
-                Application Mobile
+                {t("Application Mobile")}
               </span>
               <h2 className="font-poppins font-semibold text-white text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mt-3 mb-4">
-                Commandez O&ugrave; Que Vous Soyez
+                {t("Commandez O&ugrave; Que Vous Soyez")}
               </h2>
               <p className="text-white/70 font-inter text-base leading-relaxed max-w-[480px] mx-auto lg:mx-0 mb-6">
-                T&eacute;l&eacute;chargez l&apos;application MiamExpress pour une exp&eacute;rience encore plus rapide. Recevez des notifications en temps r&eacute;el, sauvegardez vos adresses favorites, et profitez d&apos;offres exclusives.
+                {t("T&eacute;l&eacute;chargez l&apos;application MiamExpress pour une exp&eacute;rience encore plus rapide. Recevez des notifications en temps r&eacute;el, sauvegardez vos adresses favorites, et profitez d&apos;offres exclusives.")}
               </p>
 
               {/* Badges stores : emplacements conservés — pilotés par launchConfig,
@@ -417,7 +420,7 @@ export default function Home() {
                     <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor"><path d={store.iconPath} /></svg>
                     {store.label}
                     <span className="absolute -top-2 -right-2 bg-gold-accent text-white text-[10px] font-inter font-semibold px-2 py-0.5 rounded-full shadow-sm">
-                      Bientôt
+                      {t("Bientôt")}
                     </span>
                   </div>
                 ))}
@@ -468,10 +471,10 @@ export default function Home() {
             className="text-center mb-12"
           >
             <h2 className="font-poppins font-semibold text-text-primary text-2xl sm:text-3xl lg:text-[38px]/[1.18] tracking-normal mb-3">
-              Ils Nous Font Confiance
+              {t("Ils Nous Font Confiance")}
             </h2>
             <p className="text-text-secondary font-inter text-base">
-              Ce que nos premiers clients disent de nous &agrave; Douala et Yaound&eacute;
+              {t("Ce que nos premiers clients disent de nous &agrave; Douala et Yaound&eacute;")}
             </p>
           </motion.div>
 
@@ -517,7 +520,7 @@ export default function Home() {
                   ))}
                 </div>
                 <p className="text-text-primary font-inter text-sm italic leading-relaxed relative z-10">
-                  &ldquo;{review.comment}&rdquo;
+                  {t("&ldquo;")}{review.comment}{t("&rdquo;")}
                 </p>
               </motion.div>
             ))}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Trash2, RefreshCw, History, Store, MapPin, UtensilsCrossed, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { listTrash, restoreFromTrash, permanentlyDelete, trashTimeLeft, purgeExpiredTrash, type TrashEntry } from '../../lib/trash';
+import { useTranslation } from "react-i18next";
 
 const TYPE_ICONS: Record<string, typeof Trash2> = {
   menu_item: UtensilsCrossed,
@@ -18,6 +19,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default function AdminTrash() {
+    const { t } = useTranslation();
   const [entries, setEntries] = useState<TrashEntry[]>([]);
 
   const load = () => {
@@ -53,28 +55,29 @@ export default function AdminTrash() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-poppins font-bold text-text-primary text-2xl flex items-center gap-2">
           <Trash2 className="w-6 h-6 text-error" />
-          Corbeille ({entries.length})
+          {t("Corbeille (")}{entries.length})
         </h1>
         <button
           onClick={load}
           className="flex items-center gap-1.5 text-text-secondary font-inter text-sm hover:text-text-primary transition-colors"
         >
-          <RefreshCw className="w-4 h-4" /> Actualiser
+          <RefreshCw className="w-4 h-4" /> {t("Actualiser")}
         </button>
       </div>
 
       {entries.length === 0 ? (
         <div className="bg-white rounded-xl border border-border-custom p-10 text-center">
           <Trash2 className="w-12 h-12 text-text-muted mx-auto mb-3 opacity-30" />
-          <p className="text-text-secondary font-inter font-medium">Corbeille vide</p>
+          <p className="text-text-secondary font-inter font-medium">{t("Corbeille vide")}</p>
           <p className="text-text-muted text-sm font-inter mt-1">
-            Les éléments supprimés apparaîtront ici pendant 7 jours avant suppression définitive.
+            {t("Les éléments supprimés apparaîtront ici pendant 7 jours avant suppression définitive.")}
           </p>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-border-custom overflow-hidden">
           <div className="divide-y divide-border-light">
             {entries.map((entry) => {
+                const { t } = useTranslation();
               const Icon = TYPE_ICONS[entry.type] ?? Trash2;
               const data = entry.data as Record<string, unknown> | undefined;
               return (
@@ -97,7 +100,7 @@ export default function AdminTrash() {
                         {data?.name as string || data?.label as string || data?.fullText as string || entry.id.slice(0, 12)}
                       </p>
                       {entry.trashedBy && (
-                        <p className="text-text-muted text-[11px] font-inter mt-0.5">Supprimé par {entry.trashedBy}</p>
+                        <p className="text-text-muted text-[11px] font-inter mt-0.5">{t("Supprimé par")} {entry.trashedBy}</p>
                       )}
                       <p className="text-text-muted text-[11px] font-inter">{formatDate(entry.trashedAt)}</p>
                     </div>
@@ -107,13 +110,13 @@ export default function AdminTrash() {
                       onClick={() => handleRestore(entry)}
                       className="flex items-center gap-1 px-3 h-8 rounded-lg bg-green-light text-green-primary text-xs font-inter font-medium hover:bg-green-primary hover:text-white transition-colors"
                     >
-                      <RefreshCw className="w-3.5 h-3.5" /> Restaurer
+                      <RefreshCw className="w-3.5 h-3.5" /> {t("Restaurer")}
                     </button>
                     <button
                       onClick={() => handleDelete(entry)}
                       className="flex items-center gap-1 px-3 h-8 rounded-lg bg-error/10 text-error text-xs font-inter font-medium hover:bg-error hover:text-white transition-colors"
                     >
-                      Supprimer déf.
+                      {t("Supprimer déf.")}
                     </button>
                   </div>
                 </div>

@@ -6,8 +6,10 @@ import { fetchMyApplications } from '../lib/applications';
 import AuthHeader from './AuthHeader';
 import OtpInput from './OtpInput';
 import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
+import { useTranslation } from "react-i18next";
 
 export default function RoleGate({ allow, children }: { allow: UserRole[]; children?: ReactNode }) {
+    const { t } = useTranslation();
   const { user, loading, sendOtp, verifyOtp, signInWithPassword, signOut } = useAuth();
   const isAdminRoute = allow.length === 1 && allow[0] === 'admin';
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
@@ -101,14 +103,14 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
 
             {!user && (
               <div className="bg-gold-light text-amber-700 text-xs font-inter rounded-lg px-3 py-2 mb-5">
-                Connexion admin : utilisez votre numéro et votre PIN. Le code SMS reste une option secondaire.
+                {t("Connexion admin : utilisez votre numéro et votre PIN. Le code SMS reste une option secondaire.")}
               </div>
             )}
 
             {adminStep === 'password' ? (
               <form onSubmit={handlePasswordLogin} className="space-y-4">
                 <div>
-                  <label className="block text-text-secondary font-inter text-sm mb-1.5">Numéro de téléphone</label>
+                  <label className="block text-text-secondary font-inter text-sm mb-1.5">{t("Numéro de téléphone")}</label>
                   <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                     <Phone className="w-4 h-4 text-text-muted shrink-0" />
                     <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
@@ -123,7 +125,7 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
                   </div>
                 </div>
                 <div>
-                  <label className="block text-text-secondary font-inter text-sm mb-1.5">PIN / mot de passe</label>
+                  <label className="block text-text-secondary font-inter text-sm mb-1.5">{t("PIN / mot de passe")}</label>
                   <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                     <LockKeyhole className="w-4 h-4 text-text-muted shrink-0" />
                     <input
@@ -142,20 +144,20 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
                   disabled={adminSubmitting}
                   className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {adminSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Connexion...</> : <>Se connecter <ArrowRight className="w-4 h-4" /></>}
+                  {adminSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("Connexion...")}</> : <>{t("Se connecter")} <ArrowRight className="w-4 h-4" /></>}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setAdminStep('phone'); setAdminCode(''); setAdminError(''); }}
                   className="w-full text-text-secondary font-inter text-sm hover:text-text-primary min-h-11"
                 >
-                  Recevoir un code à la place
+                  {t("Recevoir un code à la place")}
                 </button>
               </form>
             ) : adminStep === 'phone' ? (
               <form onSubmit={handleSendOtp} className="space-y-4">
                 <div>
-                  <label className="block text-text-secondary font-inter text-sm mb-1.5">Numéro de téléphone</label>
+                  <label className="block text-text-secondary font-inter text-sm mb-1.5">{t("Numéro de téléphone")}</label>
                   <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                     <Phone className="w-4 h-4 text-text-muted shrink-0" />
                     <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
@@ -175,16 +177,16 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
                   disabled={adminSubmitting}
                   className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {adminSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Envoi...</> : <>Recevoir le code <ArrowRight className="w-4 h-4" /></>}
+                  {adminSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("Envoi...")}</> : <>{t("Recevoir le code")} <ArrowRight className="w-4 h-4" /></>}
                 </button>
               </form>
             ) : (
               <form onSubmit={handleVerify} className="space-y-4">
                 <div>
                   <p className="text-text-secondary font-inter text-sm text-center mb-4">
-                    Code envoyé au <strong className="text-text-primary">+237 {displayCameroonPhone(adminPhone)}</strong>
+                    {t("Code envoyé au")} <strong className="text-text-primary">+237 {displayCameroonPhone(adminPhone)}</strong>
                   </p>
-                  <label className="block text-text-secondary font-inter text-sm mb-2">Code reçu par SMS</label>
+                  <label className="block text-text-secondary font-inter text-sm mb-2">{t("Code reçu par SMS")}</label>
                   <OtpInput value={adminCode} onChange={setAdminCode} disabled={adminSubmitting} />
                 </div>
                 {adminError && <p className="text-error text-sm font-inter" role="alert">{adminError}</p>}
@@ -193,14 +195,14 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
                   disabled={adminSubmitting || adminCode.length < 6}
                   className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {adminSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Vérification...</> : 'Accéder à l\'administration'}
+                  {adminSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("Vérification...")}</> : 'Accéder à l\'administration'}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setAdminStep('phone'); setAdminCode(''); setAdminError(''); }}
                   className="w-full text-text-secondary font-inter text-sm hover:text-text-primary min-h-11"
                 >
-                  Changer de numéro
+                  {t("Changer de numéro")}
                 </button>
               </form>
             )}
@@ -257,12 +259,12 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
           </p>
           {user?.isSuspended && user.suspensionReason && (
             <p className="bg-error/10 text-error font-inter text-sm rounded-lg px-3 py-2 mb-6">
-              Motif : {user.suspensionReason}
+              {t("Motif :")} {user.suspensionReason}
             </p>
           )}
           {user && !user.isApproved && !user.isSuspended && rejectionReason && (
             <p className="bg-error/10 text-error font-inter text-sm rounded-lg px-3 py-2 mb-6">
-              Pour postuler à nouveau, veuillez contacter le support ou créer un nouveau compte.
+              {t("Pour postuler à nouveau, veuillez contacter le support ou créer un nouveau compte.")}
             </p>
           )}
           <Link

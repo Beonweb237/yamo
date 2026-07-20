@@ -9,6 +9,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from "react-i18next";
 
 const API_BASE = '/api/media';
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48, 96];
@@ -65,6 +66,7 @@ async function downloadMedia(item: MediaItem) {
 }
 
 export default function AdminMedia() {
+    const { t } = useTranslation();
   const [allMedia, setAllMedia] = useState<MediaItem[]>([]);
   const [folder, setFolder] = useState('all');
   const [search, setSearch] = useState('');
@@ -191,7 +193,7 @@ export default function AdminMedia() {
   const Pagination = () => (
     <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-3 border-t border-border-light">
       <div className="flex items-center gap-2 text-text-muted text-xs font-inter">
-        <span>{allMedia.length} fichier{allMedia.length > 1 ? 's' : ''}</span>
+        <span>{allMedia.length} {t("fichier")}{allMedia.length > 1 ? 's' : ''}</span>
         <span>·</span>
         <select
           value={perPage}
@@ -199,10 +201,10 @@ export default function AdminMedia() {
           className="bg-bg-secondary border border-border-custom rounded px-2 py-1 text-xs outline-none"
         >
           {ITEMS_PER_PAGE_OPTIONS.map(n => (
-            <option key={n} value={n}>{n} par page</option>
+            <option key={n} value={n}>{n} {t("par page")}</option>
           ))}
         </select>
-        <span>· Page {safePage} / {totalPages}</span>
+        <span>{t("· Page")} {safePage} / {totalPages}</span>
       </div>
       <div className="flex items-center gap-1">
         <button
@@ -277,10 +279,10 @@ export default function AdminMedia() {
           <div>
             <h1 className="font-poppins font-bold text-text-primary text-2xl flex items-center gap-2">
               <Image className="w-6 h-6 text-green-primary" />
-              Médiathèque
+              {t("Médiathèque")}
             </h1>
             <p className="text-text-secondary font-inter text-sm mt-1">
-              Gérez vos images, photos de plats, bannières et ressources visuelles.
+              {t("Gérez vos images, photos de plats, bannières et ressources visuelles.")}
             </p>
           </div>
           <button
@@ -356,7 +358,7 @@ export default function AdminMedia() {
               className="flex items-center gap-1.5 text-error font-inter text-xs font-medium hover:bg-error/5 px-3 py-1.5 rounded-lg transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              Supprimer ({selected.size})
+              {t("Supprimer (")}{selected.size})
             </button>
           )}
         </div>
@@ -377,10 +379,10 @@ export default function AdminMedia() {
             <div className="text-center">
               <Image className="w-12 h-12 text-text-muted mx-auto mb-3" />
               <p className="text-text-secondary font-inter text-sm mb-2">
-                Aucun média dans ce dossier.
+                {t("Aucun média dans ce dossier.")}
               </p>
               <p className="text-text-muted text-xs font-inter">
-                Glissez-déposez vos images ici ou cliquez sur &quot;Ajouter des médias&quot;.
+                {t("Glissez-déposez vos images ici ou cliquez sur &quot;Ajouter des médias&quot;.")}
               </p>
             </div>
           ) : (
@@ -476,7 +478,7 @@ export default function AdminMedia() {
 
               {/* Drop hint */}
               <p className="text-center text-text-muted text-[11px] font-inter mt-4">
-                Glissez-déposez des images ici · Ctrl+clic pour sélection multiple
+                {t("Glissez-déposez des images ici · Ctrl+clic pour sélection multiple")}
               </p>
             </>
           )}

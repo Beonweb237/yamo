@@ -8,6 +8,7 @@ import 'leaflet/dist/leaflet.css';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import { useTranslation } from "react-i18next";
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -93,6 +94,7 @@ export default function DeliveryMap({ points, height = '400px', scrollWheelZoom 
   /** Masquer les boutons Waze/Google Maps (ex: usage catalogue restaurants) */
   hideNavigation?: boolean;
 }) {
+    const { t } = useTranslation();
   const driverPoint = points.find((p) => p.type === 'driver');
   const customerPoint = points.find((p) => p.type === 'customer');
 
@@ -120,7 +122,7 @@ export default function DeliveryMap({ points, height = '400px', scrollWheelZoom 
       >
         {estimated && (
           <span className="absolute top-2 right-2 z-[500] bg-white/95 text-text-secondary text-[11px] font-inter font-medium px-2.5 py-1 rounded-full border border-border-custom shadow-sm pointer-events-none">
-            Position estimée
+            {t("Position estimée")}
           </span>
         )}
         <MapContainer
@@ -162,7 +164,7 @@ export default function DeliveryMap({ points, height = '400px', scrollWheelZoom 
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-3 py-2 bg-[#33CCFF] text-white text-xs font-inter font-medium rounded-lg hover:opacity-90 transition-opacity"
           >
-            <Navigation className="w-3.5 h-3.5" /> Waze
+            <Navigation className="w-3.5 h-3.5" /> {t("Waze")}
           </a>
           <a
             href={googleUrl}
@@ -170,7 +172,7 @@ export default function DeliveryMap({ points, height = '400px', scrollWheelZoom 
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-3 py-2 bg-[#4285F4] text-white text-xs font-inter font-medium rounded-lg hover:opacity-90 transition-opacity"
           >
-            <Navigation className="w-3.5 h-3.5" /> Google Maps
+            <Navigation className="w-3.5 h-3.5" /> {t("Google Maps")}
           </a>
         </div>
       )}

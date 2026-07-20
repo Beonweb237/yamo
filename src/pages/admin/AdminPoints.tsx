@@ -29,6 +29,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../../components/ui/dialog';
+import { useTranslation } from "react-i18next";
 
 // Historique complet des recharges (composant dédié — filtre par statut).
 const RECHARGE_STATUS_META: Record<RechargeStatus, { label: string; badge: string }> = {
@@ -44,6 +45,7 @@ function RechargeHistory({
   loading: boolean;
   nameOf: (id: string) => string;
 }) {
+    const { t } = useTranslation();
   const [statusFilter, setStatusFilter] = useState<RechargeStatus | 'all'>('all');
   const [limit, setLimit] = useState(10);
   const visible = recharges.filter((r) => statusFilter === 'all' || r.status === statusFilter);
@@ -52,7 +54,7 @@ function RechargeHistory({
     <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 mb-6">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h2 className="font-poppins font-semibold text-text-primary text-lg">
-          Historique des recharges ({visible.length})
+          {t("Historique des recharges (")}{visible.length})
         </h2>
         <div className="flex gap-1 bg-bg-secondary rounded-lg p-1 max-w-full overflow-x-auto scrollbar-hide">
           {([['all', 'Toutes'], ['pending', 'En attente'], ['validated', 'Validées'], ['rejected', 'Rejetées']] as const).map(([id, label]) => (
@@ -80,16 +82,16 @@ function RechargeHistory({
                 <div className="min-w-0">
                   <p className="font-inter text-sm text-text-primary">
                     <span className="font-semibold">{nameOf(request.restaurantId)}</span>
-                    {' '}· +{request.points} pts ({request.amountFcfa.toLocaleString()} FCFA)
+                    {' '}· +{request.points} {t("pts (")}{request.amountFcfa.toLocaleString()} {t("FCFA)")}
                     {' '}· {request.method === 'momo' ? 'Mobile Money' : 'Cash partenaire'}
-                    {' '}· réf. <span className="font-semibold">{request.paymentRef}</span>
+                    {' '}{t("· réf.")} <span className="font-semibold">{request.paymentRef}</span>
                   </p>
                   <p className="text-text-muted text-[11px] font-inter">
-                    Demandée le {new Date(request.requestedAt).toLocaleString('fr-FR')}
+                    {t("Demandée le")} {new Date(request.requestedAt).toLocaleString('fr-FR')}
                     {request.decidedAt && ` · décidée le ${new Date(request.decidedAt).toLocaleString('fr-FR')}${request.decidedBy ? ` par ${String(request.decidedBy).slice(0, 12)}` : ''}`}
                   </p>
                   {request.rejectionReason && (
-                    <p className="text-error text-[11px] font-inter mt-0.5">Motif du rejet : {request.rejectionReason}</p>
+                    <p className="text-error text-[11px] font-inter mt-0.5">{t("Motif du rejet :")} {request.rejectionReason}</p>
                   )}
                 </div>
                 <span className={`shrink-0 text-xs font-inter font-medium px-2.5 py-1 rounded-full ${RECHARGE_STATUS_META[request.status].badge}`}>
@@ -100,7 +102,7 @@ function RechargeHistory({
           </div>
           {visible.length > limit && (
             <button onClick={() => setLimit((n) => n + 15)} className="w-full text-green-primary font-inter text-sm font-medium hover:underline min-h-11">
-              Voir plus ({visible.length - limit} restantes)
+              {t("Voir plus (")}{visible.length - limit} {t("restantes)")}
             </button>
           )}
         </>
@@ -119,6 +121,7 @@ function timeAgo(iso: string) {
 }
 
 export default function AdminPoints() {
+    const { t } = useTranslation();
   const { user } = useAuth();
   const { restaurants } = useRestaurants();
   const [recharges, setRecharges] = useState<RechargeRequest[]>([]);
@@ -276,10 +279,10 @@ export default function AdminPoints() {
         action={
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setPromoOpen(true)} className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors">
-              <Gift className="w-4 h-4" />Offrir des points
+              <Gift className="w-4 h-4" />{t("Offrir des points")}
             </button>
             <button onClick={load} className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors">
-              <RefreshCw className="w-4 h-4" />Actualiser
+              <RefreshCw className="w-4 h-4" />{t("Actualiser")}
             </button>
           </div>
         }
@@ -289,27 +292,27 @@ export default function AdminPoints() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-green-light flex items-center justify-center shrink-0"><Coins className="w-5 h-5 text-green-primary" /></div>
-          <div><p className="text-text-muted text-xs font-inter">Points en circulation</p><p className="font-poppins font-bold text-text-primary text-xl">{totalCirculating}</p></div>
+          <div><p className="text-text-muted text-xs font-inter">{t("Points en circulation")}</p><p className="font-poppins font-bold text-text-primary text-xl">{totalCirculating}</p></div>
         </div>
         <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-green-light flex items-center justify-center shrink-0"><TrendingUp className="w-5 h-5 text-green-primary" /></div>
-          <div><p className="text-text-muted text-xs font-inter">CA recharges (mois)</p><p className="font-poppins font-bold text-text-primary text-xl">{monthRevenue.toLocaleString()} F</p></div>
+          <div><p className="text-text-muted text-xs font-inter">{t("CA recharges (mois)")}</p><p className="font-poppins font-bold text-text-primary text-xl">{monthRevenue.toLocaleString()} F</p></div>
         </div>
         <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-gold-light flex items-center justify-center shrink-0"><AlertCircle className="w-5 h-5 text-gold-accent" /></div>
-          <div><p className="text-text-muted text-xs font-inter">Restos sous le seuil</p><p className="font-poppins font-bold text-text-primary text-xl">{lowCount}</p></div>
+          <div><p className="text-text-muted text-xs font-inter">{t("Restos sous le seuil")}</p><p className="font-poppins font-bold text-text-primary text-xl">{lowCount}</p></div>
         </div>
       </div>
 
       {/* File des recharges en attente */}
       <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 mb-6">
         <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">
-          Recharges à valider ({pending.length})
+          {t("Recharges à valider (")}{pending.length})
         </h2>
         {loading ? (
           <div className="space-y-2">{[0, 1].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
         ) : pending.length === 0 ? (
-          <p className="text-text-secondary font-inter text-sm">Aucune recharge en attente.</p>
+          <p className="text-text-secondary font-inter text-sm">{t("Aucune recharge en attente.")}</p>
         ) : (
           <div className="divide-y divide-border-light">
             {pending.map((request) => (
@@ -318,11 +321,11 @@ export default function AdminPoints() {
                   <p className="font-inter font-semibold text-sm text-text-primary">
                     {nameOf(request.restaurantId)}
                     <span className="ml-2 font-normal text-text-secondary">
-                      +{request.points} pts · {request.amountFcfa.toLocaleString()} FCFA
+                      +{request.points} {t("pts ·")} {request.amountFcfa.toLocaleString()} {t("FCFA")}
                     </span>
                   </p>
                   <p className="text-xs text-text-muted font-inter">
-                    Réf. <span className="font-semibold text-text-primary">{request.paymentRef}</span>
+                    {t("Réf.")} <span className="font-semibold text-text-primary">{request.paymentRef}</span>
                     {' '}· {request.method === 'momo' ? 'Mobile Money' : 'Cash partenaire'} · {timeAgo(request.requestedAt)}
                   </p>
                 </div>
@@ -332,14 +335,14 @@ export default function AdminPoints() {
                     disabled={deciding === request.id}
                     className="flex items-center gap-1 bg-green-primary hover:bg-green-dark text-white font-inter font-medium text-xs px-3 min-h-11 rounded-lg transition-colors disabled:opacity-60"
                   >
-                    <Check className="w-3.5 h-3.5" />Valider
+                    <Check className="w-3.5 h-3.5" />{t("Valider")}
                   </button>
                   <button
                     onClick={() => { setRejectReason(''); setRejectTarget(request); }}
                     disabled={deciding === request.id}
                     className="flex items-center gap-1 border border-error text-error font-inter font-medium text-xs px-3 min-h-11 rounded-lg hover:bg-error/5 transition-colors disabled:opacity-60"
                   >
-                    <X className="w-3.5 h-3.5" />Rejeter
+                    <X className="w-3.5 h-3.5" />{t("Rejeter")}
                   </button>
                 </div>
               </div>
@@ -354,12 +357,12 @@ export default function AdminPoints() {
       {/* Derniers mouvements — flux global du ledger, tous restos confondus */}
       <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 mb-6">
         <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">
-          Derniers mouvements de points
+          {t("Derniers mouvements de points")}
         </h2>
         {loading ? (
           <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
         ) : globalLedger.length === 0 ? (
-          <p className="text-text-secondary font-inter text-sm">Aucun mouvement pour le moment.</p>
+          <p className="text-text-secondary font-inter text-sm">{t("Aucun mouvement pour le moment.")}</p>
         ) : (
           <ul className="divide-y divide-border-light">
             {globalLedger.map((entry) => (
@@ -375,7 +378,7 @@ export default function AdminPoints() {
                   </p>
                 </div>
                 <span className={`shrink-0 text-sm font-inter font-semibold ${entry.points < 0 ? 'text-error' : entry.points > 0 ? 'text-green-primary' : 'text-text-muted'}`}>
-                  {entry.points > 0 ? '+' : ''}{entry.points} pt{Math.abs(entry.points) > 1 ? 's' : ''}
+                  {entry.points > 0 ? '+' : ''}{entry.points} {t("pt")}{Math.abs(entry.points) > 1 ? 's' : ''}
                 </span>
               </li>
             ))}
@@ -386,7 +389,7 @@ export default function AdminPoints() {
       {/* Soldes */}
       <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h2 className="font-poppins font-semibold text-text-primary text-lg">Soldes par restaurant</h2>
+          <h2 className="font-poppins font-semibold text-text-primary text-lg">{t("Soldes par restaurant")}</h2>
           <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-3 h-11 w-full sm:w-64">
             <Search className="w-4 h-4 text-text-muted shrink-0" />
             <input
@@ -409,10 +412,10 @@ export default function AdminPoints() {
             <table className="w-full text-sm font-inter">
               <thead>
                 <tr className="text-left text-text-muted text-xs">
-                  <th className="pb-2 pr-4">Restaurant</th>
-                  <th className="pb-2 pr-4">Disponible</th>
-                  <th className="pb-2 pr-4">Réservés</th>
-                  <th className="pb-2">Actions</th>
+                  <th className="pb-2 pr-4">{t("Restaurant")}</th>
+                  <th className="pb-2 pr-4">{t("Disponible")}</th>
+                  <th className="pb-2 pr-4">{t("Réservés")}</th>
+                  <th className="pb-2">{t("Actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-light">
@@ -420,25 +423,25 @@ export default function AdminPoints() {
                   <tr key={row.restaurantId}>
                     <td className="py-2.5 pr-4 font-medium text-text-primary">{row.name}</td>
                     <td className={`py-2.5 pr-4 font-semibold ${row.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_POINTS ? 'text-error' : 'text-text-primary'}`}>
-                      {row.available} pts
+                      {row.available} {t("pts")}
                       {row.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_POINTS && (
-                        <span className="ml-1.5 text-[10px] font-bold text-error bg-error/10 px-1.5 py-0.5 rounded-full">BAS</span>
+                        <span className="ml-1.5 text-[10px] font-bold text-error bg-error/10 px-1.5 py-0.5 rounded-full">{t("BAS")}</span>
                       )}
                     </td>
-                    <td className="py-2.5 pr-4 text-text-secondary">{row.held} pts</td>
+                    <td className="py-2.5 pr-4 text-text-secondary">{row.held} {t("pts")}</td>
                     <td className="py-2.5">
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => { setLedgerLimit(15); setLedgerTarget(row.restaurantId); }}
                           className="flex items-center gap-1 text-green-primary font-medium text-xs px-2 min-h-11 rounded-lg hover:bg-green-light transition-colors"
                         >
-                          <ScrollText className="w-3.5 h-3.5" />Ledger
+                          <ScrollText className="w-3.5 h-3.5" />{t("Ledger")}
                         </button>
                         <button
                           onClick={() => { setAdjustPoints(''); setAdjustNote(''); setAdjustTarget(row.restaurantId); }}
                           className="text-text-secondary font-medium text-xs px-2 min-h-11 rounded-lg hover:bg-bg-secondary transition-colors"
                         >
-                          Ajuster
+                          {t("Ajuster")}
                         </button>
                       </div>
                     </td>
@@ -454,17 +457,14 @@ export default function AdminPoints() {
       <Dialog open={promoOpen} onOpenChange={(open) => { if (!open) setPromoOpen(false); }}>
         <DialogContent className="sm:max-w-[440px] max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-poppins">Offrir des points en masse</DialogTitle>
+            <DialogTitle className="font-poppins">{t("Offrir des points en masse")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-text-secondary text-sm font-inter">
-              Crédite <span className="font-semibold text-text-primary">tous les restaurants du catalogue
-              ({restaurants.length})</span> en une fois. Une campagne ne peut servir chaque resto
-              qu&apos;une seule fois : relancer la même campagne ignore les restos déjà crédités
-              (aucun double-crédit possible).
+              {t("Crédite")} <span className="font-semibold text-text-primary">{t("tous les restaurants du catalogue\n              (")}{restaurants.length})</span> {t("en une fois. Une campagne ne peut servir chaque resto\n              qu&apos;une seule fois : relancer la même campagne ignore les restos déjà crédités\n              (aucun double-crédit possible).")}
             </p>
             <div>
-              <label htmlFor="promo-points" className="block text-sm font-inter font-medium text-text-primary mb-1">Points offerts par restaurant</label>
+              <label htmlFor="promo-points" className="block text-sm font-inter font-medium text-text-primary mb-1">{t("Points offerts par restaurant")}</label>
               <input
                 id="promo-points"
                 type="number"
@@ -475,7 +475,7 @@ export default function AdminPoints() {
               />
             </div>
             <div>
-              <label htmlFor="promo-campaign" className="block text-sm font-inter font-medium text-text-primary mb-1">Identifiant de campagne</label>
+              <label htmlFor="promo-campaign" className="block text-sm font-inter font-medium text-text-primary mb-1">{t("Identifiant de campagne")}</label>
               <input
                 id="promo-campaign"
                 type="text"
@@ -485,11 +485,11 @@ export default function AdminPoints() {
                 className="w-full bg-white rounded-lg border border-border-custom px-3 h-11 text-sm font-inter outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
               />
               <p className="text-[11px] text-text-muted font-inter mt-1">
-                C&apos;est lui qui garantit « une seule fois par resto ». Changez-le pour une nouvelle vague.
+                {t("C&apos;est lui qui garantit « une seule fois par resto ». Changez-le pour une nouvelle vague.")}
               </p>
             </div>
             <div>
-              <label htmlFor="promo-note" className="block text-sm font-inter font-medium text-text-primary mb-1">Libellé (visible au ledger des restos)</label>
+              <label htmlFor="promo-note" className="block text-sm font-inter font-medium text-text-primary mb-1">{t("Libellé (visible au ledger des restos)")}</label>
               <input
                 id="promo-note"
                 type="text"
@@ -499,12 +499,12 @@ export default function AdminPoints() {
               />
             </div>
             <p className="bg-gold-light text-amber-700 rounded-lg px-3 py-2 text-xs font-inter">
-              Total offert : <span className="font-semibold">{((parseInt(promoPoints, 10) || 0) * restaurants.length).toLocaleString()} points</span>
-              {' '}(valeur {(((parseInt(promoPoints, 10) || 0) * restaurants.length) * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} FCFA).
+              {t("Total offert :")} <span className="font-semibold">{((parseInt(promoPoints, 10) || 0) * restaurants.length).toLocaleString()} {t("points")}</span>
+              {' '}{t("(valeur")} {(((parseInt(promoPoints, 10) || 0) * restaurants.length) * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} {t("FCFA).")}
             </p>
           </div>
           <DialogFooter>
-            <button onClick={() => setPromoOpen(false)} className="px-4 h-11 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">Annuler</button>
+            <button onClick={() => setPromoOpen(false)} className="px-4 h-11 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">{t("Annuler")}</button>
             <button
               onClick={handlePromoGrant}
               disabled={promoGranting || !(parseInt(promoPoints, 10) > 0) || !promoCampaign.trim() || restaurants.length === 0}
@@ -520,7 +520,7 @@ export default function AdminPoints() {
       <Dialog open={!!rejectTarget} onOpenChange={(open) => { if (!open) setRejectTarget(null); }}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle className="font-poppins">Rejeter la recharge {rejectTarget?.paymentRef} ?</DialogTitle>
+            <DialogTitle className="font-poppins">{t("Rejeter la recharge")} {rejectTarget?.paymentRef} ?</DialogTitle>
           </DialogHeader>
           <p className="text-text-secondary text-sm font-inter">
             {rejectTarget && `${nameOf(rejectTarget.restaurantId)} — ${rejectTarget.points} pts (${rejectTarget.amountFcfa.toLocaleString()} FCFA).`}
@@ -533,13 +533,13 @@ export default function AdminPoints() {
             className="w-full bg-white rounded-lg border border-border-custom px-3 py-2 text-sm font-inter outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all resize-none"
           />
           <DialogFooter>
-            <button onClick={() => setRejectTarget(null)} className="px-4 h-11 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">Annuler</button>
+            <button onClick={() => setRejectTarget(null)} className="px-4 h-11 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">{t("Annuler")}</button>
             <button
               onClick={handleReject}
               disabled={!rejectReason.trim() || deciding === rejectTarget?.id}
               className="px-5 h-11 rounded-lg bg-error text-white font-inter font-medium text-sm hover:bg-error/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Rejeter
+              {t("Rejeter")}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -549,7 +549,7 @@ export default function AdminPoints() {
       <Dialog open={!!adjustTarget} onOpenChange={(open) => { if (!open) setAdjustTarget(null); }}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle className="font-poppins">Ajuster les points — {adjustTarget && nameOf(adjustTarget)}</DialogTitle>
+            <DialogTitle className="font-poppins">{t("Ajuster les points —")} {adjustTarget && nameOf(adjustTarget)}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <input
@@ -568,7 +568,7 @@ export default function AdminPoints() {
             />
           </div>
           <DialogFooter>
-            <button onClick={() => setAdjustTarget(null)} className="px-4 h-11 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">Annuler</button>
+            <button onClick={() => setAdjustTarget(null)} className="px-4 h-11 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">{t("Annuler")}</button>
             <button
               onClick={handleAdjust}
               disabled={adjusting || !parseInt(adjustPoints, 10) || !adjustNote.trim()}
@@ -584,10 +584,10 @@ export default function AdminPoints() {
       <Dialog open={!!ledgerTarget} onOpenChange={(open) => { if (!open) { setLedgerTarget(null); setLedgerEntries([]); } }}>
         <DialogContent className="sm:max-w-[520px] max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-poppins">Ledger — {ledgerTarget && nameOf(ledgerTarget)}</DialogTitle>
+            <DialogTitle className="font-poppins">{t("Ledger —")} {ledgerTarget && nameOf(ledgerTarget)}</DialogTitle>
           </DialogHeader>
           {ledgerEntries.length === 0 ? (
-            <p className="text-text-secondary font-inter text-sm py-4 text-center">Aucune écriture.</p>
+            <p className="text-text-secondary font-inter text-sm py-4 text-center">{t("Aucune écriture.")}</p>
           ) : (
             <>
               <ul className="divide-y divide-border-light">
@@ -596,18 +596,18 @@ export default function AdminPoints() {
                     <div className="min-w-0">
                       <p className="text-sm font-inter text-text-primary">{entry.note ?? entry.kind}</p>
                       <p className="text-text-muted text-[11px] font-inter">
-                        {new Date(entry.createdAt).toLocaleString('fr-FR')} · {entry.kind} · réf. {entry.reference.slice(0, 12)}
+                        {new Date(entry.createdAt).toLocaleString('fr-FR')} · {entry.kind} {t("· réf.")} {entry.reference.slice(0, 12)}
                       </p>
                     </div>
                     <span className={`shrink-0 text-sm font-inter font-semibold ${entry.points < 0 ? 'text-error' : entry.points > 0 ? 'text-green-primary' : 'text-text-muted'}`}>
-                      {entry.points > 0 ? '+' : ''}{entry.points} pt{Math.abs(entry.points) > 1 ? 's' : ''}
+                      {entry.points > 0 ? '+' : ''}{entry.points} {t("pt")}{Math.abs(entry.points) > 1 ? 's' : ''}
                     </span>
                   </li>
                 ))}
               </ul>
               {ledgerEntries.length > ledgerLimit && (
                 <button onClick={() => setLedgerLimit((n) => n + 20)} className="w-full text-green-primary font-inter text-sm font-medium hover:underline min-h-11">
-                  Voir plus ({ledgerEntries.length - ledgerLimit} restantes)
+                  {t("Voir plus (")}{ledgerEntries.length - ledgerLimit} {t("restantes)")}
                 </button>
               )}
             </>

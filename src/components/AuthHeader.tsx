@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import { useTranslation } from "react-i18next";
 
 interface AuthHeaderProps {
   icon: LucideIcon;
@@ -10,6 +11,7 @@ interface AuthHeaderProps {
 // porte admin) : bandeau de marque + médaillon du rôle. La carte parente
 // doit être en `p-0 overflow-hidden` pour que le bandeau soit bord à bord.
 export default function AuthHeader({ icon: Icon, title, subtitle }: AuthHeaderProps) {
+    const { t } = useTranslation();
   return (
     <div>
       <div className="relative bg-gradient-to-br from-green-primary to-green-dark px-6 pt-5 pb-12 overflow-hidden">
@@ -17,7 +19,7 @@ export default function AuthHeader({ icon: Icon, title, subtitle }: AuthHeaderPr
         <div aria-hidden className="absolute right-12 -bottom-10 w-20 h-20 rounded-full bg-gold-accent/30" />
         <div className="relative flex items-center justify-center gap-2.5">
           <img src="/logo-icon.png" alt="" className="w-9 h-9 object-contain" />
-          <span className="font-poppins font-bold text-white text-lg">MiamExpress</span>
+          <span className="font-poppins font-bold text-white text-lg">{t("MiamExpress")}</span>
         </div>
       </div>
       {/* `relative` obligatoire : le bandeau au-dessus est positionné, sans

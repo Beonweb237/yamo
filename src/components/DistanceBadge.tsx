@@ -3,6 +3,7 @@
 // ============================================================
 import { Clock, MapPin, DollarSign } from 'lucide-react';
 import { distanceKm, estimateDeliveryTime, calculateDeliveryFeeSync } from '../lib/distance';
+import { useTranslation } from "react-i18next";
 
 interface Props {
   userLat?: number | null;
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function DistanceBadge({ userLat, userLng, restaurantLat, restaurantLng, className }: Props) {
+    const { t } = useTranslation();
   if (userLat == null || userLng == null || restaurantLat == null || restaurantLng == null) return null;
 
   const km = distanceKm({ lat: userLat, lng: userLng }, { lat: restaurantLat, lng: restaurantLng });
@@ -24,13 +26,13 @@ export default function DistanceBadge({ userLat, userLng, restaurantLat, restaur
   return (
     <div className={`flex items-center gap-3 text-xs font-inter text-text-muted ${className || ''}`}>
       <span className="flex items-center gap-1" title="Distance">
-        <MapPin className="w-3 h-3" /> {km} km
+        <MapPin className="w-3 h-3" /> {km} {t("km")}
       </span>
       <span className="flex items-center gap-1" title="Temps estimé">
         <Clock className="w-3 h-3" /> {time.label}
       </span>
       <span className="flex items-center gap-1 font-medium text-green-primary" title="Frais de livraison">
-        <DollarSign className="w-3 h-3" /> {fee.toLocaleString()} FCFA
+        <DollarSign className="w-3 h-3" /> {fee.toLocaleString()} {t("FCFA")}
       </span>
     </div>
   );

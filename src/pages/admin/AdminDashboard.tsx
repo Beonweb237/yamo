@@ -7,6 +7,7 @@ import { useRestaurants } from '../../hooks/useCatalog';
 import { fetchAllOrders } from '../../lib/orders';
 import type { OrderStatus } from '../../lib/orders';
 import { CHART_PRIMARY, CHART_GRID, CHART_TICK, CHART_TOOLTIP_STYLE } from '../../lib/chartTheme';
+import { useTranslation } from "react-i18next";
 
 const MIAMEXPRESS_COMMISSION_RATE = 0.15;
 
@@ -17,6 +18,7 @@ const statusLabels: Record<OrderStatus, string> = {
 };
 
 export default function AdminDashboard() {
+    const { t } = useTranslation();
   const { restaurants } = useRestaurants();
   const [orders, setOrders] = useState<any[]>([]);
   const loadOrders = useCallback(async () => {
@@ -83,30 +85,30 @@ export default function AdminDashboard() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-poppins font-bold text-text-primary text-2xl">Tableau de bord</h1>
+        <h1 className="font-poppins font-bold text-text-primary text-2xl">{t("Tableau de bord")}</h1>
         <button onClick={loadOrders} className="flex items-center gap-1.5 text-text-secondary text-sm font-inter hover:text-text-primary">
-          <RefreshCw className="w-4 h-4" /> Actualiser
+          <RefreshCw className="w-4 h-4" /> {t("Actualiser")}
         </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-border-custom p-5 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-green-light flex items-center justify-center shrink-0"><ShoppingBag className="w-5 h-5 text-green-primary" /></div>
-          <div><p className="text-text-muted text-xs font-inter">Commandes totales</p><p className="font-poppins font-bold text-text-primary text-xl">{stats.total}</p></div>
+          <div><p className="text-text-muted text-xs font-inter">{t("Commandes totales")}</p><p className="font-poppins font-bold text-text-primary text-xl">{stats.total}</p></div>
         </div>
         <div className="bg-white rounded-xl border border-border-custom p-5 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gold-light flex items-center justify-center shrink-0"><Wallet className="w-5 h-5 text-gold-accent" /></div>
-          <div><p className="text-text-muted text-xs font-inter">Chiffre d'affaires</p><p className="font-poppins font-bold text-text-primary text-xl">{stats.revenue.toLocaleString()} FCFA</p></div>
+          <div><p className="text-text-muted text-xs font-inter">{t("Chiffre d'affaires")}</p><p className="font-poppins font-bold text-text-primary text-xl">{stats.revenue.toLocaleString()} {t("FCFA")}</p></div>
         </div>
         <div className="bg-white rounded-xl border border-border-custom p-5 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-green-light flex items-center justify-center shrink-0"><Store className="w-5 h-5 text-green-primary" /></div>
-          <div><p className="text-text-muted text-xs font-inter">Restaurants actifs</p><p className="font-poppins font-bold text-text-primary text-xl">{restaurants.length}</p></div>
+          <div><p className="text-text-muted text-xs font-inter">{t("Restaurants actifs")}</p><p className="font-poppins font-bold text-text-primary text-xl">{restaurants.length}</p></div>
         </div>
       </div>
 
       {/* S6 — top plateforme + CA/commission par période */}
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-sm font-inter font-medium text-text-secondary">Période :</span>
+        <span className="text-sm font-inter font-medium text-text-secondary">{t("Période :")}</span>
         {(['week', 'month', 'all'] as const).map((p) => (
           <button
             key={p}
@@ -123,15 +125,15 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-xl border border-border-custom p-5 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gold-light flex items-center justify-center shrink-0"><Percent className="w-5 h-5 text-gold-accent" /></div>
           <div>
-            <p className="text-text-muted text-xs font-inter">Commission MiamExpress générée (15%)</p>
-            <p className="font-poppins font-bold text-text-primary text-xl">{Math.round(periodStats.commission).toLocaleString()} FCFA</p>
+            <p className="text-text-muted text-xs font-inter">{t("Commission MiamExpress générée (15%)")}</p>
+            <p className="font-poppins font-bold text-text-primary text-xl">{Math.round(periodStats.commission).toLocaleString()} {t("FCFA")}</p>
           </div>
         </div>
         <div className="bg-white rounded-xl border border-border-custom p-5 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-green-light flex items-center justify-center shrink-0"><Wallet className="w-5 h-5 text-green-primary" /></div>
           <div>
-            <p className="text-text-muted text-xs font-inter">CA sur la période</p>
-            <p className="font-poppins font-bold text-text-primary text-xl">{periodStats.revenue.toLocaleString()} FCFA</p>
+            <p className="text-text-muted text-xs font-inter">{t("CA sur la période")}</p>
+            <p className="font-poppins font-bold text-text-primary text-xl">{periodStats.revenue.toLocaleString()} {t("FCFA")}</p>
           </div>
         </div>
       </div>
@@ -139,18 +141,18 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-border-custom p-5">
           <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4 flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-gold-accent" />Top restaurants
+            <Trophy className="w-5 h-5 text-gold-accent" />{t("Top restaurants")}
           </h2>
           {topRestaurants.length === 0 ? (
-            <p className="text-text-secondary font-inter text-sm">Aucune donnée sur cette période.</p>
+            <p className="text-text-secondary font-inter text-sm">{t("Aucune donnée sur cette période.")}</p>
           ) : (
             <div className="divide-y divide-border-light">
               {topRestaurants.map((r, i) => (
                 <div key={r.name} className="py-2.5 flex items-center gap-3">
                   <span className={`w-6 h-6 rounded-full text-xs font-inter font-bold flex items-center justify-center shrink-0 ${i < 3 ? 'bg-gold-light text-amber-700' : 'text-text-muted'}`}>{i + 1}</span>
                   <p className="flex-1 font-inter font-medium text-text-primary text-sm truncate">{r.name}</p>
-                  <p className="text-text-muted text-xs font-inter shrink-0">{r.orders} cmd.</p>
-                  <p className="font-inter font-semibold text-green-primary text-sm shrink-0 w-24 text-right">{r.revenue.toLocaleString()} FCFA</p>
+                  <p className="text-text-muted text-xs font-inter shrink-0">{r.orders} {t("cmd.")}</p>
+                  <p className="font-inter font-semibold text-green-primary text-sm shrink-0 w-24 text-right">{r.revenue.toLocaleString()} {t("FCFA")}</p>
                 </div>
               ))}
             </div>
@@ -158,18 +160,18 @@ export default function AdminDashboard() {
         </div>
         <div className="bg-white rounded-xl border border-border-custom p-5">
           <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4 flex items-center gap-2">
-            <ChefHat className="w-5 h-5 text-green-primary" />Top plats plateforme
+            <ChefHat className="w-5 h-5 text-green-primary" />{t("Top plats plateforme")}
           </h2>
           {topDishes.length === 0 ? (
-            <p className="text-text-secondary font-inter text-sm">Aucune donnée sur cette période.</p>
+            <p className="text-text-secondary font-inter text-sm">{t("Aucune donnée sur cette période.")}</p>
           ) : (
             <div className="divide-y divide-border-light">
               {topDishes.map((d, i) => (
                 <div key={d.name} className="py-2.5 flex items-center gap-3">
                   <span className={`w-6 h-6 rounded-full text-xs font-inter font-bold flex items-center justify-center shrink-0 ${i < 3 ? 'bg-gold-light text-amber-700' : 'text-text-muted'}`}>{i + 1}</span>
                   <p className="flex-1 font-inter font-medium text-text-primary text-sm truncate">{d.name}</p>
-                  <p className="text-text-muted text-xs font-inter shrink-0">{d.quantity} vendus</p>
-                  <p className="font-inter font-semibold text-green-primary text-sm shrink-0 w-24 text-right">{d.revenue.toLocaleString()} FCFA</p>
+                  <p className="text-text-muted text-xs font-inter shrink-0">{d.quantity} {t("vendus")}</p>
+                  <p className="font-inter font-semibold text-green-primary text-sm shrink-0 w-24 text-right">{d.revenue.toLocaleString()} {t("FCFA")}</p>
                 </div>
               ))}
             </div>
@@ -181,7 +183,7 @@ export default function AdminDashboard() {
           inventées. À réintroduire uniquement avec de vraies positions livreur
           (backend VPS). Remplacée par l'accès direct aux commandes par statut. */}
       <div className="bg-white rounded-xl border border-border-custom p-5 mb-6">
-        <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">Commandes par statut</h2>
+        <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">{t("Commandes par statut")}</h2>
         <div className="flex flex-wrap gap-2">
           {(Object.keys(statusLabels) as OrderStatus[]).map((s) => (
             <Link
@@ -199,7 +201,7 @@ export default function AdminDashboard() {
 
       {revenueByDay.length > 0 && (
         <div className="bg-white rounded-xl border border-border-custom p-5">
-          <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4 flex items-center gap-2"><TrendingUp className="w-5 h-5 text-green-primary" />CA — 7 derniers jours</h2>
+          <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4 flex items-center gap-2"><TrendingUp className="w-5 h-5 text-green-primary" />{t("CA — 7 derniers jours")}</h2>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={revenueByDay}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />

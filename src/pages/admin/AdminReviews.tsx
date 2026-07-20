@@ -14,6 +14,7 @@ import {
   type ReviewStatus,
   type ReviewTargetType,
 } from '../../lib/reviews';
+import { useTranslation } from "react-i18next";
 
 type TargetFilter = ReviewTargetType | 'all';
 type StatusFilter = ReviewStatus | 'all';
@@ -50,6 +51,7 @@ function statusClass(status: ReviewStatus): string {
 }
 
 export default function AdminReviews() {
+    const { t } = useTranslation();
   const { restaurants } = useRestaurants();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [query, setQuery] = useState('');
@@ -152,10 +154,10 @@ export default function AdminReviews() {
         <div>
           <h1 className="font-poppins font-bold text-text-primary text-2xl flex items-center gap-2">
             <MessageSquare className="w-6 h-6 text-green-primary" />
-            Avis clients
+            {t("Avis clients")}
           </h1>
           <p className="text-text-secondary text-sm font-inter mt-1">
-            Avis vérifiés issus des commandes livrées.
+            {t("Avis vérifiés issus des commandes livrées.")}
           </p>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -189,20 +191,20 @@ export default function AdminReviews() {
             onChange={(event) => setTargetFilter(event.target.value as TargetFilter)}
             className="h-11 rounded-lg bg-bg-secondary px-3 text-sm font-inter text-text-primary outline-none"
           >
-            <option value="all">Tous les types</option>
-            <option value="restaurant">Restaurants</option>
-            <option value="driver">Livraisons</option>
-            <option value="dish">Plats</option>
+            <option value="all">{t("Tous les types")}</option>
+            <option value="restaurant">{t("Restaurants")}</option>
+            <option value="driver">{t("Livraisons")}</option>
+            <option value="dish">{t("Plats")}</option>
           </select>
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
             className="h-11 rounded-lg bg-bg-secondary px-3 text-sm font-inter text-text-primary outline-none"
           >
-            <option value="all">Tous les statuts</option>
-            <option value="published">Publiés</option>
-            <option value="pending">À vérifier</option>
-            <option value="hidden">Masqués</option>
+            <option value="all">{t("Tous les statuts")}</option>
+            <option value="published">{t("Publiés")}</option>
+            <option value="pending">{t("À vérifier")}</option>
+            <option value="hidden">{t("Masqués")}</option>
           </select>
           <label className="flex items-center gap-2 h-11 px-3 rounded-lg bg-bg-secondary cursor-pointer">
             <input
@@ -212,7 +214,7 @@ export default function AdminReviews() {
               className="accent-green-primary"
             />
             <span className="text-sm font-inter text-text-primary whitespace-nowrap">
-              Signalés uniquement
+              {t("Signalés uniquement")}
               {stats.reported > 0 && (
                 <span className="ml-1.5 bg-gold-light text-amber-700 text-[11px] font-semibold px-1.5 py-0.5 rounded-full">
                   {stats.reported}
@@ -231,11 +233,12 @@ export default function AdminReviews() {
         ) : filtered.length === 0 ? (
           <div className="p-10 text-center">
             <MessageSquare className="w-10 h-10 text-text-muted mx-auto mb-3" />
-            <p className="text-text-secondary font-inter text-sm">Aucun avis ne correspond aux filtres.</p>
+            <p className="text-text-secondary font-inter text-sm">{t("Aucun avis ne correspond aux filtres.")}</p>
           </div>
         ) : (
           <div className="divide-y divide-border-light">
             {filtered.map((review) => {
+                const { t } = useTranslation();
               const restaurantName = restaurantNameById[review.restaurantId] ?? review.restaurantId;
               return (
                 <div key={review.id} className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-start gap-4">
@@ -252,7 +255,7 @@ export default function AdminReviews() {
                       </span>
                       {review.isVerifiedOrder && (
                         <span className="text-[11px] font-inter font-semibold px-2 py-0.5 rounded-full bg-green-light text-green-primary">
-                          Commande vérifiée
+                          {t("Commande vérifiée")}
                         </span>
                       )}
                     </div>
@@ -274,7 +277,7 @@ export default function AdminReviews() {
                     {review.comment ? (
                       <p className="text-text-primary text-sm font-inter leading-relaxed">{review.comment}</p>
                     ) : (
-                      <p className="text-text-muted text-sm font-inter italic">Aucun commentaire.</p>
+                      <p className="text-text-muted text-sm font-inter italic">{t("Aucun commentaire.")}</p>
                     )}
 
                     {/* Signalement du restaurant — file de traitement admin */}
@@ -282,7 +285,7 @@ export default function AdminReviews() {
                       <div className={`mt-3 rounded-lg p-3 border-l-2 ${review.ownerReport.status === 'open' ? 'bg-gold-light/50 border-gold-accent' : 'bg-bg-secondary border-border-custom'}`}>
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <span className="text-[11px] font-inter font-semibold text-amber-700 uppercase tracking-wide">
-                            Signalé par le restaurant
+                            {t("Signalé par le restaurant")}
                           </span>
                           <span className={`text-[11px] font-inter font-semibold px-2 py-0.5 rounded-full ${review.ownerReport.status === 'open' ? 'bg-gold-light text-amber-700' : 'bg-bg-secondary text-text-muted'}`}>
                             {review.ownerReport.status === 'open' ? 'A traiter' : 'Traite'}
@@ -292,11 +295,11 @@ export default function AdminReviews() {
                           </span>
                         </div>
                         <p className="text-text-primary text-sm font-inter leading-relaxed">
-                          Motif : {review.ownerReport.reason}
+                          {t("Motif :")} {review.ownerReport.reason}
                         </p>
                         {review.ownerReport.status === 'open' && (
                           <p className="text-text-muted text-xs font-inter mt-1">
-                            Masquer ou re-publier l&apos;avis clôt le signalement, ou classez-le sans action :
+                            {t("Masquer ou re-publier l&apos;avis clôt le signalement, ou classez-le sans action :")}
                           </p>
                         )}
                         {review.ownerReport.status === 'open' && (
@@ -307,7 +310,7 @@ export default function AdminReviews() {
                             className="mt-2 inline-flex items-center gap-1 h-8 px-2.5 rounded-lg bg-bg-secondary text-text-secondary text-xs font-inter font-semibold hover:bg-text-secondary hover:text-white transition-colors disabled:opacity-60"
                           >
                             <CheckCircle className="w-3.5 h-3.5" />
-                            Classer sans action
+                            {t("Classer sans action")}
                           </button>
                         )}
                       </div>
@@ -318,7 +321,7 @@ export default function AdminReviews() {
                       <div className={`mt-3 rounded-lg p-3 border-l-2 ${review.ownerReply.status === 'hidden' ? 'bg-error/5 border-error' : 'bg-bg-secondary border-green-primary'}`}>
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <span className="text-[11px] font-inter font-semibold text-text-secondary uppercase tracking-wide">
-                            Reponse du restaurant
+                            {t("Reponse du restaurant")}
                           </span>
                           <span className={`text-[11px] font-inter font-semibold px-2 py-0.5 rounded-full ${review.ownerReply.status === 'hidden' ? 'bg-error/10 text-error' : 'bg-green-light text-green-primary'}`}>
                             {review.ownerReply.status === 'hidden' ? 'Masquée' : 'Publiée'}
@@ -330,7 +333,7 @@ export default function AdminReviews() {
                         </div>
                         <p className="text-text-primary text-sm font-inter leading-relaxed">{review.ownerReply.text}</p>
                         {review.ownerReply.status === 'hidden' && review.ownerReply.moderationReason && (
-                          <p className="text-error text-xs font-inter mt-1">Motif : {review.ownerReply.moderationReason}</p>
+                          <p className="text-error text-xs font-inter mt-1">{t("Motif :")} {review.ownerReply.moderationReason}</p>
                         )}
                         <div className="flex gap-2 mt-2">
                           {review.ownerReply.status !== 'published' && (
@@ -341,7 +344,7 @@ export default function AdminReviews() {
                               className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg bg-green-light text-green-primary text-xs font-inter font-semibold hover:bg-green-primary hover:text-white transition-colors disabled:opacity-60"
                             >
                               <CheckCircle className="w-3.5 h-3.5" />
-                              Publier la réponse
+                              {t("Publier la réponse")}
                             </button>
                           )}
                           {review.ownerReply.status !== 'hidden' && (
@@ -352,7 +355,7 @@ export default function AdminReviews() {
                               className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg bg-error/10 text-error text-xs font-inter font-semibold hover:bg-error hover:text-white transition-colors disabled:opacity-60"
                             >
                               <EyeOff className="w-3.5 h-3.5" />
-                              Masquer la réponse
+                              {t("Masquer la réponse")}
                             </button>
                           )}
                         </div>
@@ -368,7 +371,7 @@ export default function AdminReviews() {
                         className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-green-light text-green-primary text-xs font-inter font-semibold hover:bg-green-primary hover:text-white transition-colors disabled:opacity-60"
                       >
                         <CheckCircle className="w-3.5 h-3.5" />
-                        Publier
+                        {t("Publier")}
                       </button>
                     )}
                     {review.status !== 'hidden' && (
@@ -379,7 +382,7 @@ export default function AdminReviews() {
                         className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-error/10 text-error text-xs font-inter font-semibold hover:bg-error hover:text-white transition-colors disabled:opacity-60"
                       >
                         <EyeOff className="w-3.5 h-3.5" />
-                        Masquer
+                        {t("Masquer")}
                       </button>
                     )}
                   </div>

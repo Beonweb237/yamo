@@ -16,8 +16,10 @@ import {
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
 import { adminSetPassword, getUserEmail, ADMIN_DEFAULT_PASSWORD } from '../../contexts/AuthContext';
+import { useTranslation } from "react-i18next";
 
 export default function AdminRestaurants() {
+    const { t } = useTranslation();
   const { restaurants } = useRestaurants();
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
@@ -118,9 +120,10 @@ export default function AdminRestaurants() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <h1 className="font-poppins font-bold text-text-primary text-2xl mb-6 flex items-center gap-2"><Store className="w-6 h-6 text-green-primary" />Restaurants ({restaurants.length})</h1>
+      <h1 className="font-poppins font-bold text-text-primary text-2xl mb-6 flex items-center gap-2"><Store className="w-6 h-6 text-green-primary" />{t("Restaurants (")}{restaurants.length})</h1>
       <div className="bg-white rounded-xl border border-border-custom divide-y divide-border-light">
         {restaurants.map((r) => {
+            const { t } = useTranslation();
           const isOpen = overrides[r.id] ?? r.isOpen;
           const isExpanded = expandedId === r.id;
           const hasGps = r.lat != null && r.lng != null;
@@ -136,16 +139,16 @@ export default function AdminRestaurants() {
                     <p className="font-inter font-medium text-text-primary text-sm truncate">{r.name}</p>
                     {r.verified && (
                       <span className="inline-flex items-center gap-1 text-blue-600 text-[10px] font-medium bg-blue-50 rounded-full px-2 py-0.5 shrink-0">
-                        <BadgeCheck className="w-2.5 h-2.5" /> Vérifié
+                        <BadgeCheck className="w-2.5 h-2.5" /> {t("Vérifié")}
                       </span>
                     )}
                     {hasGps ? (
                       <span className="inline-flex items-center gap-1 text-green-primary text-[10px] font-medium bg-green-light rounded-full px-2 py-0.5 shrink-0">
-                        <MapPin className="w-2.5 h-2.5" /> GPS
+                        <MapPin className="w-2.5 h-2.5" /> {t("GPS")}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-amber-700 text-[10px] font-medium bg-amber-50 rounded-full px-2 py-0.5 shrink-0">
-                        <MapPin className="w-2.5 h-2.5" /> Sans GPS
+                        <MapPin className="w-2.5 h-2.5" /> {t("Sans GPS")}
                       </span>
                     )}
                   </div>
@@ -168,7 +171,7 @@ export default function AdminRestaurants() {
                     title="Définir un mot de passe pour ce restaurant"
                   >
                     <KeyRound className="w-3 h-3" />
-                    Mot de passe
+                    {t("Mot de passe")}
                   </button>
                   <span className={`text-xs font-medium ${isOpen ? 'text-green-primary' : 'text-text-muted'}`}>{isOpen ? 'Ouvert' : 'Fermé'}</span>
                   <Switch
@@ -208,73 +211,73 @@ export default function AdminRestaurants() {
               {/* Restaurant info */}
               <div className="bg-bg-secondary rounded-xl p-4 space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Nom</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Nom")}</span>
                   <span className="text-sm font-medium text-text-primary text-right">{selectedRestaurant.name}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Catégorie</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Catégorie")}</span>
                   <span className="text-sm font-medium text-text-primary">{selectedRestaurant.category}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Ville</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Ville")}</span>
                   <span className="text-sm font-medium text-text-primary">{selectedRestaurant.city}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Quartier</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Quartier")}</span>
                   <span className="text-sm font-medium text-text-primary">{selectedRestaurant.neighborhood}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Adresse</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Adresse")}</span>
                   <span className="text-sm font-medium text-text-primary text-right max-w-[60%]">{selectedRestaurant.address}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Téléphone</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Téléphone")}</span>
                   <span className="text-sm font-medium text-text-primary">{selectedRestaurant.phone || '—'}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Note</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Note")}</span>
                   <span className="text-sm font-medium flex items-center gap-1">
                     <Star className="w-3.5 h-3.5 fill-gold-accent text-gold-accent" />
-                    {selectedRestaurant.rating.toFixed(1)} ({selectedRestaurant.reviewCount} avis)
+                    {selectedRestaurant.rating.toFixed(1)} ({selectedRestaurant.reviewCount} {t("avis)")}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Horaires</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Horaires")}</span>
                   <span className="text-sm font-medium text-text-primary text-right max-w-[50%]">{selectedRestaurant.hours || '—'}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Frais livraison</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Frais livraison")}</span>
                   <span className="text-sm font-medium text-text-primary">{selectedRestaurant.deliveryFee === 0 ? 'Gratuit' : `${selectedRestaurant.deliveryFee.toLocaleString()} FCFA`}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Commande min.</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Commande min.")}</span>
                   <span className="text-sm font-medium text-text-primary">{`${selectedRestaurant.minOrder.toLocaleString()} FCFA`}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Temps livraison</span>
-                  <span className="text-sm font-medium text-text-primary">{selectedRestaurant.deliveryTime} min</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Temps livraison")}</span>
+                  <span className="text-sm font-medium text-text-primary">{selectedRestaurant.deliveryTime} {t("min")}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Statut</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Statut")}</span>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${(overrides[selectedRestaurant.id] ?? selectedRestaurant.isOpen) ? 'bg-green-50 text-green-primary' : 'bg-red-50 text-red-600'}`}>
                     {(overrides[selectedRestaurant.id] ?? selectedRestaurant.isOpen) ? 'Ouvert' : 'Fermé'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Vérifié</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Vérifié")}</span>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${(verifiedOverrides[selectedRestaurant.id] ?? selectedRestaurant.verified) ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-text-muted'}`}>
                     {(verifiedOverrides[selectedRestaurant.id] ?? selectedRestaurant.verified) ? '✓ Oui' : 'Non'}
                   </span>
                 </div>
                 {selectedRestaurant.description && (
                   <div className="pt-2 border-t border-border-light">
-                    <span className="text-sm text-text-muted font-inter block mb-1">Description</span>
+                    <span className="text-sm text-text-muted font-inter block mb-1">{t("Description")}</span>
                     <p className="text-sm text-text-primary font-inter">{selectedRestaurant.description}</p>
                   </div>
                 )}
                 {selectedRestaurant.tags?.length > 0 && (
                   <div className="pt-2 border-t border-border-light">
-                    <span className="text-sm text-text-muted font-inter block mb-1.5">Tags</span>
+                    <span className="text-sm text-text-muted font-inter block mb-1.5">{t("Tags")}</span>
                     <div className="flex flex-wrap gap-1.5">
                       {selectedRestaurant.tags.map((tag) => (
                         <span key={tag} className="text-[11px] font-inter font-medium bg-white rounded-full px-2.5 py-1 text-text-secondary border border-border-custom">
@@ -289,25 +292,25 @@ export default function AdminRestaurants() {
               {/* Credentials */}
               <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 space-y-2">
                 <h3 className="font-inter font-semibold text-amber-800 text-sm flex items-center gap-1.5">
-                  <KeyRound className="w-4 h-4" /> Identifiants de connexion
+                  <KeyRound className="w-4 h-4" /> {t("Identifiants de connexion")}
                 </h3>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-amber-700 font-inter">Email</span>
+                  <span className="text-sm text-amber-700 font-inter">{t("Email")}</span>
                   <span className="text-sm font-mono font-medium text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{selectedRestaurant.email || getUserEmail(selectedRestaurant.phone, selectedRestaurant.name)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-amber-700 font-inter">Téléphone</span>
+                  <span className="text-sm text-amber-700 font-inter">{t("Téléphone")}</span>
                   <span className="text-sm font-mono font-medium text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{selectedRestaurant.phone || '—'}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-amber-700 font-inter">Mot de passe</span>
+                  <span className="text-sm text-amber-700 font-inter">{t("Mot de passe")}</span>
                   <span className="text-sm font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{ADMIN_DEFAULT_PASSWORD}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-amber-700 font-inter">Code OTP</span>
+                  <span className="text-sm text-amber-700 font-inter">{t("Code OTP")}</span>
                   <span className="text-sm font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">12345</span>
                 </div>
-                <p className="text-[11px] text-amber-600 font-inter mt-1">Connexion : email ou téléphone + mot de passe {ADMIN_DEFAULT_PASSWORD}</p>
+                <p className="text-[11px] text-amber-600 font-inter mt-1">{t("Connexion : email ou téléphone + mot de passe")} {ADMIN_DEFAULT_PASSWORD}</p>
               </div>
 
               {/* Actions */}
@@ -316,7 +319,7 @@ export default function AdminRestaurants() {
                   onClick={() => { setPasswordTarget({ id: selectedRestaurant.id, name: selectedRestaurant.name, phone: selectedRestaurant.phone }); setNewPassword(''); setShowPassword(false); }}
                   className="flex items-center justify-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl border border-border-custom hover:bg-bg-secondary transition-colors text-text-primary"
                 >
-                  <KeyRound className="w-4 h-4" /> Réinitialiser le mot de passe
+                  <KeyRound className="w-4 h-4" /> {t("Réinitialiser le mot de passe")}
                 </button>
               </div>
             </div>
@@ -328,10 +331,10 @@ export default function AdminRestaurants() {
       <AlertDialog open={!!passwordTarget} onOpenChange={(open) => { if (!open) { setPasswordTarget(null); setNewPassword(''); setShowPassword(false); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Définir un mot de passe</AlertDialogTitle>
+            <AlertDialogTitle>{t("Définir un mot de passe")}</AlertDialogTitle>
             <AlertDialogDescription>
               {passwordTarget && (
-                <>Définir le mot de passe de <strong>{passwordTarget.name}</strong> ({passwordTarget.phone}). Le restaurateur pourra se connecter avec son numéro de téléphone et ce mot de passe.</>
+                <>{t("Définir le mot de passe de")} <strong>{passwordTarget.name}</strong> ({passwordTarget.phone}{t("). Le restaurateur pourra se connecter avec son numéro de téléphone et ce mot de passe.")}</>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -355,12 +358,12 @@ export default function AdminRestaurants() {
             </button>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("Annuler")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={applyPassword}
               disabled={!newPassword || newPassword.length < 4}
             >
-              Enregistrer
+              {t("Enregistrer")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

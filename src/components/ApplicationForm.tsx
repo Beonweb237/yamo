@@ -7,6 +7,7 @@ import { submitApplication, type ApplicationType } from '../lib/applications';
 import { activeCities, getNeighborhoods } from '../data/locations';
 import { slugify } from '../lib/utils';
 import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
+import { useTranslation } from "react-i18next";
 
 function FileUploadField({
   label,
@@ -21,6 +22,7 @@ function FileUploadField({
   value: string | undefined;
   onChange: (base64: string) => void;
 }) {
+    const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,7 +59,7 @@ function FileUploadField({
           className="flex items-center gap-2 border-2 border-dashed border-border-custom rounded-lg px-4 h-20 text-text-muted hover:text-text-secondary hover:border-text-muted transition-colors"
         >
           <Upload className="w-5 h-5" />
-          <span className="font-inter text-sm">Cliquez pour téléverser</span>
+          <span className="font-inter text-sm">{t("Cliquez pour téléverser")}</span>
         </button>
       )}
       <input ref={inputRef} type="file" accept={accept} onChange={handleFile} className="hidden" />
@@ -66,6 +68,7 @@ function FileUploadField({
 }
 
 export default function ApplicationForm({ type }: { type: ApplicationType }) {
+    const { t } = useTranslation();
   const { user, refreshUser } = useAuth();
   // Nom complet du candidat livreur — propagé au registre à l'approbation,
   // affiché ensuite au client pendant la livraison (« Paul K. »).
@@ -142,13 +145,13 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
     return (
       <div className="bg-white rounded-xl border border-border-custom p-6 text-center max-w-[520px] mx-auto">
         <p className="text-text-secondary font-inter text-sm mb-4">
-          Connectez-vous (en choisissant le profil {type === 'restaurant' ? 'Restaurateur' : 'Livreur'}) pour envoyer votre candidature.
+          {t("Connectez-vous (en choisissant le profil")} {type === 'restaurant' ? 'Restaurateur' : 'Livreur'}{t(") pour envoyer votre candidature.")}
         </p>
         <Link
           to="/connexion"
           className="inline-block bg-green-primary text-white font-inter font-semibold px-6 h-11 leading-[44px] rounded-lg hover:bg-green-dark transition-colors"
         >
-          Se connecter
+          {t("Se connecter")}
         </Link>
       </div>
     );
@@ -158,8 +161,8 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
     return (
       <div className="bg-white rounded-xl border border-border-custom p-6 text-center max-w-[520px] mx-auto">
         <p className="text-text-secondary font-inter text-sm">
-          Ce compte est enregistré avec un autre profil. Connectez-vous avec un compte
-          {type === 'restaurant' ? ' Restaurateur' : ' Livreur'} pour candidater ici.
+          {t("Ce compte est enregistré avec un autre profil. Connectez-vous avec un compte")}
+          {type === 'restaurant' ? ' Restaurateur' : ' Livreur'} {t("pour candidater ici.")}
         </p>
       </div>
     );
@@ -170,9 +173,9 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
       <div className="bg-white rounded-xl border border-border-custom p-6 text-center max-w-[520px] mx-auto">
         <CheckCircle2 className="w-10 h-10 text-success mx-auto mb-3" />
         <p className="text-text-secondary font-inter text-sm">
-          Votre compte est déjà approuvé.{' '}
+          {t("Votre compte est déjà approuvé.")}{' '}
           <Link to={type === 'restaurant' ? '/partenaires/dashboard' : '/livreurs/dashboard'} className="text-green-primary font-medium hover:underline">
-            Accéder à votre espace
+            {t("Accéder à votre espace")}
           </Link>
         </p>
       </div>
@@ -184,8 +187,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
       <div className="bg-white rounded-xl border border-border-custom p-6 text-center max-w-[520px] mx-auto">
         <CheckCircle2 className="w-10 h-10 text-success mx-auto mb-3" />
         <p className="text-text-secondary font-inter text-sm">
-          Candidature envoyée ! Notre équipe l&apos;examine et vous recevrez l&apos;accès à votre
-          espace dès son approbation.
+          {t("Candidature envoyée ! Notre équipe l&apos;examine et vous recevrez l&apos;accès à votre\n          espace dès son approbation.")}
         </p>
       </div>
     );
@@ -244,17 +246,17 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
           {type === 'restaurant' ? 'Candidature Restaurant' : 'Candidature Livreur'}
         </h2>
         <p className="text-text-muted text-xs font-inter mt-1">
-          Remplissez tous les champs requis. Votre candidature sera examinée sous 48h.
+          {t("Remplissez tous les champs requis. Votre candidature sera examinée sous 48h.")}
         </p>
       </div>
 
       {type === 'livreur' && (
         <div className="space-y-1.5">
           <label className="block text-text-primary font-inter text-sm font-semibold">
-            Nom complet <span className="text-error">*</span>
+            {t("Nom complet")} <span className="text-error">*</span>
           </label>
           <p className="text-text-muted text-xs font-inter">
-            Affiché aux clients pendant vos livraisons (prénom + initiale uniquement).
+            {t("Affiché aux clients pendant vos livraisons (prénom + initiale uniquement).")}
           </p>
           <input
             type="text"
@@ -269,7 +271,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
       {type === 'restaurant' && (
         <div className="space-y-1.5">
           <label className="block text-text-primary font-inter text-sm font-semibold">
-            Nom du restaurant <span className="text-error">*</span>
+            {t("Nom du restaurant")} <span className="text-error">*</span>
           </label>
           <input
             type="text"
@@ -285,10 +287,10 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
         <div className="space-y-1.5">
           <label className="block text-text-primary font-inter text-sm font-semibold flex items-center gap-1.5">
             <Globe className="w-3.5 h-3.5 text-green-primary" />
-            Adresse web de votre restaurant
+            {t("Adresse web de votre restaurant")}
           </label>
           <div className="flex items-center gap-1 bg-white rounded-xl border border-border-custom px-4 h-12 transition-all focus-within:border-green-primary hover:border-text-muted">
-            <span className="text-text-muted text-xs font-inter shrink-0 select-none">miamexpress.cm/restaurant/</span>
+            <span className="text-text-muted text-xs font-inter shrink-0 select-none">{t("miamexpress.cm/restaurant/")}</span>
             <input
               type="text"
               value={slug}
@@ -298,14 +300,14 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
             />
           </div>
           <p className="text-[10px] font-inter text-text-muted">
-            Ce lien sera <strong className="text-text-primary">définitif</strong> après soumission. Pour le modifier, contactez le support.
+            {t("Ce lien sera")} <strong className="text-text-primary">{t("définitif")}</strong> {t("après soumission. Pour le modifier, contactez le support.")}
           </p>
         </div>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <label className="block text-text-primary font-inter text-sm font-semibold">
-            Ville <span className="text-error">*</span>
+            {t("Ville")} <span className="text-error">*</span>
           </label>
           <select
             value={city}
@@ -323,7 +325,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
         </div>
         <div className="space-y-1.5">
           <label className="block text-text-primary font-inter text-sm font-semibold">
-            Téléphone <span className="text-error">*</span>
+            {t("Téléphone")} <span className="text-error">*</span>
           </label>
           <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 transition-all focus-within:border-green-primary hover:border-text-muted">
             <span className="text-text-primary font-inter text-sm font-semibold shrink-0 select-none">+237</span>
@@ -342,7 +344,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
         <>
           <div className="space-y-1.5">
             <label className="block text-text-primary font-inter text-sm font-semibold">
-              Quartier du restaurant <span className="text-error">*</span>
+              {t("Quartier du restaurant")} <span className="text-error">*</span>
             </label>
             <select
               value={address}
@@ -350,7 +352,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
               className="w-full bg-white rounded-xl border border-border-custom px-4 h-12 text-text-primary font-inter text-sm outline-none transition-all focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 hover:border-text-muted appearance-none cursor-pointer"
               required
             >
-              <option value="">— Sélectionnez un quartier —</option>
+              <option value="">{t("— Sélectionnez un quartier —")}</option>
               {neighborhoods.map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
@@ -360,10 +362,10 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
           <div className="bg-bg-secondary rounded-xl p-4 space-y-3">
             <div>
               <label className="block text-text-primary font-inter text-sm font-semibold">
-                Coordonnées GPS <span className="text-error">*</span>
+                {t("Coordonnées GPS")} <span className="text-error">*</span>
               </label>
               <p className="text-text-muted text-xs font-inter mt-0.5">
-                Placez-vous devant le restaurant et utilisez la géolocalisation. Ces coordonnées servent au calcul des distances de livraison.
+                {t("Placez-vous devant le restaurant et utilisez la géolocalisation. Ces coordonnées servent au calcul des distances de livraison.")}
               </p>
             </div>
             <button
@@ -373,9 +375,9 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
               className="flex items-center gap-2 bg-green-primary text-white font-inter font-semibold text-sm px-5 h-11 rounded-xl hover:bg-green-dark transition-all disabled:opacity-60 active:scale-[0.98]"
             >
               {geoLoading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Détection en cours...</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> {t("Détection en cours...")}</>
               ) : (
-                <><Navigation className="w-4 h-4" /> Me géolocaliser</>
+                <><Navigation className="w-4 h-4" /> {t("Me géolocaliser")}</>
               )}
             </button>
             {(lat !== null && lng !== null) && (
@@ -385,7 +387,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
             )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-text-muted text-[11px] font-inter font-medium uppercase tracking-wider">Latitude</label>
+                <label className="text-text-muted text-[11px] font-inter font-medium uppercase tracking-wider">{t("Latitude")}</label>
                 <input
                   type="number"
                   step="any"
@@ -396,7 +398,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-text-muted text-[11px] font-inter font-medium uppercase tracking-wider">Longitude</label>
+                <label className="text-text-muted text-[11px] font-inter font-medium uppercase tracking-wider">{t("Longitude")}</label>
                 <input
                   type="number"
                   step="any"
@@ -411,9 +413,9 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
         </>
       ) : (
         <div className="bg-bg-secondary rounded-xl p-4 space-y-3">
-          <label className="block text-text-primary font-inter text-sm font-semibold">Zone de livraison</label>
+          <label className="block text-text-primary font-inter text-sm font-semibold">{t("Zone de livraison")}</label>
           <p className="text-text-muted text-xs font-inter">
-            Vous ne verrez que les commandes de restaurants situés dans votre ville, sur les quartiers que vous desservez.
+            {t("Vous ne verrez que les commandes de restaurants situés dans votre ville, sur les quartiers que vous desservez.")}
           </p>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -425,7 +427,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
               }}
               className="w-4 h-4 accent-green-primary rounded"
             />
-            <span className="text-sm font-inter font-medium text-text-primary">Je livre dans toute la ville de {city}</span>
+            <span className="text-sm font-inter font-medium text-text-primary">{t("Je livre dans toute la ville de")} {city}</span>
           </label>
           {!serviceAllCity && (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 bg-white rounded-xl border border-border-custom p-3 max-h-44 overflow-y-auto">
@@ -443,7 +445,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
             </div>
           )}
           {!serviceAllCity && serviceNeighborhoods.length === 0 && (
-            <p className="text-error text-xs font-inter">Sélectionnez au moins un quartier, ou cochez "toute la ville".</p>
+            <p className="text-error text-xs font-inter">{t("Sélectionnez au moins un quartier, ou cochez \"toute la ville\".")}</p>
           )}
         </div>
       )}
@@ -452,10 +454,10 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
       <div className="border-t border-border-light pt-5 space-y-4">
         <div>
           <p className="font-poppins font-semibold text-text-primary text-sm mb-1">
-            📎 Documents requis
+            {t("📎 Documents requis")}
           </p>
           <p className="text-text-muted text-xs font-inter">
-            {type === 'restaurant' ? 'Restaurateur' : 'Livreur'} — formats acceptés : JPG, PNG (max 5 Mo)
+            {type === 'restaurant' ? 'Restaurateur' : 'Livreur'} {t("— formats acceptés : JPG, PNG (max 5 Mo)")}
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -509,7 +511,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
       {/* ── Message optionnel ── */}
       <div className="space-y-1.5">
         <label className="block text-text-primary font-inter text-sm font-semibold">
-          Message <span className="text-text-muted font-normal text-xs">(optionnel)</span>
+          {t("Message")} <span className="text-text-muted font-normal text-xs">{t("(optionnel)")}</span>
         </label>
         <textarea
           value={notes}
@@ -533,14 +535,14 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
         className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark transition-all disabled:opacity-60 active:scale-[0.99] flex items-center justify-center gap-2"
       >
         {submitting ? (
-          <><Loader2 className="w-4 h-4 animate-spin" /> Envoi en cours...</>
+          <><Loader2 className="w-4 h-4 animate-spin" /> {t("Envoi en cours...")}</>
         ) : (
           'Envoyer ma candidature'
         )}
       </button>
 
       <p className="text-[11px] font-inter text-text-muted text-center">
-        Votre candidature sera examinée par notre équipe. Vous recevrez une réponse sous 48h.
+        {t("Votre candidature sera examinée par notre équipe. Vous recevrez une réponse sous 48h.")}
       </p>
     </form>
   );

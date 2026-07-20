@@ -25,8 +25,10 @@ import {
 import type { Application } from '../../lib/applications';
 import { adminSetPassword, getUserEmail, ADMIN_DEFAULT_PASSWORD } from '../../contexts/AuthContext';
 import { setAdminUserPassword } from '../../lib/admin';
+import { useTranslation } from "react-i18next";
 
 export default function AdminDrivers() {
+    const { t } = useTranslation();
   const [drivers, setDrivers] = useState<Application[]>([]);
   const [stats, setStats] = useState<Record<string, DriverStats>>({});
   const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
@@ -128,7 +130,7 @@ export default function AdminDrivers() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <h1 className="font-poppins font-bold text-text-primary text-2xl mb-6 flex items-center gap-2">
-        <Bike className="w-6 h-6 text-green-primary" />Livreurs ({drivers.length})
+        <Bike className="w-6 h-6 text-green-primary" />{t("Livreurs (")}{drivers.length})
       </h1>
 
       <div className="flex items-center gap-2 bg-white rounded-lg border border-border-custom px-3 h-11 mb-6 max-w-md">
@@ -150,6 +152,7 @@ export default function AdminDrivers() {
         ) : (
           <div className="divide-y divide-border-light">
             {filteredDrivers.map((d) => {
+                const { t } = useTranslation();
               const s = stats[d.applicantId];
               const isActive = !(s?.isSuspended ?? false);
               return (
@@ -167,18 +170,18 @@ export default function AdminDrivers() {
                         <span className={`w-1.5 h-1.5 rounded-full ${s?.isOnline ? 'bg-green-primary' : 'bg-text-muted'}`} />
                         {s?.isOnline ? 'En ligne' : 'Hors ligne'}
                       </span>
-                      <span>{s?.completedDeliveries ?? 0} livraisons ({s?.completedThisWeek ?? 0} cette semaine)</span>
+                      <span>{s?.completedDeliveries ?? 0} {t("livraisons (")}{s?.completedThisWeek ?? 0} {t("cette semaine)")}</span>
                       {s?.averageRating != null ? (
                         <span className="inline-flex items-center gap-1">
                           <Star className="w-3.5 h-3.5 fill-gold-accent text-gold-accent" />
                           {s.averageRating.toFixed(1)} ({s.ratingCount})
                         </span>
                       ) : (
-                        <span className="text-text-muted">Pas encore noté</span>
+                        <span className="text-text-muted">{t("Pas encore noté")}</span>
                       )}
                     </div>
                     {!isActive && s?.suspensionReason && (
-                      <p className="text-xs text-error font-inter mt-1">Motif : {s.suspensionReason}</p>
+                      <p className="text-xs text-error font-inter mt-1">{t("Motif :")} {s.suspensionReason}</p>
                     )}
                     {s?.recentFeedback && s.recentFeedback.length > 0 && (
                       <ul className="mt-2 space-y-1">
@@ -205,7 +208,7 @@ export default function AdminDrivers() {
                       title="Définir un mot de passe"
                     >
                       <KeyRound className="w-3 h-3" />
-                      Mot de passe
+                      {t("Mot de passe")}
                     </button>
                     <span className={`text-xs font-medium ${isActive ? 'text-green-primary' : 'text-text-muted'}`}>
                       {isActive ? 'Actif' : 'Suspendu'}
@@ -221,14 +224,15 @@ export default function AdminDrivers() {
       </div>
 
       <h2 className="font-poppins font-bold text-text-primary text-xl mb-4 flex items-center gap-2">
-        <Wallet className="w-5 h-5 text-green-primary" />Demandes de virement ({pendingPayouts.length})
+        <Wallet className="w-5 h-5 text-green-primary" />{t("Demandes de virement (")}{pendingPayouts.length})
       </h2>
       <div className="bg-white rounded-xl border border-border-custom">
         {pendingPayouts.length === 0 ? (
-          <p className="p-6 text-text-secondary text-sm text-center">Aucune demande en attente.</p>
+          <p className="p-6 text-text-secondary text-sm text-center">{t("Aucune demande en attente.")}</p>
         ) : (
           <div className="divide-y divide-border-light">
             {pendingPayouts.map((p) => {
+                const { t } = useTranslation();
               const driver = drivers.find((d) => d.applicantId === p.driverId);
               return (
                 <div key={p.id} className="flex items-center justify-between gap-3 p-4">
@@ -242,19 +246,19 @@ export default function AdminDrivers() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-inter font-bold text-text-primary text-sm">
-                      {p.amount.toLocaleString()} FCFA
+                      {p.amount.toLocaleString()} {t("FCFA")}
                     </span>
                     <button
                       onClick={() => handlePayoutDecision(p.id, 'paid')}
                       className="flex items-center gap-1 bg-green-light text-green-primary font-inter font-medium text-xs px-3 h-8 rounded-lg hover:bg-green-primary hover:text-white transition-colors"
                     >
-                      <Check className="w-3.5 h-3.5" />Payer
+                      <Check className="w-3.5 h-3.5" />{t("Payer")}
                     </button>
                     <button
                       onClick={() => handlePayoutDecision(p.id, 'rejected')}
                       className="flex items-center gap-1 bg-error/10 text-error font-inter font-medium text-xs px-3 h-8 rounded-lg hover:bg-error hover:text-white transition-colors"
                     >
-                      <X className="w-3.5 h-3.5" />Refuser
+                      <X className="w-3.5 h-3.5" />{t("Refuser")}
                     </button>
                   </div>
                 </div>
@@ -268,10 +272,9 @@ export default function AdminDrivers() {
       <AlertDialog open={!!suspendTarget} onOpenChange={(open) => { if (!open) setSuspendTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Suspendre ce livreur ?</AlertDialogTitle>
+            <AlertDialogTitle>{t("Suspendre ce livreur ?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Le livreur ne pourra plus accéder à son espace ni recevoir de courses.
-              Le motif est visible par l&apos;équipe uniquement.
+              {t("Le livreur ne pourra plus accéder à son espace ni recevoir de courses.\r\n              Le motif est visible par l&apos;équipe uniquement.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <textarea
@@ -283,7 +286,7 @@ export default function AdminDrivers() {
             className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted"
           />
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("Annuler")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (suspendTarget) {
@@ -293,7 +296,7 @@ export default function AdminDrivers() {
               }}
               className="bg-error text-white hover:bg-error/90"
             >
-              Suspendre le livreur
+              {t("Suspendre le livreur")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -303,10 +306,9 @@ export default function AdminDrivers() {
       <AlertDialog open={!!rejectPayoutTarget} onOpenChange={(open) => { if (!open) setRejectPayoutTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Refuser ce virement ?</AlertDialogTitle>
+            <AlertDialogTitle>{t("Refuser ce virement ?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Le montant redeviendra disponible dans le solde du livreur.
-              Le motif lui sera affiché.
+              {t("Le montant redeviendra disponible dans le solde du livreur.\r\n              Le motif lui sera affiché.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <textarea
@@ -318,7 +320,7 @@ export default function AdminDrivers() {
             className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted"
           />
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("Annuler")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (rejectPayoutTarget) {
@@ -328,7 +330,7 @@ export default function AdminDrivers() {
               }}
               className="bg-error text-white hover:bg-error/90"
             >
-              Refuser le virement
+              {t("Refuser le virement")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -358,24 +360,24 @@ export default function AdminDrivers() {
               {/* Driver info */}
               <div className="bg-bg-secondary rounded-xl p-4 space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Nom</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Nom")}</span>
                   <span className="text-sm font-medium text-text-primary">{selectedDriver.driver.applicantName || '—'}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Téléphone</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Téléphone")}</span>
                   <span className="text-sm font-medium text-text-primary">{selectedDriver.driver.contactPhone || '—'}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Ville</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Ville")}</span>
                   <span className="text-sm font-medium text-text-primary">{selectedDriver.driver.city || '—'}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Adresse</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Adresse")}</span>
                   <span className="text-sm font-medium text-text-primary text-right max-w-[60%]">{selectedDriver.driver.address || '—'}</span>
                 </div>
                 {selectedDriver.driver.serviceNeighborhoods && selectedDriver.driver.serviceNeighborhoods.length > 0 && (
                   <div className="flex justify-between items-start">
-                    <span className="text-sm text-text-muted font-inter">Zones desservies</span>
+                    <span className="text-sm text-text-muted font-inter">{t("Zones desservies")}</span>
                     <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
                       {selectedDriver.driver.serviceNeighborhoods.map((z) => (
                         <span key={z} className="text-[11px] font-inter bg-white rounded-full px-2 py-0.5 text-text-secondary border border-border-custom">{z}</span>
@@ -385,18 +387,18 @@ export default function AdminDrivers() {
                 )}
                 <div className="border-t border-border-light pt-3" />
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Statut</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Statut")}</span>
                   <span className={`inline-flex items-center gap-1 text-xs font-medium ${selectedDriver.stats?.isOnline ? 'text-green-primary' : 'text-text-muted'}`}>
                     <span className={`w-2 h-2 rounded-full ${selectedDriver.stats?.isOnline ? 'bg-green-primary' : 'bg-text-muted'}`} />
                     {selectedDriver.stats?.isOnline ? 'En ligne' : 'Hors ligne'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Livraisons</span>
-                  <span className="text-sm font-medium text-text-primary">{selectedDriver.stats?.completedDeliveries ?? 0} ({selectedDriver.stats?.completedThisWeek ?? 0} cette semaine)</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Livraisons")}</span>
+                  <span className="text-sm font-medium text-text-primary">{selectedDriver.stats?.completedDeliveries ?? 0} ({selectedDriver.stats?.completedThisWeek ?? 0} {t("cette semaine)")}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Note</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Note")}</span>
                   <span className="text-sm font-medium flex items-center gap-1">
                     {selectedDriver.stats?.averageRating != null ? (
                       <><Star className="w-3.5 h-3.5 fill-gold-accent text-gold-accent" />{selectedDriver.stats.averageRating.toFixed(1)} ({selectedDriver.stats.ratingCount})</>
@@ -404,20 +406,20 @@ export default function AdminDrivers() {
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Statut compte</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Statut compte")}</span>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${selectedDriver.stats?.isSuspended ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-primary'}`}>
                     {selectedDriver.stats?.isSuspended ? 'Suspendu' : 'Actif'}
                   </span>
                 </div>
                 {selectedDriver.stats?.isSuspended && selectedDriver.stats?.suspensionReason && (
                   <div className="pt-2 border-t border-border-light">
-                    <span className="text-sm text-text-muted font-inter block mb-1">Motif suspension</span>
+                    <span className="text-sm text-text-muted font-inter block mb-1">{t("Motif suspension")}</span>
                     <p className="text-sm text-error font-inter">{selectedDriver.stats.suspensionReason}</p>
                   </div>
                 )}
                 {selectedDriver.stats?.recentFeedback && selectedDriver.stats.recentFeedback.length > 0 && (
                   <div className="pt-2 border-t border-border-light">
-                    <span className="text-sm text-text-muted font-inter block mb-1.5">Derniers avis</span>
+                    <span className="text-sm text-text-muted font-inter block mb-1.5">{t("Derniers avis")}</span>
                     {selectedDriver.stats.recentFeedback.map((f, i) => (
                       <p key={i} className="text-xs text-text-secondary font-inter italic mb-1">
                         <span className="inline-flex items-center gap-0.5 not-italic text-amber-700">
@@ -434,25 +436,25 @@ export default function AdminDrivers() {
               {selectedDriver.driver.contactPhone && (
                 <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 space-y-2">
                   <h3 className="font-inter font-semibold text-amber-800 text-sm flex items-center gap-1.5">
-                    <KeyRound className="w-4 h-4" /> Identifiants de connexion
+                    <KeyRound className="w-4 h-4" /> {t("Identifiants de connexion")}
                   </h3>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-amber-700 font-inter">Email</span>
+                    <span className="text-sm text-amber-700 font-inter">{t("Email")}</span>
                     <span className="text-sm font-mono font-medium text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{selectedDriver.driver.applicantEmail || getUserEmail(selectedDriver.driver.contactPhone, selectedDriver.driver.applicantName)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-amber-700 font-inter">Téléphone</span>
+                    <span className="text-sm text-amber-700 font-inter">{t("Téléphone")}</span>
                     <span className="text-sm font-mono font-medium text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{selectedDriver.driver.contactPhone}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-amber-700 font-inter">Mot de passe</span>
+                    <span className="text-sm text-amber-700 font-inter">{t("Mot de passe")}</span>
                     <span className="text-sm font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{ADMIN_DEFAULT_PASSWORD}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-amber-700 font-inter">Code OTP</span>
+                    <span className="text-sm text-amber-700 font-inter">{t("Code OTP")}</span>
                     <span className="text-sm font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">12345</span>
                   </div>
-                  <p className="text-[11px] text-amber-600 font-inter mt-1">Connexion : email ou téléphone + mot de passe {ADMIN_DEFAULT_PASSWORD}</p>
+                  <p className="text-[11px] text-amber-600 font-inter mt-1">{t("Connexion : email ou téléphone + mot de passe")} {ADMIN_DEFAULT_PASSWORD}</p>
                 </div>
               )}
 
@@ -466,7 +468,7 @@ export default function AdminDrivers() {
                   }}
                   className="flex items-center justify-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl border border-border-custom hover:bg-bg-secondary transition-colors text-text-primary"
                 >
-                  <KeyRound className="w-4 h-4" /> Réinitialiser le mot de passe
+                  <KeyRound className="w-4 h-4" /> {t("Réinitialiser le mot de passe")}
                 </button>
                 <button
                   onClick={() => {
@@ -475,7 +477,7 @@ export default function AdminDrivers() {
                   }}
                   className={`flex items-center justify-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl transition-colors ${selectedDriver.stats?.isSuspended ? 'bg-green-50 text-green-primary hover:bg-green-primary hover:text-white' : 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white'}`}
                 >
-                  {selectedDriver.stats?.isSuspended ? <><Check className="w-4 h-4" /> Réactiver</> : <><X className="w-4 h-4" /> Suspendre</>}
+                  {selectedDriver.stats?.isSuspended ? <><Check className="w-4 h-4" /> {t("Réactiver")}</> : <><X className="w-4 h-4" /> {t("Suspendre")}</>}
                 </button>
               </div>
             </div>
@@ -487,10 +489,10 @@ export default function AdminDrivers() {
       <AlertDialog open={!!passwordTarget} onOpenChange={(open) => { if (!open) { setPasswordTarget(null); setNewPassword(''); setShowPassword(false); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Définir un mot de passe</AlertDialogTitle>
+            <AlertDialogTitle>{t("Définir un mot de passe")}</AlertDialogTitle>
             <AlertDialogDescription>
               {passwordTarget && (
-                <>Définir le mot de passe de <strong>{passwordTarget.name}</strong> ({passwordTarget.phone}). Le livreur pourra se connecter avec son numéro de téléphone et ce mot de passe.</>
+                <>{t("Définir le mot de passe de")} <strong>{passwordTarget.name}</strong> ({passwordTarget.phone}{t("). Le livreur pourra se connecter avec son numéro de téléphone et ce mot de passe.")}</>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -514,12 +516,12 @@ export default function AdminDrivers() {
             </button>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("Annuler")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={applyPassword}
               disabled={!newPassword || newPassword.length < 4}
             >
-              Enregistrer
+              {t("Enregistrer")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

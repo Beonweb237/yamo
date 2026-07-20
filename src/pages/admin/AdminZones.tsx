@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { MapPin, ChevronDown, ChevronRight, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { CAMEROON_CITIES } from '../../data/cities';
+import { useTranslation } from "react-i18next";
 
 const STORAGE_KEY = 'miam_disabled_zones';
 
@@ -23,6 +24,7 @@ function readZones(): DisabledZone[] {
 function writeZones(z: DisabledZone[]) { localStorage.setItem(STORAGE_KEY, JSON.stringify(z)); }
 
 export default function AdminZones() {
+    const { t } = useTranslation();
   const [zones, setZones] = useState<DisabledZone[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedCity, setExpandedCity] = useState<string | null>(null);
@@ -71,7 +73,7 @@ export default function AdminZones() {
     )
     : CAMEROON_CITIES;
 
-  if (loading) return <div className="p-8 text-center text-text-muted">Chargement...</div>;
+  if (loading) return <div className="p-8 text-center text-text-muted">{t("Chargement...")}</div>;
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-8">
@@ -80,8 +82,8 @@ export default function AdminZones() {
           <MapPin className="w-5 h-5 text-amber-600" />
         </div>
         <div>
-          <h1 className="font-poppins font-bold text-text-primary text-2xl">Gestion des Zones</h1>
-          <p className="text-text-secondary text-sm font-inter">Activez ou désactivez des villes et quartiers — impact automatique sur les restaurants</p>
+          <h1 className="font-poppins font-bold text-text-primary text-2xl">{t("Gestion des Zones")}</h1>
+          <p className="text-text-secondary text-sm font-inter">{t("Activez ou désactivez des villes et quartiers — impact automatique sur les restaurants")}</p>
         </div>
       </div>
 
@@ -89,7 +91,7 @@ export default function AdminZones() {
       <div className="flex flex-wrap items-center gap-3 mb-6 mt-4">
         <div className="flex items-center gap-2 bg-red-50 text-red-700 text-xs font-inter font-medium px-3 py-1.5 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-          {zones.length} zone{zones.length > 1 ? 's' : ''} désactivée{zones.length > 1 ? 's' : ''}
+          {zones.length} {t("zone")}{zones.length > 1 ? 's' : ''} {t("désactivée")}{zones.length > 1 ? 's' : ''}
         </div>
 
         <input
@@ -129,7 +131,7 @@ export default function AdminZones() {
                 }
                 <MapPin className="w-4 h-4 text-text-muted shrink-0" />
                 <span className="font-inter font-medium text-text-primary text-sm">{city.name}</span>
-                <span className="text-text-muted text-xs font-inter">({city.neighborhoods.length} quartiers)</span>
+                <span className="text-text-muted text-xs font-inter">({city.neighborhoods.length} {t("quartiers)")}</span>
               </button>
               {/* Toggle switch */}
               <button
@@ -172,7 +174,7 @@ export default function AdminZones() {
 
       {filteredCities.length === 0 && (
         <div className="text-center py-12 text-text-muted font-inter text-sm">
-          Aucune ville trouvée pour "{search}".
+          {t("Aucune ville trouvée pour \"")}{search}".
         </div>
       )}
     </div>

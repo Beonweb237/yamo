@@ -8,10 +8,12 @@ import { menuItems as mockMenuItems } from '../data/mockData';
 import { buildEnrichedItems, groupDishes, dishSlug } from '../lib/dishes';
 import AppImage from '../components/AppImage';
 import PageHeader from '../components/PageHeader';
+import { useTranslation } from "react-i18next";
 
 type Tab = 'restaurants' | 'plats';
 
 export default function Favorites() {
+    const { t } = useTranslation();
   const { restaurants } = useRestaurants();
   const { favorites, toggleFavorite } = useFavorites();
   const { favoriteDishes, toggleFavoriteDish } = useFavoriteDishes();
@@ -89,7 +91,7 @@ export default function Favorites() {
                     </button>
                     {resto.isPremium && (
                       <span className="absolute top-3 left-3 bg-green-primary text-white text-[11px] font-inter font-semibold px-2.5 py-1 rounded-full">
-                        Premium
+                        {t("Premium")}
                       </span>
                     )}
                   </div>
@@ -151,7 +153,7 @@ export default function Favorites() {
                   <div className="p-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-inter font-bold text-green-primary text-sm">
-                        {group.minPrice.toLocaleString()}{group.maxPrice > group.minPrice ? '+' : ''} FCFA
+                        {group.minPrice.toLocaleString()}{group.maxPrice > group.minPrice ? '+' : ''} {t("FCFA")}
                       </span>
                       <span className="flex items-center gap-1 text-text-muted text-xs font-inter shrink-0">
                         <Store className="w-3 h-3" />{group.totalRestaurants}

@@ -22,6 +22,7 @@ import {
   setAdminUserPassword,
   type AdminCustomerRecord,
 } from '../../lib/admin';
+import { useTranslation } from "react-i18next";
 
 // ─── Helpers ─────────────────────────────────────────────
 
@@ -125,6 +126,7 @@ function buildCustomers(users: Record<string, unknown>, orders: Order[]): Custom
 // ─── Component ───────────────────────────────────────────
 
 export default function AdminCustomers() {
+    const { t } = useTranslation();
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<CustomerRecord[]>([]);
   const [query, setQuery] = useState('');
@@ -236,23 +238,24 @@ export default function AdminCustomers() {
   // ── Status badge ───────────────────────────────────────
 
   const statusBadge = (c: CustomerRecord) => {
+      const { t } = useTranslation();
     if (c.isSuspended) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600 border border-red-200">
-          <Ban className="w-3 h-3" /> Bloqué
+          <Ban className="w-3 h-3" /> {t("Bloqué")}
         </span>
       );
     }
     if (c.orderCount > 0) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-primary border border-green-200">
-          <CheckCircle className="w-3 h-3" /> Actif
+          <CheckCircle className="w-3 h-3" /> {t("Actif")}
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-text-muted border border-gray-200">
-        Nouveau
+        {t("Nouveau")}
       </span>
     );
   };
@@ -283,7 +286,7 @@ export default function AdminCustomers() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <h1 className="font-poppins font-bold text-text-primary text-2xl mb-6 flex items-center gap-2">
-        <Users className="w-6 h-6 text-green-primary" />Clients ({customers.length})
+        <Users className="w-6 h-6 text-green-primary" />{t("Clients (")}{customers.length})
       </h1>
 
       {/* ── Stats cards ─────────────────────────────────── */}
@@ -367,22 +370,22 @@ export default function AdminCustomers() {
                       </span>
                     )}
                     <span className="inline-flex items-center gap-1">
-                      <ShoppingBag className="w-3 h-3" /> {c.orderCount} cmd
+                      <ShoppingBag className="w-3 h-3" /> {c.orderCount} {t("cmd")}
                       {c.orderCount > 0 && <> · {fmt(c.totalSpent)}</>}
                     </span>
                     {c.cancelledCount > 0 && (
                       <span className="inline-flex items-center gap-1 text-red-500">
-                        <AlertTriangle className="w-3 h-3" /> {c.cancelledCount} annulée{c.cancelledCount > 1 ? 's' : ''}
+                        <AlertTriangle className="w-3 h-3" /> {c.cancelledCount} {t("annulée")}{c.cancelledCount > 1 ? 's' : ''}
                       </span>
                     )}
                   </div>
                   {c.lastOrderAt && (
                     <p className="text-xs text-text-muted font-inter mt-1">
-                      Dernière commande : {formatLastOrder(c.lastOrderAt)}
+                      {t("Dernière commande :")} {formatLastOrder(c.lastOrderAt)}
                     </p>
                   )}
                   {c.isSuspended && c.suspensionReason && (
-                    <p className="text-xs text-red-500 font-inter mt-0.5">Motif : {c.suspensionReason}</p>
+                    <p className="text-xs text-red-500 font-inter mt-0.5">{t("Motif :")} {c.suspensionReason}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -395,9 +398,9 @@ export default function AdminCustomers() {
                     aria-label={c.isSuspended ? 'Débloquer le client' : 'Bloquer le client'}
                   >
                     {c.isSuspended ? (
-                      <><CheckCircle className="w-3.5 h-3.5" /> Débloquer</>
+                      <><CheckCircle className="w-3.5 h-3.5" /> {t("Débloquer")}</>
                     ) : (
-                      <><Ban className="w-3.5 h-3.5" /> Bloquer</>
+                      <><Ban className="w-3.5 h-3.5" /> {t("Bloquer")}</>
                     )}
                   </button>
                   <ChevronRight className="w-4 h-4 text-text-muted" />
@@ -422,7 +425,7 @@ export default function AdminCustomers() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("Annuler")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => blockTarget && applyBlock(blockTarget, !blockTarget.isSuspended)}
               className={blockTarget?.isSuspended ? 'bg-green-primary hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
@@ -467,42 +470,42 @@ export default function AdminCustomers() {
                   </div>
                 )}
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Nom</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Nom")}</span>
                   <span className="text-sm font-medium text-text-primary">{selectedCustomer.name || '—'}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Téléphone</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Téléphone")}</span>
                   <span className="text-sm font-medium text-text-primary">{selectedCustomer.phone}</span>
                 </div>
                 {selectedCustomer.whatsapp && (
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-text-muted font-inter">WhatsApp</span>
+                    <span className="text-sm text-text-muted font-inter">{t("WhatsApp")}</span>
                     <span className="text-sm font-medium text-green-primary">{selectedCustomer.whatsapp}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Statut</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Statut")}</span>
                   {statusBadge(selectedCustomer)}
                 </div>
                 {selectedCustomer.city && (
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-text-muted font-inter">Ville</span>
+                    <span className="text-sm text-text-muted font-inter">{t("Ville")}</span>
                     <span className="text-sm font-medium text-text-primary">{selectedCustomer.city}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Total dépensé</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Total dépensé")}</span>
                   <span className="text-sm font-bold text-text-primary">{fmt(selectedCustomer.totalSpent)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted font-inter">Commandes</span>
+                  <span className="text-sm text-text-muted font-inter">{t("Commandes")}</span>
                   <span className="text-sm font-medium text-text-primary">
-                    {selectedCustomer.orderCount} ({selectedCustomer.cancelledCount} annulée{selectedCustomer.cancelledCount > 1 ? 's' : ''})
+                    {selectedCustomer.orderCount} ({selectedCustomer.cancelledCount} {t("annulée")}{selectedCustomer.cancelledCount > 1 ? 's' : ''})
                   </span>
                 </div>
                 {selectedCustomer.lastOrderAt && (
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-text-muted font-inter">Dernière commande</span>
+                    <span className="text-sm text-text-muted font-inter">{t("Dernière commande")}</span>
                     <span className="text-sm font-medium text-text-primary">{formatLastOrder(selectedCustomer.lastOrderAt)}</span>
                   </div>
                 )}
@@ -511,25 +514,25 @@ export default function AdminCustomers() {
               {/* Credentials */}
               <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 space-y-2">
                 <h3 className="font-inter font-semibold text-amber-800 text-sm flex items-center gap-1.5">
-                  <KeyRound className="w-4 h-4" /> Identifiants de connexion
+                  <KeyRound className="w-4 h-4" /> {t("Identifiants de connexion")}
                 </h3>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-amber-700 font-inter">Email</span>
+                  <span className="text-sm text-amber-700 font-inter">{t("Email")}</span>
                   <span className="text-sm font-mono font-medium text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{selectedCustomer.email || getUserEmail(selectedCustomer.phone, selectedCustomer.name)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-amber-700 font-inter">Téléphone</span>
+                  <span className="text-sm text-amber-700 font-inter">{t("Téléphone")}</span>
                   <span className="text-sm font-mono font-medium text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{selectedCustomer.phone}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-amber-700 font-inter">Mot de passe</span>
+                  <span className="text-sm text-amber-700 font-inter">{t("Mot de passe")}</span>
                   <span className="text-sm font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">{ADMIN_DEFAULT_PASSWORD}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-amber-700 font-inter">Code OTP</span>
+                  <span className="text-sm text-amber-700 font-inter">{t("Code OTP")}</span>
                   <span className="text-sm font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">12345</span>
                 </div>
-                <p className="text-[11px] text-amber-600 font-inter mt-1">Connexion : email ou téléphone + mot de passe {ADMIN_DEFAULT_PASSWORD}</p>
+                <p className="text-[11px] text-amber-600 font-inter mt-1">{t("Connexion : email ou téléphone + mot de passe")} {ADMIN_DEFAULT_PASSWORD}</p>
               </div>
 
               {/* Actions */}
@@ -542,14 +545,14 @@ export default function AdminCustomers() {
                       : 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white'
                       }`}
                   >
-                    {selectedCustomer.isSuspended ? <><CheckCircle className="w-4 h-4" /> Débloquer</> : <><Ban className="w-4 h-4" /> Bloquer</>}
+                    {selectedCustomer.isSuspended ? <><CheckCircle className="w-4 h-4" /> {t("Débloquer")}</> : <><Ban className="w-4 h-4" /> {t("Bloquer")}</>}
                   </button>
                   {selectedCustomer.orderCount > 0 && (
                     <button
                       onClick={() => { setSelectedCustomer(null); navigate(`/admin/orders`); }}
                       className="flex-1 flex items-center justify-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl border border-border-custom hover:bg-bg-secondary transition-colors text-text-primary"
                     >
-                      <History className="w-4 h-4" /> Voir toutes les commandes
+                      <History className="w-4 h-4" /> {t("Voir toutes les commandes")}
                     </button>
                   )}
                 </div>
@@ -557,7 +560,7 @@ export default function AdminCustomers() {
                   onClick={() => { setNewPassword(''); setShowPassword(false); setPasswordTarget(selectedCustomer); }}
                   className="flex items-center justify-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl border border-border-custom hover:bg-bg-secondary transition-colors text-text-primary"
                 >
-                  <KeyRound className="w-4 h-4" /> Réinitialiser le mot de passe
+                  <KeyRound className="w-4 h-4" /> {t("Réinitialiser le mot de passe")}
                 </button>
               </div>
 
@@ -566,14 +569,14 @@ export default function AdminCustomers() {
                 <div>
                   <h3 className="font-poppins font-semibold text-text-primary text-base mb-3 flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-green-primary" />
-                    Adresses enregistrées ({selectedCustomer.savedAddresses.length})
+                    {t("Adresses enregistrées (")}{selectedCustomer.savedAddresses.length})
                   </h3>
                   <div className="space-y-2">
                     {selectedCustomer.savedAddresses.map((addr) => (
                       <div key={addr.id} className="bg-bg-secondary rounded-xl p-3 text-sm">
                         <p className="font-inter font-semibold text-text-primary">{addr.label}</p>
                         <p className="text-text-muted text-xs font-inter">{addr.fullText}</p>
-                        {addr.landmark && <p className="text-text-muted text-xs font-inter mt-0.5">Repère : {addr.landmark}</p>}
+                        {addr.landmark && <p className="text-text-muted text-xs font-inter mt-0.5">{t("Repère :")} {addr.landmark}</p>}
                       </div>
                     ))}
                   </div>
@@ -584,16 +587,17 @@ export default function AdminCustomers() {
               <div>
                 <h3 className="font-poppins font-semibold text-text-primary text-base mb-3 flex items-center gap-2">
                   <History className="w-4 h-4 text-green-primary" />
-                  Historique des commandes
+                  {t("Historique des commandes")}
                 </h3>
                 {selectedCustomer.orders.length === 0 ? (
                   <div className="bg-bg-secondary rounded-xl p-6 text-center">
                     <ShoppingBag className="w-8 h-8 text-text-muted mx-auto mb-2 opacity-40" />
-                    <p className="text-sm text-text-muted font-inter">Aucune commande</p>
+                    <p className="text-sm text-text-muted font-inter">{t("Aucune commande")}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {selectedCustomer.orders.map((order) => {
+                        const { t } = useTranslation();
                       const st = orderStatusLabels[order.status] ?? { label: order.status, color: 'bg-gray-100 text-gray-600' };
                       return (
                         <div
@@ -614,18 +618,18 @@ export default function AdminCustomers() {
                             <span className="font-bold text-text-primary">{fmt(order.total)}</span>
                           </div>
                           <div className="text-xs text-text-muted font-inter">
-                            {order.restaurantName || 'Restaurant'} · {order.items.length} article{order.items.length > 1 ? 's' : ''}
+                            {order.restaurantName || 'Restaurant'} · {order.items.length} {t("article")}{order.items.length > 1 ? 's' : ''}
                             {' · '}{paymentLabels[order.paymentMethod as string] || order.paymentMethod}
                           </div>
                           {order.cancellationReason && (
                             <p className="text-xs text-red-500 font-inter bg-red-50 rounded-lg px-2 py-1">
-                              Annulée : {order.cancellationReason}
-                              {order.cancelledBy && <> (par {order.cancelledBy === 'customer' ? 'client' : order.cancelledBy === 'restaurant' ? 'restaurant' : 'admin'})</>}
+                              {t("Annulée :")} {order.cancellationReason}
+                              {order.cancelledBy && <> {t("(par")} {order.cancelledBy === 'customer' ? 'client' : order.cancelledBy === 'restaurant' ? 'restaurant' : 'admin'})</>}
                             </p>
                           )}
                           {order.deliveredWithoutCode && (
                             <p className="text-xs text-amber-600 font-inter bg-amber-50 rounded-lg px-2 py-1">
-                              ⚠️ Livrée sans code de confirmation
+                              {t("⚠️ Livrée sans code de confirmation")}
                             </p>
                           )}
                         </div>
@@ -643,10 +647,10 @@ export default function AdminCustomers() {
       <AlertDialog open={!!passwordTarget} onOpenChange={(open) => { if (!open) { setPasswordTarget(null); setNewPassword(''); setShowPassword(false); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Définir un mot de passe</AlertDialogTitle>
+            <AlertDialogTitle>{t("Définir un mot de passe")}</AlertDialogTitle>
             <AlertDialogDescription>
               {passwordTarget && (
-                <>Définir le mot de passe de <strong>{passwordTarget.name || passwordTarget.phone}</strong>. L'utilisateur pourra se connecter avec son numéro de téléphone et ce mot de passe.</>
+                <>{t("Définir le mot de passe de")} <strong>{passwordTarget.name || passwordTarget.phone}</strong>{t(". L'utilisateur pourra se connecter avec son numéro de téléphone et ce mot de passe.")}</>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -670,12 +674,12 @@ export default function AdminCustomers() {
             </button>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("Annuler")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => passwordTarget && applyPassword(passwordTarget)}
               disabled={!newPassword || newPassword.length < 4}
             >
-              Enregistrer
+              {t("Enregistrer")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

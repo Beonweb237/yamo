@@ -26,6 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
+import { useTranslation } from "react-i18next";
 
 // Motifs d'annulation proposés au client (CONF-04 — motif obligatoire).
 const CANCEL_REASONS = [
@@ -74,6 +75,7 @@ function GuaranteeCard({
   onDeclare: () => void;
   submitting: boolean;
 }) {
+    const { t } = useTranslation();
   const g = order.guarantee;
   if (!g) return null;
   const { merchantCode, assistanceWhatsapp } = merchantInfo;
@@ -83,12 +85,11 @@ function GuaranteeCard({
       <div className="bg-gold-light border border-gold-accent/40 rounded-xl p-4 mb-3">
         <p className="flex items-center gap-1.5 font-inter font-semibold text-text-primary text-sm mb-1">
           <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0" />
-          Sécurisez votre commande — garantie {g.amountFcfa.toLocaleString()} FCFA
+          {t("Sécurisez votre commande — garantie")} {g.amountFcfa.toLocaleString()} {t("FCFA")}
         </p>
         <p className="text-text-secondary text-xs font-inter mb-3">
-          Payez la garantie au code marchand du restaurant. Elle sera{' '}
-          <span className="font-semibold">déduite du total</span> à la livraison
-          (remboursée intégralement en cas de non-livraison).
+          {t("Payez la garantie au code marchand du restaurant. Elle sera")}{' '}
+          <span className="font-semibold">{t("déduite du total")}</span> {t("à la livraison\r\n          (remboursée intégralement en cas de non-livraison).")}
         </p>
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <span className="bg-white rounded-lg border border-border-custom px-3 py-2 font-poppins font-bold text-text-primary text-lg tracking-wider">
@@ -102,7 +103,7 @@ function GuaranteeCard({
               className="inline-flex items-center gap-1.5 text-green-primary font-inter text-xs font-medium bg-white border border-border-custom rounded-lg px-3 min-h-11 hover:bg-green-light transition-colors"
             >
               <MessageCircle className="w-3.5 h-3.5" />
-              WhatsApp assistance resto
+              {t("WhatsApp assistance resto")}
             </a>
           )}
         </div>
@@ -130,8 +131,7 @@ function GuaranteeCard({
       <div className="flex items-start gap-2 bg-bg-secondary rounded-lg px-3 py-2.5 mb-3 text-xs font-inter text-text-secondary">
         <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
         <span>
-          Garantie déclarée payée{g.proofNote ? ` (réf. ${g.proofNote})` : ''} — en attente
-          de confirmation du restaurant. La préparation démarrera juste après.
+          {t("Garantie déclarée payée")}{g.proofNote ? ` (réf. ${g.proofNote})` : ''} {t("— en attente\r\n          de confirmation du restaurant. La préparation démarrera juste après.")}
         </span>
       </div>
     );
@@ -140,7 +140,7 @@ function GuaranteeCard({
     return (
       <p className="flex items-center gap-1.5 bg-green-light/60 rounded-lg px-3 py-2 mb-3 text-xs font-inter text-text-secondary">
         <ShieldCheck className="w-3.5 h-3.5 text-green-primary shrink-0" />
-        Garantie {g.amountFcfa.toLocaleString()} FCFA confirmée — déduite du total à la livraison.
+        {t("Garantie")} {g.amountFcfa.toLocaleString()} {t("FCFA confirmée — déduite du total à la livraison.")}
       </p>
     );
   }
@@ -174,6 +174,7 @@ const statusColors: Record<OrderStatus, string> = {
 };
 
 export default function Orders() {
+    const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -461,15 +462,15 @@ export default function Orders() {
       <section className="bg-green-primary pt-12 pb-16 sm:pt-16 sm:pb-20 relative">
         <div className="max-w-[720px] mx-auto px-4 sm:px-6">
           <div className="text-white/60 text-xs font-inter mb-4">
-            <Link to="/" className="hover:text-white transition-colors">Accueil</Link>
+            <Link to="/" className="hover:text-white transition-colors">{t("Accueil")}</Link>
             <span className="mx-2">/</span>
-            <span className="text-white">Commandes</span>
+            <span className="text-white">{t("Commandes")}</span>
           </div>
           <h1 className="font-poppins font-semibold text-white text-3xl sm:text-4xl tracking-normal mb-3">
-            Mes commandes
+            {t("Mes commandes")}
           </h1>
           <p className="text-white/75 font-inter text-base">
-            {orders.length} commande{orders.length !== 1 ? 's' : ''} · Suivez vos livraisons en temps réel
+            {orders.length} {t("commande")}{orders.length !== 1 ? 's' : ''} {t("· Suivez vos livraisons en temps réel")}
           </p>
         </div>
       </section>
@@ -500,10 +501,10 @@ export default function Orders() {
               <Package className="w-8 h-8 text-green-primary" />
             </div>
             <p className="text-text-secondary font-inter font-medium mb-1">
-              Aucune commande pour le moment
+              {t("Aucune commande pour le moment")}
             </p>
             <Link to="/restaurants" className="text-green-primary font-inter text-sm font-medium hover:underline">
-              Découvrir les restaurants
+              {t("Découvrir les restaurants")}
             </Link>
           </div>
         ) : (
@@ -515,7 +516,7 @@ export default function Orders() {
                     <p className="font-inter font-semibold text-text-primary text-sm truncate">
                       {order.restaurantName || 'Restaurant'}
                     </p>
-                    <p className="text-text-muted text-xs font-inter">Commande {shortOrderId(order.id)}</p>
+                    <p className="text-text-muted text-xs font-inter">{t("Commande")} {shortOrderId(order.id)}</p>
                   </div>
                   <span className={`shrink-0 text-xs font-inter font-medium px-2.5 py-1 rounded-full ${statusColors[order.status]}`}>
                     {statusLabels[order.status]}
@@ -532,9 +533,9 @@ export default function Orders() {
 
                 {order.status === 'cancelled' && order.cancellationReason && (
                   <div className="bg-error/5 text-text-secondary rounded-lg px-3 py-2 mb-3 text-xs font-inter">
-                    Annulée par{' '}
+                    {t("Annulée par")}{' '}
                     {order.cancelledBy === 'customer' ? 'vous' : order.cancelledBy === 'restaurant' ? 'le restaurant' : "l'équipe MiamExpress"}
-                    {' '}· Motif : <span className="font-medium text-text-primary">{order.cancellationReason}</span>
+                    {' '}{t("· Motif :")} <span className="font-medium text-text-primary">{order.cancellationReason}</span>
                   </div>
                 )}
 
@@ -559,7 +560,7 @@ export default function Orders() {
                     <UserRound className="w-3.5 h-3.5 text-green-primary shrink-0 mt-0.5" />
                     <div>
                       <p>
-                        Commande pour <span className="font-semibold text-text-primary">{order.recipient.name || 'bénéficiaire'}</span>
+                        {t("Commande pour")} <span className="font-semibold text-text-primary">{order.recipient.name || 'bénéficiaire'}</span>
                         {order.recipient.phone && <span> · {order.recipient.phone}</span>}
                       </p>
                       {order.recipient.contactInstructions && (
@@ -595,12 +596,12 @@ export default function Orders() {
                   </span>
                   <span className="text-right">
                     <span className="block font-inter font-bold text-text-primary text-sm">
-                      {order.total.toLocaleString()} FCFA
+                      {order.total.toLocaleString()} {t("FCFA")}
                     </span>
                     {/* Série PTS : garantie sécurisée → le solde dû à la livraison change */}
                     {remainingDueAtDelivery(order) !== order.total && !['delivered', 'cancelled'].includes(order.status) && (
                       <span className="block text-green-primary text-[11px] font-inter font-medium">
-                        Reste à payer à la livraison : {remainingDueAtDelivery(order).toLocaleString()} FCFA
+                        {t("Reste à payer à la livraison :")} {remainingDueAtDelivery(order).toLocaleString()} {t("FCFA")}
                       </span>
                     )}
                   </span>
@@ -611,14 +612,14 @@ export default function Orders() {
                   <div className="bg-green-light rounded-lg px-4 py-3 mb-3 flex items-center justify-between gap-3">
                     <div>
                       <p className="text-green-primary font-inter font-semibold text-xs uppercase tracking-wide mb-0.5">
-                        Code de livraison
+                        {t("Code de livraison")}
                       </p>
                       <p className="text-text-secondary text-xs font-inter">
-                        Donnez ce code au livreur à la remise de votre commande.
+                        {t("Donnez ce code au livreur à la remise de votre commande.")}
                         {order.guarantee && (
                           <>
-                            {' '}<span className="font-medium">Code remis = livraison conforme.</span>{' '}
-                            Un problème ? Ouvrez un litige AVANT de refuser, sinon votre garantie est perdue.
+                            {' '}<span className="font-medium">{t("Code remis = livraison conforme.")}</span>{' '}
+                            {t("Un problème ? Ouvrez un litige AVANT de refuser, sinon votre garantie est perdue.")}
                           </>
                         )}
                       </p>
@@ -636,11 +637,12 @@ export default function Orders() {
                     className="flex items-center gap-1.5 text-error font-inter text-xs font-medium mb-3 hover:opacity-80 transition-opacity min-h-11"
                   >
                     <XCircle className="w-3.5 h-3.5" />
-                    Signaler un problème avec cette livraison
+                    {t("Signaler un problème avec cette livraison")}
                   </button>
                 )}
 
                 {(() => {
+                        const { t } = useTranslation();
                   // Annulation client bornée par le risque : possible tant que le
                   // parcours n'est pas « en route » (livreur) — libre avant
                   // préparation, avec avertissement pendant (customerCancelPolicy).
@@ -654,13 +656,14 @@ export default function Orders() {
                         className="flex items-center gap-1.5 text-error font-inter text-sm font-medium hover:opacity-80 transition-opacity min-h-11"
                       >
                         <XCircle className="w-4 h-4" />
-                        Annuler la commande
+                        {t("Annuler la commande")}
                       </button>
                     </div>
                   );
                 })()}
 
                 {(order.status === 'picked_up' || order.status === 'delivering') && (() => {
+                        const { t } = useTranslation();
                   // Actions de contact réelles : appel + WhatsApp vers le
                   // livreur quand son numéro est résolvable, sinon vers le
                   // support MiamExpress (jamais de message simulé).
@@ -686,7 +689,7 @@ export default function Orders() {
                               <Star className="w-3 h-3 fill-gold-accent text-gold-accent" />
                               {stats.averageRating.toFixed(1)}
                               <span className="text-text-muted">
-                                · {stats.completedDeliveries} course{stats.completedDeliveries > 1 ? 's' : ''}
+                                · {stats.completedDeliveries} {t("course")}{stats.completedDeliveries > 1 ? 's' : ''}
                               </span>
                             </p>
                           )}
@@ -707,7 +710,7 @@ export default function Orders() {
                           aria-label={driverPhone ? 'Écrire au livreur sur WhatsApp' : 'Écrire au support sur WhatsApp'}
                           className="text-xs bg-bg-secondary rounded-full px-3.5 py-2.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors inline-flex items-center"
                         >
-                          💬 WhatsApp {driverPhone ? 'livreur' : 'support'}
+                          {t("💬 WhatsApp")} {driverPhone ? 'livreur' : 'support'}
                         </a>
                       </div>
                     </div>
@@ -733,7 +736,7 @@ export default function Orders() {
                     {reviewingId === order.id ? (
                       <div className="space-y-2">
                         <p className="font-inter font-medium text-text-primary text-sm">
-                          Noter la livraison
+                          {t("Noter la livraison")}
                         </p>
                         <div className="flex items-center gap-1">
                           {[1, 2, 3, 4, 5].map((star) => (
@@ -787,14 +790,14 @@ export default function Orders() {
                               disabled={reviewSubmittingId === order.id}
                               className="inline-flex items-center gap-1.5 bg-green-primary text-white font-inter font-medium text-xs px-4 h-9 rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60"
                             >
-                              {reviewSubmittingId === order.id ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Envoi...</> : 'Envoyer'}
+                              {reviewSubmittingId === order.id ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t("Envoi...")}</> : 'Envoyer'}
                             </button>
                             <button
                               onClick={() => { setReviewingId(null); setReviewTags([]); }}
                               disabled={reviewSubmittingId === order.id}
                               className="text-text-secondary font-inter text-xs px-3 h-9 rounded-lg hover:bg-bg-secondary transition-colors disabled:opacity-60"
                             >
-                              Annuler
+                              {t("Annuler")}
                             </button>
                           </div>
                         </div>
@@ -805,7 +808,7 @@ export default function Orders() {
                         className="flex items-center gap-1.5 text-green-primary font-inter text-sm font-medium hover:text-green-dark transition-colors min-h-11"
                       >
                         <Star className="w-4 h-4" />
-                        Noter la livraison
+                        {t("Noter la livraison")}
                       </button>
                     )}
                   </div>
@@ -818,7 +821,7 @@ export default function Orders() {
                       <div className="space-y-2">
                         <p className="font-inter font-medium text-text-primary text-sm flex items-center gap-1.5">
                           <Store className="w-4 h-4 text-green-primary" />
-                          Noter le restaurant
+                          {t("Noter le restaurant")}
                         </p>
                         <div className="flex items-center gap-1">
                           {[1, 2, 3, 4, 5].map((star) => (
@@ -872,14 +875,14 @@ export default function Orders() {
                               disabled={restoReviewSubmittingId === order.id}
                               className="inline-flex items-center gap-1.5 bg-green-primary text-white font-inter font-medium text-xs px-4 h-9 rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60"
                             >
-                              {restoReviewSubmittingId === order.id ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Envoi...</> : 'Envoyer'}
+                              {restoReviewSubmittingId === order.id ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t("Envoi...")}</> : 'Envoyer'}
                             </button>
                             <button
                               onClick={() => { setRestoReviewingId(null); setRestoTags([]); }}
                               disabled={restoReviewSubmittingId === order.id}
                               className="text-text-secondary font-inter text-xs px-3 h-9 rounded-lg hover:bg-bg-secondary transition-colors disabled:opacity-60"
                             >
-                              Annuler
+                              {t("Annuler")}
                             </button>
                           </div>
                         </div>
@@ -890,7 +893,7 @@ export default function Orders() {
                         className="flex items-center gap-1.5 text-green-primary font-inter text-sm font-medium hover:text-green-dark transition-colors min-h-11"
                       >
                         <Store className="w-4 h-4" />
-                        Noter le restaurant
+                        {t("Noter le restaurant")}
                       </button>
                     )}
                   </div>
@@ -905,19 +908,18 @@ export default function Orders() {
       <AlertDialog open={!!reorderTarget} onOpenChange={(open) => { if (!open) setReorderTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remplacer votre panier ?</AlertDialogTitle>
+            <AlertDialogTitle>{t("Remplacer votre panier ?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Votre panier contient des articles d&apos;un autre restaurant.
-              Recommander chez {reorderTarget?.restaurantName || 'ce restaurant'} le videra.
+              {t("Votre panier contient des articles d&apos;un autre restaurant.\r\n              Recommander chez")} {reorderTarget?.restaurantName || 'ce restaurant'} {t("le videra.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Garder mon panier</AlertDialogCancel>
+            <AlertDialogCancel>{t("Garder mon panier")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => { if (reorderTarget) void performReorder(reorderTarget); }}
               className="bg-green-primary text-white hover:bg-green-dark"
             >
-              Vider et recommander
+              {t("Vider et recommander")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -927,11 +929,9 @@ export default function Orders() {
       <AlertDialog open={!!disputeTarget} onOpenChange={(open) => { if (!open) setDisputeTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Signaler un problème — commande {disputeTarget ? shortOrderId(disputeTarget.id) : ''}</AlertDialogTitle>
+            <AlertDialogTitle>{t("Signaler un problème — commande")} {disputeTarget ? shortOrderId(disputeTarget.id) : ''}</AlertDialogTitle>
             <AlertDialogDescription>
-              Décrivez précisément le problème (plat manquant, commande non conforme…).
-              L&apos;équipe MiamExpress tranche sous 24 h : si la livraison est jugée
-              conforme, la garantie est perdue ; sinon elle vous est remboursée intégralement.
+              {t("Décrivez précisément le problème (plat manquant, commande non conforme…).\r\n              L&apos;équipe MiamExpress tranche sous 24 h : si la livraison est jugée\r\n              conforme, la garantie est perdue ; sinon elle vous est remboursée intégralement.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <textarea
@@ -942,7 +942,7 @@ export default function Orders() {
             className="w-full bg-white rounded-lg border border-border-custom px-3 py-2 text-sm font-inter outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all resize-none"
           />
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("Annuler")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleSubmitDispute}
               disabled={!disputeNote.trim() || disputeSubmitting}
@@ -958,9 +958,9 @@ export default function Orders() {
       <AlertDialog open={!!cancelTarget} onOpenChange={(open) => { if (!open) setCancelTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Annuler la commande #{cancelTarget?.id.slice(0, 8)} ?</AlertDialogTitle>
+            <AlertDialogTitle>{t("Annuler la commande #")}{cancelTarget?.id.slice(0, 8)} ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Le restaurant sera informé de l&apos;annulation et du motif. Cette action est irréversible.
+              {t("Le restaurant sera informé de l&apos;annulation et du motif. Cette action est irréversible.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3">
@@ -972,7 +972,7 @@ export default function Orders() {
             )}
             <div>
               <label htmlFor="cancel-reason" className="block text-text-secondary font-inter text-sm mb-1.5">
-                Motif de l&apos;annulation <span className="text-error">*</span>
+                {t("Motif de l&apos;annulation")} <span className="text-error">*</span>
               </label>
               <select
                 id="cancel-reason"
@@ -980,7 +980,7 @@ export default function Orders() {
                 onChange={(e) => setCancelReason(e.target.value)}
                 className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none"
               >
-                <option value="" disabled>Sélectionnez un motif</option>
+                <option value="" disabled>{t("Sélectionnez un motif")}</option>
                 {CANCEL_REASONS.map((r) => (
                   <option key={r} value={r}>{r}</option>
                 ))}
@@ -998,7 +998,7 @@ export default function Orders() {
             )}
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Garder ma commande</AlertDialogCancel>
+            <AlertDialogCancel>{t("Garder ma commande")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCancelOrder}
               disabled={!cancelReasonComplete || cancelling}

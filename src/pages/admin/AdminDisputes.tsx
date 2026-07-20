@@ -16,12 +16,14 @@ import {
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { useTranslation } from "react-i18next";
 
 type ResolveTarget =
   | { kind: 'incident'; id: string; label: string }
   | { kind: 'cancellation'; id: string; label: string };
 
 export default function AdminDisputes() {
+    const { t } = useTranslation();
   const { restaurants } = useRestaurants();
   const [orders, setOrders] = useState<Order[]>([]);
   const [incidents, setIncidents] = useState<DeliveryIncident[]>([]);
@@ -124,9 +126,9 @@ export default function AdminDisputes() {
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <h1 className="font-poppins font-bold text-text-primary text-2xl flex items-center gap-2">
           <AlertTriangle className="w-6 h-6 text-gold-accent" />
-          Litiges
+          {t("Litiges")}
           <span className="text-sm font-inter font-medium text-text-muted">
-            ({openIncidents.length + openCancellations.length} ouvert{openIncidents.length + openCancellations.length !== 1 ? 's' : ''})
+            ({openIncidents.length + openCancellations.length} {t("ouvert")}{openIncidents.length + openCancellations.length !== 1 ? 's' : ''})
           </span>
         </h1>
         <label className="flex items-center gap-2 text-sm font-inter text-text-secondary cursor-pointer">
@@ -136,7 +138,7 @@ export default function AdminDisputes() {
             onChange={(e) => setShowResolved(e.target.checked)}
             className="w-4 h-4 accent-green-primary"
           />
-          Afficher les litiges traités
+          {t("Afficher les litiges traités")}
         </label>
       </div>
 
@@ -144,7 +146,7 @@ export default function AdminDisputes() {
       <div className="bg-white rounded-xl border border-border-custom p-5 mb-6">
         <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4 flex items-center gap-2">
           <Bike className="w-5 h-5 text-error" />
-          Incidents de livraison ({openIncidents.length} ouvert{openIncidents.length !== 1 ? 's' : ''})
+          {t("Incidents de livraison (")}{openIncidents.length} {t("ouvert")}{openIncidents.length !== 1 ? 's' : ''})
         </h2>
         {visibleIncidents.length === 0 ? (
           <p className="text-text-secondary text-sm">
@@ -157,46 +159,47 @@ export default function AdminDisputes() {
                 <div>
                   <p className="font-inter font-semibold text-sm text-text-primary">
                     {INCIDENT_LABELS[incident.type]}
-                    <span className="ml-2 text-text-muted text-xs font-normal">Commande #{incident.orderId.slice(0, 8)}</span>
+                    <span className="ml-2 text-text-muted text-xs font-normal">{t("Commande #")}{incident.orderId.slice(0, 8)}</span>
                   </p>
                   <p className="text-xs text-text-muted">
-                    {new Date(incident.createdAt).toLocaleString('fr-FR')} · Livreur {incident.driverId.slice(0, 12)}
+                    {new Date(incident.createdAt).toLocaleString('fr-FR')} {t("· Livreur")} {incident.driverId.slice(0, 12)}
                   </p>
                   {incident.note && <p className="text-xs text-text-secondary font-inter mt-1 italic">"{incident.note}"</p>}
                   {incident.reportedBy === 'customer' && (
-                    <p className="text-[11px] text-amber-700 font-inter mt-0.5">Signalé par le client</p>
+                    <p className="text-[11px] text-amber-700 font-inter mt-0.5">{t("Signalé par le client")}</p>
                   )}
                   {incident.status === 'resolved' && incident.resolutionNote && (
-                    <p className="text-xs text-green-primary font-inter mt-1">Traitement : {incident.resolutionNote}</p>
+                    <p className="text-xs text-green-primary font-inter mt-1">{t("Traitement :")} {incident.resolutionNote}</p>
                   )}
                   {/* Série PTS — arbitrage d'un litige portant sur une commande garantie :
                       la décision applique en une action garantie + points + annulation. */}
                   {incident.status === 'open' && (() => {
+                            const { t } = useTranslation();
                     const order = orderById[incident.orderId];
                     const g = order?.guarantee;
                     if (!order || !g || !['declared', 'confirmed'].includes(g.status)) return null;
                     return (
                       <div className="flex flex-wrap items-center gap-1.5 mt-2">
                         <span className="text-[11px] font-inter text-text-muted">
-                          Garantie {g.amountFcfa.toLocaleString()} FCFA en jeu — décision :
+                          {t("Garantie")} {g.amountFcfa.toLocaleString()} {t("FCFA en jeu — décision :")}
                         </span>
                         <button
                           onClick={() => setDecisionTarget({ incident, order, decision: 'abusive_rejection' })}
                           className="text-[11px] font-inter font-semibold px-2.5 py-1.5 rounded-lg border border-error text-error hover:bg-error/5 transition-colors"
                         >
-                          Rejet client abusif
+                          {t("Rejet client abusif")}
                         </button>
                         <button
                           onClick={() => setDecisionTarget({ incident, order, decision: 'restaurant_fault' })}
                           className="text-[11px] font-inter font-semibold px-2.5 py-1.5 rounded-lg border border-border-custom text-text-secondary hover:bg-bg-secondary transition-colors"
                         >
-                          Faute restaurant
+                          {t("Faute restaurant")}
                         </button>
                         <button
                           onClick={() => setDecisionTarget({ incident, order, decision: 'driver_fault' })}
                           className="text-[11px] font-inter font-semibold px-2.5 py-1.5 rounded-lg border border-border-custom text-text-secondary hover:bg-bg-secondary transition-colors"
                         >
-                          Faute livreur
+                          {t("Faute livreur")}
                         </button>
                       </div>
                     );
@@ -211,7 +214,7 @@ export default function AdminDisputes() {
                       onClick={() => { setResolutionNote(''); setResolveTarget({ kind: 'incident', id: incident.id, label: `${INCIDENT_LABELS[incident.type]} — commande #${incident.orderId.slice(0, 8)}` }); }}
                       className="flex items-center gap-1 bg-green-light text-green-primary font-inter font-medium text-xs px-3 h-8 rounded-lg hover:bg-green-primary hover:text-white transition-colors"
                     >
-                      <Check className="w-3.5 h-3.5" />Traiter
+                      <Check className="w-3.5 h-3.5" />{t("Traiter")}
                     </button>
                   )}
                 </div>
@@ -224,7 +227,7 @@ export default function AdminDisputes() {
       {/* Annulations (CONF-20) */}
       <div className="bg-white rounded-xl border border-border-custom p-5">
         <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">
-          Commandes annulées ({openCancellations.length} à traiter)
+          {t("Commandes annulées (")}{openCancellations.length} {t("à traiter)")}
         </h2>
         {visibleCancellations.length === 0 ? (
           <p className="text-text-secondary text-sm">
@@ -245,29 +248,29 @@ export default function AdminDisputes() {
                   </p>
                   {order.cancellationReason ? (
                     <p className="text-xs text-text-secondary font-inter mt-1">
-                      Annulée par{' '}
+                      {t("Annulée par")}{' '}
                       <span className="font-medium text-text-primary">
                         {order.cancelledBy === 'customer' ? 'le client' : order.cancelledBy === 'restaurant' ? 'le restaurant' : order.cancelledBy === 'admin' ? "l'admin" : '—'}
                       </span>
-                      {' '}· Motif : <span className="font-medium text-text-primary">{order.cancellationReason}</span>
+                      {' '}{t("· Motif :")} <span className="font-medium text-text-primary">{order.cancellationReason}</span>
                     </p>
                   ) : (
-                    <p className="text-xs text-text-muted font-inter mt-1 italic">Motif non renseigné (annulation antérieure)</p>
+                    <p className="text-xs text-text-muted font-inter mt-1 italic">{t("Motif non renseigné (annulation antérieure)")}</p>
                   )}
                   {order.disputeResolved && order.disputeResolutionNote && (
-                    <p className="text-xs text-green-primary font-inter mt-1">Traitement : {order.disputeResolutionNote}</p>
+                    <p className="text-xs text-green-primary font-inter mt-1">{t("Traitement :")} {order.disputeResolutionNote}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="font-inter font-semibold text-sm text-error">{order.total.toLocaleString()} FCFA</span>
+                  <span className="font-inter font-semibold text-sm text-error">{order.total.toLocaleString()} {t("FCFA")}</span>
                   {order.disputeResolved ? (
-                    <span className="text-xs font-inter font-medium px-2.5 py-1 rounded-full bg-green-light text-green-primary">Traité</span>
+                    <span className="text-xs font-inter font-medium px-2.5 py-1 rounded-full bg-green-light text-green-primary">{t("Traité")}</span>
                   ) : (
                     <button
                       onClick={() => { setResolutionNote(''); setResolveTarget({ kind: 'cancellation', id: order.id, label: `Annulation — commande #${order.id.slice(0, 8)}` }); }}
                       className="flex items-center gap-1 bg-green-light text-green-primary font-inter font-medium text-xs px-3 h-8 rounded-lg hover:bg-green-primary hover:text-white transition-colors"
                     >
-                      <Check className="w-3.5 h-3.5" />Traiter
+                      <Check className="w-3.5 h-3.5" />{t("Traiter")}
                     </button>
                   )}
                 </div>
@@ -281,7 +284,7 @@ export default function AdminDisputes() {
       <AlertDialog open={!!resolveTarget} onOpenChange={(open) => { if (!open) setResolveTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Marquer comme traité ?</AlertDialogTitle>
+            <AlertDialogTitle>{t("Marquer comme traité ?")}</AlertDialogTitle>
             <AlertDialogDescription>{resolveTarget?.label}</AlertDialogDescription>
           </AlertDialogHeader>
           <textarea
@@ -293,9 +296,9 @@ export default function AdminDisputes() {
             className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none placeholder:text-text-muted"
           />
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("Annuler")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleResolve} className="bg-green-primary text-white hover:bg-green-dark">
-              Marquer traité
+              {t("Marquer traité")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -306,10 +309,10 @@ export default function AdminDisputes() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {decisionTarget ? DECISION_LABELS[decisionTarget.decision] : ''} — commande #{decisionTarget?.order.id.slice(0, 8)}
+              {decisionTarget ? DECISION_LABELS[decisionTarget.decision] : ''} {t("— commande #")}{decisionTarget?.order.id.slice(0, 8)}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Voici exactement ce qui va être appliqué :
+              {t("Voici exactement ce qui va être appliqué :")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {decisionTarget && (
@@ -323,7 +326,7 @@ export default function AdminDisputes() {
             </ul>
           )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("Annuler")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleApplyDecision}
               disabled={applyingDecision}

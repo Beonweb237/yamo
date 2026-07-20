@@ -5,6 +5,7 @@ import { Phone, ShieldCheck, User, Store, Bike, Mail, Smartphone, ArrowRight, Ey
 import { toast } from 'sonner';
 import AuthHeader from '../components/AuthHeader';
 import OtpInput from '../components/OtpInput';
+import { useTranslation } from 'react-i18next';
 import { useAuth, LOCAL_SESSION_KEY, LOCAL_REGISTRY_KEY, LOCAL_EMAIL_USERS_KEY, RoleMismatchError, ADMIN_DEFAULT_PASSWORD, type AuthUser, type UserRole } from '../contexts/AuthContext';
 import { getLocalSuspensionInfo } from '../lib/drivers';
 import { fetchMyApplications } from '../lib/applications';
@@ -108,6 +109,7 @@ const MOCK_EMAIL_PASSWORDS: Record<string, { phone: string; role: UserRole; appr
 
 const MOCK_PASSWORD = ADMIN_DEFAULT_PASSWORD;
 export default function Login({ defaultRole = 'client' as UserRole }: { defaultRole?: UserRole }) {
+  const { t } = useTranslation();
   const { sendOtp, verifyOtp, signInWithPassword, isSupabaseConfigured } = useAuth();
   // Aides de démo (bannière SMS + comptes de démonstration + identifiants) :
   // affichées UNIQUEMENT en mode mock (aucun vrai backend). Sur le site réel
@@ -280,7 +282,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
       <div className="w-full max-w-[420px] bg-white rounded-2xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden my-12">
 
         {/* ── Branded header ── */}
-        <AuthHeader icon={profile.icon} title={profile.title} subtitle={profile.subtitle} />
+        <AuthHeader icon={profile.icon} title={t(profile.title)} subtitle={t(profile.subtitle)} />
 
         <div className="px-6 sm:px-8 pb-6 sm:pb-8">
 
@@ -297,7 +299,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
                 }`}
             >
               <Smartphone className="w-4 h-4" />
-              Téléphone
+              {t("Téléphone")}
             </button>
             <button
               type="button"
@@ -310,14 +312,14 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
                 }`}
             >
               <Mail className="w-4 h-4" />
-              Email
+              {t("Email")}
             </button>
           </div>
 
           {/* ── Demo notice ── */}
           {isDemoMode && (
             <div className="bg-gold-light text-amber-700 text-xs font-inter rounded-lg px-3 py-2 mb-5">
-              Mode démo : aucun SMS n'est envoyé, saisissez n'importe quel code à l'étape suivante.
+              {t("Mode démo : aucun SMS n'est envoyé, saisissez n'importe quel code à l'étape suivante.")}
             </div>
           )}
 
@@ -327,12 +329,13 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
               <div className="flex items-center gap-2 mb-3">
                 <FlaskConical className="w-4 h-4 text-green-primary" />
                 <p className="font-inter font-semibold text-green-primary text-sm">
-                  Compte{demoAccounts.length > 1 ? 's' : ''} de démonstration {roleLabels[defaultRole].toLowerCase()}
+                  {t("Compte")}{demoAccounts.length > 1 ? 's' : ''} {t("de démonstration")} {roleLabels[defaultRole].toLowerCase()}
                 </p>
-                <span className="text-text-muted text-[10px] font-inter">— cliquez pour remplir</span>
+                <span className="text-text-muted text-[10px] font-inter">{t("— cliquez pour remplir")}</span>
               </div>
               <div className="space-y-1.5">
                 {demoAccounts.map((demo) => {
+                    const { t } = useTranslation();
                   const isSelected = authMode === 'simple' ? phone === demo.phone : email === demo.email;
                   return (
                     <button
@@ -358,14 +361,14 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
                         {demo.approved ? 'Approuvé' : 'En attente'}
                       </span>
                       {isSelected && (
-                        <span className="text-green-primary text-[10px] font-inter font-medium shrink-0">✓ Actif</span>
+                        <span className="text-green-primary text-[10px] font-inter font-medium shrink-0">{t("✓ Actif")}</span>
                       )}
                     </button>
                   );
                 })}
               </div>
               <p className="text-text-muted text-[10px] font-inter mt-2.5 text-center">
-                Mot de passe Email : <strong className="text-text-primary">{ADMIN_DEFAULT_PASSWORD}</strong>
+                {t("Mot de passe Email :")} <strong className="text-text-primary">{ADMIN_DEFAULT_PASSWORD}</strong>
                 {authMode === 'simple' && ' · En mode Téléphone, tout code à 5 chiffres est accepté'}
               </p>
             </div>
@@ -377,7 +380,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
           {authMode === 'pro' ? (
             <form onSubmit={handleEmailLogin} className="space-y-4">
               <div>
-                <label className="block text-text-secondary font-inter text-sm mb-1.5">Adresse email</label>
+                <label className="block text-text-secondary font-inter text-sm mb-1.5">{t("Adresse email")}</label>
                 <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                   <Mail className="w-4 h-4 text-text-muted shrink-0" />
                   <input
@@ -391,7 +394,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
                 </div>
               </div>
               <div>
-                <label className="block text-text-secondary font-inter text-sm mb-1.5">Mot de passe</label>
+                <label className="block text-text-secondary font-inter text-sm mb-1.5">{t("Mot de passe")}</label>
                 <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                   <ShieldCheck className="w-4 h-4 text-text-muted shrink-0" />
                   <input
@@ -418,7 +421,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
                 disabled={emailSubmitting}
                 className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {emailSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Connexion...</> : <>Se connecter <ArrowRight className="w-4 h-4" /></>}
+                {emailSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("Connexion...")}</> : <>{t("Se connecter")} <ArrowRight className="w-4 h-4" /></>}
               </button>
             </form>
           ) : step === 'phone' ? (
@@ -427,7 +430,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
                ══════════════════════════════════════════ */
             <form onSubmit={handlePhoneOtp} className="space-y-4">
               <div>
-                <label className="block text-text-secondary font-inter text-sm mb-1.5">Numéro de téléphone</label>
+                <label className="block text-text-secondary font-inter text-sm mb-1.5">{t("Numéro de téléphone")}</label>
                 <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
                   <Phone className="w-4 h-4 text-text-muted shrink-0" />
                   <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
@@ -447,7 +450,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
                 disabled={submitting}
                 className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Envoi...</> : <>Recevoir le code <ArrowRight className="w-4 h-4" /></>}
+                {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("Envoi...")}</> : <>{t("Recevoir le code")} <ArrowRight className="w-4 h-4" /></>}
               </button>
             </form>
           ) : (
@@ -457,9 +460,9 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
             <form onSubmit={handleVerify} className="space-y-4">
               <div>
                 <p className="text-text-secondary font-inter text-sm text-center mb-4">
-                  Code envoyé au <strong className="text-text-primary">+237 {displayCameroonPhone(phone)}</strong>
+                  {t("Code envoyé au")} <strong className="text-text-primary">+237 {displayCameroonPhone(phone)}</strong>
                 </p>
-                <label className="block text-text-secondary font-inter text-sm mb-2">Code reçu par SMS</label>
+                <label className="block text-text-secondary font-inter text-sm mb-2">{t("Code reçu par SMS")}</label>
                 <OtpInput value={code} onChange={setCode} disabled={submitting} />
               </div>
               {error && <p className="text-error text-sm font-inter" role="alert">{error}</p>}
@@ -468,7 +471,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
                 disabled={submitting || code.length < 5}
                 className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Vérification...</> : 'Confirmer'}
+                {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("Vérification...")}</> : 'Confirmer'}
               </button>
               <div className="flex items-center justify-between">
                 <button
@@ -476,7 +479,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
                   onClick={() => { setStep('phone'); setCode(''); setError(''); }}
                   className="text-text-secondary font-inter text-sm hover:text-text-primary min-h-11"
                 >
-                  Changer de numéro
+                  {t("Changer de numéro")}
                 </button>
                 <button
                   type="button"
@@ -496,7 +499,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
           {crossLinks.length > 0 && (
             <div className="mt-6 pt-5 border-t border-border-light">
               <p className="text-text-muted text-[11px] font-inter font-medium uppercase tracking-wider mb-3">
-                Autres profils
+                {t("Autres profils")}
               </p>
               <div className="space-y-1.5">
                 {crossLinks.map((link) => (
@@ -510,7 +513,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
                       {link.label}
                     </span>
                     <span className="text-green-primary font-inter text-xs font-medium ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                      Connexion <ArrowRight className="w-3 h-3" />
+                      {t("Connexion")} <ArrowRight className="w-3 h-3" />
                     </span>
                   </Link>
                 ))}
@@ -520,12 +523,12 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
 
           {/* ── Footer: link to sign-up ── */}
           <p className="text-center text-text-secondary font-inter text-sm mt-5">
-            Pas encore de compte ?{' '}
+            {t("Pas encore de compte ?")}{' '}
             <Link
               to={getSignupPath(defaultRole)}
               className="text-green-primary font-semibold hover:text-green-dark underline inline-flex items-center min-h-11"
             >
-              S'inscrire
+              {t("S'inscrire")}
             </Link>
           </p>
         </div>

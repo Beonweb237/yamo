@@ -3,6 +3,7 @@
 // ============================================================
 import { useEffect, useState } from 'react';
 import { AlertTriangle, ExternalLink } from 'lucide-react';
+import { useTranslation } from "react-i18next";
 
 interface ZoneInfo {
   city: string;
@@ -29,6 +30,7 @@ export function useZoneAlert(restaurantId: string | undefined) {
 }
 
 export function ZoneAlertBanner({ zones }: { zones: ZoneInfo[] }) {
+    const { t } = useTranslation();
   if (!zones || zones.length === 0) return null;
 
   return (
@@ -36,7 +38,7 @@ export function ZoneAlertBanner({ zones }: { zones: ZoneInfo[] }) {
       <div className="flex items-center gap-2">
         <AlertTriangle className="w-5 h-5 shrink-0" />
         <div>
-          <p className="font-semibold">⚠️ Votre restaurant est situé dans une zone temporairement désactivée</p>
+          <p className="font-semibold">{t("⚠️ Votre restaurant est situé dans une zone temporairement désactivée")}</p>
           <p className="text-red-100 text-xs mt-0.5">
             {zones.map(z => (
               <span key={z.city}>{z.city}{z.neighborhood ? ` (${z.neighborhood})` : ''} : {z.reason || 'Zone suspendue'}. </span>
@@ -46,7 +48,7 @@ export function ZoneAlertBanner({ zones }: { zones: ZoneInfo[] }) {
       </div>
       <a href="mailto:support@miamexpress.cm?subject=Restaurant%20en%20zone%20désactivée"
         className="flex items-center gap-1 bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0">
-        <ExternalLink className="w-3.5 h-3.5" /> Contacter le support
+        <ExternalLink className="w-3.5 h-3.5" /> {t("Contacter le support")}
       </a>
     </div>
   );
