@@ -1396,11 +1396,12 @@ app.post('/api/auth/signin', async (req, res) => {
   try {
     const { phone, email, password } = req.body;
     const identifier = String(phone || email || '').trim();
-    const normalizedPhone = cleanPhone(identifier);
+    const raw = identifier.replace(/\D/g, '');
+    const bare = raw.replace(/^(?:00)?237/, '');
     const normalizedEmail = cleanEmail(identifier);
     const { rows: [user] } = await pool.query(
-      'SELECT * FROM users WHERE phone = $1 OR lower(email) = lower($2) LIMIT 1',
-      [normalizedPhone, normalizedEmail || identifier.toLowerCase()]
+      `SELECT * FROM users WHERE phone = $1 OR phone = $2 OR lower(email) = lower($3) LIMIT 1`,
+      [bare, `+237${bare}`, normalizedEmail || identifier.toLowerCase()]
     );
     if (!user || !user.password_hash) return res.status(401).json({ error: 'Identifiants invalides' });
 

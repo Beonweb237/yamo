@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, MapPin, Save, Trash2, Plus, LogOut, Shield, Camera, Globe, Navigation, Wallet, Heart, ShoppingBag, MessageCircle, Gauge, Package, UtensilsCrossed, Search } from 'lucide-react';
+import { User, MapPin, Save, Trash2, Plus, LogOut, Shield, Camera, Globe, Navigation, Wallet, Heart, ShoppingBag, MessageCircle, Gauge, Package, UtensilsCrossed, Search, Edit2, ChevronRight, Award, Store } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { Switch } from '../components/ui/switch';
@@ -20,6 +20,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '../components/ui/dialog';
 
 interface SavedAddress {
   id: string;
@@ -58,6 +65,7 @@ export default function Profile() {
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [expandedMapId, setExpandedMapId] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [fullText, setFullText] = useState('');
   const [city, setCity] = useState('Douala');
@@ -247,77 +255,114 @@ export default function Profile() {
           Mon Profil
         </h1>
 
-        {/* Identity card */}
-        <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6 mb-6">
-          <div className="flex items-center gap-4 mb-4">
-            {/* Photo upload */}
+        {/* En-tête / Carte de Visite Premium */}
+        <section className="bg-white rounded-2xl border border-border-custom p-6 mb-8 relative overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+          <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-r from-green-primary to-green-dark" />
+          <div className="relative pt-6 flex flex-col sm:flex-row items-center sm:items-end gap-5">
             <div className="relative shrink-0">
               {profilePhoto ? (
-                <img src={profilePhoto} alt="Photo" className="w-16 h-16 rounded-full object-cover border-2 border-green-primary" />
+                <img src={profilePhoto} alt="Photo" className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover border-4 border-white shadow-md bg-white" />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-green-light flex items-center justify-center">
-                  <User className="w-7 h-7 text-green-primary" />
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-green-light flex items-center justify-center border-4 border-white shadow-md">
+                  <User className="w-10 h-10 text-green-primary" />
                 </div>
               )}
               <button
                 type="button"
                 onClick={() => photoRef.current?.click()}
-                className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-green-primary text-white flex items-center justify-center shadow"
+                className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-white text-green-primary flex items-center justify-center shadow-md hover:scale-105 transition-transform"
                 aria-label="Changer la photo de profil"
               >
                 <Camera className="w-4 h-4" />
               </button>
               <input ref={photoRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
             </div>
-            {/* min-w-0 : sans lui, la largeur intrinsèque (téléphone non tronqué)
-                déborde du viewport à 360px (mesuré : scrollWidth 401px) */}
-            <div className="flex-1 min-w-0 space-y-2">
-              <input
-                type="text"
-                value={effectiveProfileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                placeholder="Votre nom complet"
-                className="w-full bg-white rounded-xl border border-border-custom px-4 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted transition-all focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 hover:border-text-muted"
-              />
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-11 transition-all focus-within:border-green-primary hover:border-text-muted">
-                  <Globe className="w-4 h-4 text-text-muted shrink-0" />
-                  <select
-                    value={profileLang}
-                    onChange={(e) => setProfileLang(e.target.value)}
-                    className="bg-transparent text-text-primary font-inter text-sm outline-none cursor-pointer"
-                  >
-                    <option value="fr">Français</option>
-                    <option value="en">English</option>
-                  </select>
+            
+            <div className="flex-1 text-center sm:text-left pb-2">
+              <h2 className="font-poppins font-bold text-text-primary text-2xl">{effectiveProfileName || 'Mon Compte'}</h2>
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-1.5 text-sm font-inter text-text-secondary">
+                <span className="flex items-center gap-1"><Shield className="w-4 h-4 text-green-primary" /> {roleLabels[user.role] ?? user.role}</span>
+                <span className="text-border-custom">•</span>
+                <span className="flex items-center gap-1">{user.phone}</span>
+                {whatsapp && (
+                  <>
+                    <span className="text-border-custom">•</span>
+                    <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4 text-[#25D366]" /> {displayCameroonPhone(whatsapp)}</span>
+                  </>
+                )}
+              </div>
+              {!user.isApproved && (
+                <div className="mt-3 inline-flex">
+                  <span className="text-xs font-medium px-3 py-1 rounded-full bg-gold-light text-amber-700 shadow-sm border border-gold-accent/20">Compte en attente de validation</span>
                 </div>
-                <span className="text-text-muted text-xs font-inter truncate min-w-0">{user.phone}</span>
-              </div>
-              <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-11 transition-all focus-within:border-green-primary hover:border-text-muted">
-                <MessageCircle className="w-4 h-4 text-green-primary shrink-0" />
-                <span className="text-text-primary font-inter text-sm font-semibold shrink-0 select-none">+237</span>
-                <input
-                  type="tel"
-                  value={displayCameroonPhone(whatsapp)}
-                  onChange={(e) => setWhatsapp(normalizeCameroonPhone(e.target.value))}
-                  placeholder="6XX XX XX XX (WhatsApp)"
-                  className="flex-1 min-w-0 bg-transparent text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
-                />
-              </div>
+              )}
+            </div>
+            
+            <div className="pb-2">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <button className="flex items-center gap-2 bg-bg-secondary text-text-primary font-inter font-medium px-4 py-2 rounded-lg hover:bg-border-light transition-colors text-sm shadow-sm">
+                    <Edit2 className="w-4 h-4" />
+                    Modifier
+                  </button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Modifier mon profil</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-inter font-medium text-text-primary">Nom complet</label>
+                      <input
+                        type="text"
+                        value={effectiveProfileName}
+                        onChange={(e) => setProfileName(e.target.value)}
+                        placeholder="Votre nom complet"
+                        className="w-full bg-white rounded-xl border border-border-custom px-4 h-12 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted transition-all focus:border-green-primary focus:ring-2 focus:ring-green-primary/10"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-inter font-medium text-text-primary">Langue préférée</label>
+                      <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 transition-all focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10">
+                        <Globe className="w-4 h-4 text-text-muted shrink-0" />
+                        <select
+                          value={profileLang}
+                          onChange={(e) => setProfileLang(e.target.value)}
+                          className="w-full bg-transparent text-text-primary font-inter text-sm outline-none cursor-pointer"
+                        >
+                          <option value="fr">Français</option>
+                          <option value="en">English</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-inter font-medium text-text-primary">Numéro WhatsApp</label>
+                      <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 transition-all focus-within:border-green-primary focus-within:ring-2 focus-within:ring-green-primary/10">
+                        <MessageCircle className="w-4 h-4 text-[#25D366] shrink-0" />
+                        <span className="text-text-primary font-inter text-sm font-semibold shrink-0 select-none">+237</span>
+                        <input
+                          type="tel"
+                          value={displayCameroonPhone(whatsapp)}
+                          onChange={(e) => setWhatsapp(normalizeCameroonPhone(e.target.value))}
+                          placeholder="6XX XX XX XX"
+                          className="flex-1 min-w-0 bg-transparent text-text-primary font-inter text-sm outline-none placeholder:text-text-muted"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={saveProfile}
+                      disabled={savingProfile}
+                      className="bg-green-primary text-white font-inter font-medium text-sm px-5 h-10 rounded-lg hover:bg-green-dark transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" /> {savingProfile ? 'Enregistrement...' : 'Enregistrer'}
+                    </button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Shield className="w-3.5 h-3.5 text-text-muted" />
-            <span className="text-text-secondary font-inter text-sm">
-              {roleLabels[user.role] ?? user.role}
-            </span>
-            {!user.isApproved && (
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gold-light text-amber-700">En attente</span>
-            )}
-          </div>
-          <button onClick={saveProfile} disabled={savingProfile} className="mt-3 flex items-center gap-1.5 text-green-primary text-sm font-inter font-semibold hover:underline disabled:opacity-60 transition-all min-h-11">
-            <Save className="w-3.5 h-3.5" /> {savingProfile ? 'Enregistrement...' : 'Enregistrer le profil'}
-          </button>
         </section>
 
         {/* ── Préférences d'affichage (CONF-30) ── */}
@@ -348,78 +393,92 @@ export default function Profile() {
           </div>
         </section>
 
-        {/* ── Accès rapides ── */}
-        <section className="mb-6">
-          <h2 className="font-poppins font-semibold text-text-primary text-sm uppercase tracking-wider text-text-muted mb-3 px-1">
-            Accès rapides
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { to: '/commandes', icon: Package, label: 'Mes commandes', desc: 'Historique et suivi' },
-              { to: '/favoris', icon: Heart, label: 'Favoris', desc: 'Restos & plats sauvegardés' },
-              { to: '/demandes/mes-demandes', icon: UtensilsCrossed, label: 'Demandes de plats', desc: 'Mes demandes sur mesure' },
-              { to: '/restaurants?mode=plats', icon: Search, label: 'Explorer', desc: 'Trouver un plat' },
-            ].map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className="flex items-center gap-3 bg-white rounded-2xl border border-border-custom shadow-sm p-4 hover:border-green-primary hover:shadow-md hover:-translate-y-0.5 transition-all group"
-              >
-                <span className="w-10 h-10 rounded-xl bg-green-light flex items-center justify-center shrink-0">
-                  <link.icon className="w-5 h-5 text-green-primary" />
-                </span>
-                <div className="min-w-0">
-                  <p className="font-inter font-semibold text-text-primary text-sm group-hover:text-green-primary transition-colors">
-                    {link.label}
-                  </p>
-                  <p className="text-text-muted text-[11px] font-inter truncate">{link.desc}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-
         {/* S5: Mon activité — historique de dépenses, plats/restaurants favoris */}
         {activityStats.orderCount > 0 && (
-          <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6 mb-6">
-            <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4 flex items-center gap-2">
+          <section className="mb-8">
+            <div className="flex items-center gap-2 mb-4 px-1">
               <ShoppingBag className="w-5 h-5 text-green-primary" />
-              Mon activité
-            </h2>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-bg-secondary rounded-lg p-3 text-center">
-                <p className="text-text-muted text-xs font-inter mb-0.5">Commandes livrées</p>
-                <p className="font-poppins font-bold text-text-primary text-xl">{activityStats.orderCount}</p>
+              <h2 className="font-poppins font-semibold text-text-primary text-lg">Mon Activité</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="bg-white rounded-2xl border border-border-custom p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+                <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
+                  <Package className="w-24 h-24 text-green-primary" />
+                </div>
+                <p className="text-text-muted text-sm font-inter mb-1">Commandes livrées</p>
+                <p className="font-poppins font-bold text-text-primary text-3xl">{activityStats.orderCount}</p>
               </div>
-              <div className="bg-bg-secondary rounded-lg p-3 text-center">
-                <p className="text-text-muted text-xs font-inter mb-0.5 flex items-center justify-center gap-1">
-                  <Wallet className="w-3 h-3" />Total dépensé
-                </p>
-                <p className="font-poppins font-bold text-green-primary text-xl">{activityStats.totalSpent.toLocaleString()} FCFA</p>
+              <div className="bg-white rounded-2xl border border-border-custom p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+                <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
+                  <Wallet className="w-24 h-24 text-green-primary" />
+                </div>
+                <p className="text-text-muted text-sm font-inter mb-1">Total dépensé</p>
+                <p className="font-poppins font-bold text-green-primary text-2xl truncate" title={`${activityStats.totalSpent.toLocaleString()} FCFA`}>{activityStats.totalSpent.toLocaleString()} FCFA</p>
               </div>
             </div>
+            
             {(activityStats.favoriteDish || activityStats.favoriteRestaurant) && (
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {activityStats.favoriteDish && (
-                  <div className="flex items-center gap-2 text-sm font-inter">
-                    <Heart className="w-4 h-4 text-error shrink-0" />
-                    <span className="text-text-secondary">Plat préféré :</span>
-                    <span className="font-medium text-text-primary">{activityStats.favoriteDish.name}</span>
-                    <span className="text-text-muted text-xs">({activityStats.favoriteDish.count}×)</span>
+                  <div className="bg-white rounded-2xl border border-border-custom p-4 shadow-sm flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-gold-light flex items-center justify-center shrink-0">
+                      <Award className="w-6 h-6 text-gold-accent" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-text-muted text-xs font-inter mb-0.5">Plat préféré</p>
+                      <p className="font-inter font-semibold text-text-primary text-sm truncate">{activityStats.favoriteDish.name}</p>
+                      <p className="text-green-primary text-xs font-medium">{activityStats.favoriteDish.count} commande{activityStats.favoriteDish.count > 1 ? 's' : ''}</p>
+                    </div>
                   </div>
                 )}
                 {activityStats.favoriteRestaurant && (
-                  <div className="flex items-center gap-2 text-sm font-inter">
-                    <Heart className="w-4 h-4 text-error shrink-0" />
-                    <span className="text-text-secondary">Restaurant préféré :</span>
-                    <span className="font-medium text-text-primary">{activityStats.favoriteRestaurant.name}</span>
-                    <span className="text-text-muted text-xs">({activityStats.favoriteRestaurant.count} commande{activityStats.favoriteRestaurant.count > 1 ? 's' : ''})</span>
+                  <div className="bg-white rounded-2xl border border-border-custom p-4 shadow-sm flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-gold-light flex items-center justify-center shrink-0">
+                      <Store className="w-6 h-6 text-gold-accent" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-text-muted text-xs font-inter mb-0.5">Restaurant favori</p>
+                      <p className="font-inter font-semibold text-text-primary text-sm truncate">{activityStats.favoriteRestaurant.name}</p>
+                      <p className="text-green-primary text-xs font-medium">{activityStats.favoriteRestaurant.count} commande{activityStats.favoriteRestaurant.count > 1 ? 's' : ''}</p>
+                    </div>
                   </div>
                 )}
               </div>
             )}
           </section>
         )}
+
+        {/* ── Accès rapides ── */}
+        <section className="mb-8">
+          <h2 className="font-poppins font-semibold text-text-primary text-sm uppercase tracking-wider text-text-muted mb-4 px-1">
+            Raccourcis
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            {[
+              { to: '/commandes', icon: Package, label: 'Mes commandes', desc: 'Historique et suivi' },
+              { to: '/favoris', icon: Heart, label: 'Favoris', desc: 'Restos & plats' },
+              { to: '/demandes/mes-demandes', icon: UtensilsCrossed, label: 'Mes demandes', desc: 'Commandes sur mesure' },
+              { to: '/restaurants?mode=plats', icon: Search, label: 'Explorer', desc: 'Trouver un plat' },
+            ].map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-white rounded-2xl border border-border-custom shadow-sm p-4 hover:border-green-primary hover:shadow-md hover:-translate-y-1 transition-all group"
+              >
+                <div className="w-12 h-12 rounded-xl bg-green-light flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                  <link.icon className="w-6 h-6 text-green-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-inter font-semibold text-text-primary text-sm sm:text-base group-hover:text-green-primary transition-colors flex items-center justify-between">
+                    {link.label}
+                    <ChevronRight className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block" />
+                  </p>
+                  <p className="text-text-muted text-[11px] sm:text-xs font-inter truncate mt-0.5">{link.desc}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
 
         {/* Adresses de livraison — section unique : liste (la 1re est l'adresse
             par défaut), formulaire d'ajout et état vide avec avertissement. */}
@@ -556,40 +615,57 @@ export default function Profile() {
               </div>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {addresses.map((addr, addrIdx) => (
-                <div key={addr.id} className="p-3 bg-bg-secondary rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        {addr.label && (
-                          <p className="font-inter font-semibold text-text-primary text-sm">{addr.label}</p>
-                        )}
-                        {addrIdx === 0 && (
-                          <span className="text-[10px] font-inter font-medium text-green-primary bg-green-light px-2 py-0.5 rounded-full">par défaut</span>
+                <div key={addr.id} className="p-4 bg-white rounded-2xl border border-border-custom shadow-sm hover:border-green-primary transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-green-light flex items-center justify-center shrink-0 mt-0.5">
+                        <MapPin className="w-5 h-5 text-green-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          {addr.label && (
+                            <p className="font-inter font-semibold text-text-primary text-sm sm:text-base">{addr.label}</p>
+                          )}
+                          {addrIdx === 0 && (
+                            <span className="text-[10px] font-inter font-medium text-green-primary bg-green-light px-2 py-0.5 rounded-full border border-green-primary/20">par défaut</span>
+                          )}
+                        </div>
+                        <p className="text-text-secondary text-xs sm:text-sm font-inter mt-0.5">{addr.fullText}</p>
+                        
+                        {addr.lat != null && addr.lng != null && (
+                          <button
+                            onClick={() => setExpandedMapId(expandedMapId === addr.id ? null : addr.id)}
+                            className="mt-2 flex items-center gap-1.5 text-green-primary text-xs font-inter font-medium hover:underline"
+                          >
+                            <Navigation className="w-3.5 h-3.5" />
+                            {expandedMapId === addr.id ? 'Masquer la carte' : 'Voir sur la carte'}
+                          </button>
                         )}
                       </div>
-                      <p className="text-text-secondary text-xs font-inter">{addr.fullText}</p>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => handleEdit(addr)}
-                        className="text-xs font-inter font-medium text-text-secondary hover:text-green-primary px-2 py-1 transition-colors"
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-text-muted hover:text-green-primary hover:bg-green-light transition-colors"
+                        title="Modifier"
                       >
-                        Modifier
+                        <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setDeleteTargetAddr(addr)}
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-text-muted hover:text-error hover:bg-error/10 transition-colors"
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-text-muted hover:text-error hover:bg-error/10 transition-colors"
+                        title="Supprimer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                  {addr.lat != null && addr.lng != null && (
-                    <div className="mt-2">
+                  {expandedMapId === addr.id && addr.lat != null && addr.lng != null && (
+                    <div className="mt-4 rounded-xl overflow-hidden border border-border-custom">
                       <LazyDeliveryMap
-                        height="120px"
+                        height="140px"
                         scrollWheelZoom={false}
                         points={[{ lat: addr.lat, lng: addr.lng, label: addr.label || addr.fullText, type: 'customer' } as MapPoint]}
                       />
@@ -602,12 +678,12 @@ export default function Profile() {
         </section>
 
         {/* Actions */}
-        <section className="space-y-3">
+        <section className="space-y-3 mb-8">
           <button
             onClick={() => { signOut(); navigate('/'); }}
-            className="w-full bg-white rounded-xl border border-border-custom p-4 text-left font-inter font-medium text-error hover:bg-error/5 transition-colors flex items-center gap-2"
+            className="w-full bg-white rounded-2xl border border-border-custom p-4 text-center font-inter font-medium text-error hover:bg-error hover:text-white transition-all flex items-center justify-center gap-2 shadow-sm"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-5 h-5" />
             Se déconnecter
           </button>
         </section>

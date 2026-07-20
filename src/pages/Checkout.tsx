@@ -160,8 +160,17 @@ export default function Checkout() {
   // confirmation ne pourrait plus l'afficher).
   const [placedEta, setPlacedEta] = useState<string | null>(null);
   const [paymentNotice, setPaymentNotice] = useState('');
+  const [validationCountdown, setValidationCountdown] = useState(0);
+  const [showMap, setShowMap] = useState(false);
 
   const savedAddresses = useMemo(() => readAddresses(), []);
+
+  useEffect(() => {
+    if (validationCountdown > 0) {
+      const timer = setInterval(() => setValidationCountdown(c => c - 1), 1000);
+      return () => clearInterval(timer);
+    }
+  }, [validationCountdown]);
 
   const neighborhoods = getNeighborhoods(city);
   const effectiveNeighborhood = useOtherNeighborhood ? customNeighborhood.trim() : neighborhood;
@@ -327,11 +336,13 @@ export default function Checkout() {
             phone: normalizeCameroonPhone(paymentPhone || user.phone),
           });
           setPaymentNotice(payment.message || 'Demande de paiement MTN MoMo envoyée. Validez-la sur votre téléphone.');
+          setValidationCountdown(60);
         } catch {
           setPaymentNotice("Le paiement MoMo n'a pas pu être initié. Vous pourrez régler à la livraison.");
         }
       } else if (paymentMethod === 'orange_money') {
         setPaymentNotice('Le paiement Orange Money sera confirmé avec vous par le support. En attendant, la commande est enregistrée.');
+        setValidationCountdown(60);
       }
 
       setPlacedEta(cartRestaurant?.deliveryTime ?? null);
@@ -359,18 +370,75 @@ export default function Checkout() {
   }
 
   if (placedOrderId) {
+    if (validationCountdown > 0) {
+      return (
+        <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
+          <div className="w-full max-w-[480px] bg-white rounded-2xl border border-border-custom shadow-sm p-8 text-center my-12">
+            <div className="w-16 h-16 rounded-full bg-green-light flex items-center justify-center mx-auto mb-5 relative">
+              <Loader2 className="w-8 h-8 text-green-primary animate-spin" />
+              <div className="absolute inset-0 border-4 border-green-primary/30 rounded-full animate-pulse" />
+            </div>
+            <h1 className="font-poppins font-bold text-text-primary text-2xl mb-2">
+              Validation en attente
+            </h1>
+            <p className="text-text-secondary font-inter text-sm mb-6">
+              {paymentNotice}
+            </p>
+            <div className="bg-bg-secondary rounded-lg p-4 mb-6">
+              <span className="font-mono text-2xl font-bold text-green-primary">
+                00:{validationCountdown.toString().padStart(2, '0')}
+              </span>
+              <p className="text-text-muted text-xs mt-1">
+                Le paiement devrait apparaître sur votre écran.
+              </p>
+            </div>
+            <button
+              onClick={() => setValidationCountdown(0)}
+              className="w-full bg-bg-secondary text-text-primary font-inter font-medium h-[52px] rounded-xl hover:bg-border-light transition-all"
+            >
+              Je n'ai rien reçu, continuer
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="pt-[72px] min-h-screen bg-gradient-to-b from-green-50/50 to-bg-secondary flex items-center justify-center px-4">
-        <div className="w-full max-w-[480px] bg-white rounded-2xl border border-border-custom shadow-sm p-8 text-center my-12">
+        <div className="w-full max-w-[480px] bg-white rounded-2xl border border-border-custom shadow-sm p-6 sm:p-8 text-center my-12">
           <div className="w-16 h-16 rounded-2xl bg-green-light flex items-center justify-center mx-auto mb-5">
             <CheckCircle2 className="w-8 h-8 text-green-primary" />
           </div>
           <h1 className="font-poppins font-bold text-text-primary text-2xl mb-2">
             Commande confirmée !
           </h1>
-          <p className="text-text-secondary font-inter text-sm mb-2">
+          <p className="text-text-secondary font-inter text-sm mb-4">
             Référence : <span className="font-semibold text-text-primary">{placedOrderId.slice(0, 8)}</span>
           </p>
+
+          {/* Tracker visuel */}
+          <div className="mb-6">
+             <div className="flex justify-between items-center mb-2 px-2 relative">
+                <div className="absolute top-1/2 left-6 right-6 h-1 bg-green-light -z-10 -translate-y-1/2" />
+                <div className="flex flex-col items-center gap-1">
+                   <div className="w-6 h-6 rounded-full bg-green-primary text-white flex items-center justify-center shadow-sm"><CheckCircle2 className="w-4 h-4"/></div>
+                   <span className="text-[10px] font-semibold text-text-primary">Confirmée</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                   <div className="w-6 h-6 rounded-full bg-bg-secondary border-2 border-border-custom text-text-muted flex items-center justify-center opacity-50"><div className="w-2 h-2 rounded-full bg-current" /></div>
+                   <span className="text-[10px] font-medium text-text-muted opacity-50">Préparation</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                   <div className="w-6 h-6 rounded-full bg-bg-secondary border-2 border-border-custom text-text-muted flex items-center justify-center opacity-50"><div className="w-2 h-2 rounded-full bg-current" /></div>
+                   <span className="text-[10px] font-medium text-text-muted opacity-50">En route</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                   <div className="w-6 h-6 rounded-full bg-bg-secondary border-2 border-border-custom text-text-muted flex items-center justify-center opacity-50"><div className="w-2 h-2 rounded-full bg-current" /></div>
+                   <span className="text-[10px] font-medium text-text-muted opacity-50">Livré</span>
+                </div>
+             </div>
+          </div>
+
           {placedEta && (
             <p className="inline-flex items-center gap-1.5 bg-green-light text-green-primary font-inter text-sm font-medium px-3 py-1.5 rounded-full mb-6">
               <Clock className="w-4 h-4" />
@@ -378,17 +446,24 @@ export default function Checkout() {
             </p>
           )}
           {!placedEta && <span className="block mb-4" />}
-          {paymentNotice && (
-            <p className="text-text-secondary font-inter text-sm mb-6 bg-bg-secondary rounded-lg p-3">
-              {paymentNotice}
-            </p>
-          )}
-          <button
-            onClick={() => navigate('/commandes')}
-            className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark hover:shadow-lg active:scale-95 transition-all"
-          >
-            Suivre ma commande
-          </button>
+          
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => navigate('/commandes')}
+              className="flex-1 bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark hover:shadow-lg active:scale-95 transition-all"
+            >
+              Suivre
+            </button>
+            <a
+              href={`https://wa.me/237600000000?text=${encodeURIComponent(`Bonjour MiamExpress, je vous contacte concernant ma commande ${placedOrderId.slice(0, 8)}.`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 bg-[#25D366]/10 text-[#25D366] font-inter font-semibold h-[52px] rounded-xl hover:bg-[#25D366]/20 transition-all flex items-center justify-center gap-2"
+            >
+              <Phone className="w-4 h-4" />
+              Support WhatsApp
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -600,12 +675,23 @@ export default function Checkout() {
                   {geoLoading ? 'Détection...' : 'Me géolocaliser'}
                 </button>
               </div>
-              <LazyAddressPickerMap
-                height="220px"
-                lat={mapCoords.lat}
-                lng={mapCoords.lng}
-                onChange={(lat, lng) => setPinCoords({ lat, lng })}
-              />
+              {!showMap ? (
+                <button
+                  type="button"
+                  onClick={() => setShowMap(true)}
+                  className="w-full bg-bg-secondary border border-border-custom border-dashed rounded-xl h-14 flex items-center justify-center gap-2 text-text-secondary font-inter text-sm hover:bg-border-light transition-colors"
+                >
+                  <MapPin className="w-4 h-4" />
+                  + Afficher la carte pour plus de précision (optionnel)
+                </button>
+              ) : (
+                <LazyAddressPickerMap
+                  height="220px"
+                  lat={mapCoords.lat}
+                  lng={mapCoords.lng}
+                  onChange={(lat, lng) => setPinCoords({ lat, lng })}
+                />
+              )}
               {pinCoords && (
                 <p className="text-green-primary text-[11px] font-inter mt-1.5 font-medium">
                   📍 Coordonnées : {pinCoords.lat.toFixed(6)}, {pinCoords.lng.toFixed(6)}

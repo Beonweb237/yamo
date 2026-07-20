@@ -271,9 +271,9 @@ export default function Home() {
                       {resto.tags.join(' \u2022 ')}
                     </p>
                     <div className="flex items-center gap-3 flex-wrap">
-                      {/* amber-700 : gold-accent sur gold-light est à ~1.9:1, illisible (précédent : badge Premium navbar) */}
-                      <span className="inline-flex items-center gap-1 bg-gold-light text-amber-700 text-xs font-inter font-medium px-2 py-0.5 rounded-full">
-                        <Star className="w-3 h-3 fill-gold-accent" />
+                      {/* Correction contraste : amber-900 sur gold-light au lieu de amber-700 */}
+                      <span className="inline-flex items-center gap-1 bg-gold-light text-amber-900 text-xs font-inter font-semibold px-2 py-0.5 rounded-full">
+                        <Star className="w-3 h-3 fill-gold-accent text-gold-accent" />
                         {resto.rating.toFixed(1)}
                       </span>
                       <span className="inline-flex items-center gap-1 bg-bg-secondary text-text-secondary text-xs font-inter px-2 py-0.5 rounded-full">

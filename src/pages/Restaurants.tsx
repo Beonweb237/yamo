@@ -63,7 +63,7 @@ function ratingForRanking(restaurant: Restaurant): number {
 }
 
 export default function Restaurants() {
-  const { restaurants } = useRestaurants();
+  const { restaurants, loading } = useRestaurants();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // ── Recherche unifiée (LOT-13 / CONF-33) : deux modes sur une seule page ──
@@ -629,7 +629,25 @@ export default function Restaurants() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                    {filtered.map((resto, i) => {
+                    {loading ? (
+                      Array.from({ length: 6 }).map((_, i) => (
+                        <div key={`skeleton-${i}`} className="block bg-white rounded-xl border border-border-custom overflow-hidden animate-pulse">
+                          <div className="aspect-[16/9] bg-bg-secondary" />
+                          <div className="p-4">
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="h-5 bg-bg-secondary rounded-md w-1/2" />
+                              <div className="h-4 bg-bg-secondary rounded-md w-16" />
+                            </div>
+                            <div className="h-3 bg-bg-secondary rounded-md w-2/3 mb-3" />
+                            <div className="flex gap-2 mt-4">
+                              <div className="h-5 bg-bg-secondary rounded-full w-12" />
+                              <div className="h-5 bg-bg-secondary rounded-full w-20" />
+                              <div className="h-5 bg-bg-secondary rounded-full w-24" />
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : filtered.map((resto, i) => {
                       const isOpen = isEffectivelyOpen(resto);
                       return (
                         <motion.div
