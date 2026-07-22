@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Store, MapPin, ChevronDown, ChevronUp, Navigation, Loader2, BadgeCheck, KeyRound, Eye, EyeOff, Phone, Clock, Star, X, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Store, MapPin, ChevronDown, ChevronUp, Navigation, Loader2, BadgeCheck, KeyRound, Eye, EyeOff, Phone, Clock, Star, X, ChevronRight, ShieldCheck } from 'lucide-react';
 import { useRestaurants } from '../../hooks/useCatalog';
 import { updateRestaurantOpenStatus, updateRestaurantProfile } from '../../lib/catalog';
 import { Switch } from '../../components/ui/switch';
@@ -137,7 +138,12 @@ export default function AdminRestaurants() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <h1 className="font-poppins font-bold text-text-primary text-2xl mb-6 flex items-center gap-2"><Store className="w-6 h-6 text-green-primary" />{t("Restaurants (")}{restaurants.length})</h1>
+      <div className="flex items-center justify-between gap-2 mb-6 flex-wrap">
+        <h1 className="font-poppins font-bold text-text-primary text-2xl flex items-center gap-2"><Store className="w-6 h-6 text-green-primary" />{t("Restaurants (")}{restaurants.length})</h1>
+        <Link to="/admin/kyc" className="inline-flex items-center gap-1.5 h-10 px-3 rounded-xl border border-border-custom bg-white text-text-secondary hover:bg-bg-secondary text-sm font-medium">
+          <ShieldCheck className="w-4 h-4 text-green-primary" />{t("Centre KYC")}
+        </Link>
+      </div>
       <div className="bg-white rounded-xl border border-border-custom divide-y divide-border-light">
         {restaurants.map((r) => {
           const isOpen = overrides[r.id] ?? r.isOpen;

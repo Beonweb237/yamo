@@ -62,7 +62,7 @@ export default function Footer() {
           {/* Brand Column */}
           <div>
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <img src="/logo-horizontal.png" alt="MiamExpress" className="h-10 sm:h-12 w-auto object-contain" />
+              <img src="/logo-horizontal.png" alt="MiamExpress" className="h-14 sm:h-16 w-auto object-contain" />
             </Link>
             <p className="text-text-secondary text-sm font-inter leading-relaxed max-w-[280px]">
               {t("La plateforme de livraison de repas qui célèbre la richesse culinaire du Cameroun. De Douala à Yaoundé, savourez l’excellence à domicile.")}

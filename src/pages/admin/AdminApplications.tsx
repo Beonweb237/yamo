@@ -1,13 +1,12 @@
 import { usePolling } from '../../hooks/usePolling';
 import { useState, useCallback, useMemo } from 'react';
-import { RefreshCw, UserCheck, Check, X, Store, Bike, Search, Clock, ThumbsUp, ThumbsDown, Phone, MapPin, ChevronDown, ChevronUp, Image, Plus, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { RefreshCw, UserCheck, Check, X, Store, Bike, Search, Clock, ThumbsUp, ThumbsDown, Phone, MapPin, ChevronDown, ChevronUp, Image, Plus } from 'lucide-react';
 import { useRestaurants } from '../../hooks/useCatalog';
-import { fetchAllApplications, approveApplication, rejectApplication, type Application, type ApplicationStatus, type ApplicationType } from '../../lib/applications';
+import { fetchAllApplications, approveApplication, rejectApplication, type Application, type ApplicationStatus } from '../../lib/applications';
 import { toast } from 'sonner';
 import PageHeader from '../../components/PageHeader';
-import { approveAdminApplication, createAdminAccount, rejectAdminApplication } from '../../lib/admin';
-import { ADMIN_DEFAULT_PASSWORD } from '../../contexts/AuthContext';
-import { displayCameroonPhone, normalizeCameroonPhone } from '../../lib/phone';
+import { approveAdminApplication, rejectAdminApplication } from '../../lib/admin';
 import { useTranslation } from "react-i18next";
 
 type Tab = 'pending' | 'approved' | 'rejected';
@@ -40,18 +39,7 @@ export default function AdminApplications() {
   const [expandedDocs, setExpandedDocs] = useState<Record<string, boolean>>({});
   const [rejectTarget, setRejectTarget] = useState<Application | null>(null);
   const [rejectReason, setRejectReason] = useState('');
-  const [createType, setCreateType] = useState<ApplicationType | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [createForm, setCreateForm] = useState({
-    applicantName: '',
-    restaurantName: '',
-    contactPhone: '',
-    city: 'Douala',
-    neighborhood: '',
-    address: '',
-    notes: '',
-    password: ADMIN_DEFAULT_PASSWORD,
-  });
+  const navigate = useNavigate();
 
   const load = useCallback(async () => {
     setApplications(await fetchAllApplications());
@@ -104,64 +92,6 @@ export default function AdminApplications() {
     } finally { setReviewingId(null); }
   };
 
-  const openCreate = (type: ApplicationType) => {
-    setCreateType(type);
-    setCreateForm({
-      applicantName: '',
-      restaurantName: '',
-      contactPhone: '',
-      city: 'Douala',
-      neighborhood: '',
-      address: '',
-      notes: '',
-      password: ADMIN_DEFAULT_PASSWORD,
-    });
-  };
-
-  const updateCreateForm = (key: keyof typeof createForm, value: string) => {
-    setCreateForm((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleCreateAccount = async () => {
-    if (!createType) return;
-    const contactPhone = normalizeCameroonPhone(createForm.contactPhone);
-    if (!contactPhone) {
-      toast.error('Le téléphone est requis.');
-      return;
-    }
-    if (createType === 'livreur' && !createForm.applicantName.trim()) {
-      toast.error('Le nom du livreur est requis.');
-      return;
-    }
-    if (createType === 'restaurant' && !createForm.restaurantName.trim()) {
-      toast.error('Le nom du restaurant est requis.');
-      return;
-    }
-
-    setCreating(true);
-    try {
-      const result = await createAdminAccount({
-        type: createType,
-        applicantName: createForm.applicantName.trim() || createForm.restaurantName.trim(),
-        restaurantName: createType === 'restaurant' ? createForm.restaurantName.trim() : undefined,
-        contactPhone,
-        city: createForm.city.trim() || undefined,
-        neighborhood: createForm.neighborhood.trim() || undefined,
-        address: createForm.address.trim() || undefined,
-        notes: createForm.notes.trim() || undefined,
-        password: createForm.password || ADMIN_DEFAULT_PASSWORD,
-      });
-      if (!result) throw new Error('Création directe disponible uniquement en mode VPS.');
-      setCreateType(null);
-      await load();
-      toast.success(createType === 'restaurant' ? 'Restaurant créé et validé' : 'Livreur créé et validé');
-    } catch (err) {
-      toast.error((err as Error).message || 'Création impossible');
-    } finally {
-      setCreating(false);
-    }
-  };
-
   const tabs: { id: Tab; label: string; icon: typeof Clock; count: number }[] = [
     { id: 'pending', label: 'En attente', icon: Clock, count: byStatus.pending.length },
     { id: 'approved', label: 'Approuvées', icon: ThumbsUp, count: byStatus.approved.length },
@@ -176,10 +106,10 @@ export default function AdminApplications() {
         subtitle={`${applications.length} candidature${applications.length !== 1 ? 's' : ''} au total`}
         action={
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={() => openCreate('livreur')} className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors">
+            <button onClick={() => navigate('/admin/applications/nouveau/livreur')} className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors">
               <Plus className="w-4 h-4" />{t("Livreur validé")}
             </button>
-            <button onClick={() => openCreate('restaurant')} className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors">
+            <button onClick={() => navigate('/admin/applications/nouveau/restaurant')} className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors">
               <Plus className="w-4 h-4" />{t("Restaurant validé")}
             </button>
             <button onClick={load} className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors">
@@ -386,74 +316,6 @@ export default function AdminApplications() {
         </div>
       )}
 
-      {/* Création directe admin */}
-      {createType && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !creating && setCreateType(null)}>
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-1">
-              <div className="w-10 h-10 rounded-full bg-green-light flex items-center justify-center shrink-0">
-                {createType === 'restaurant' ? <Store className="w-5 h-5 text-green-primary" /> : <Bike className="w-5 h-5 text-green-primary" />}
-              </div>
-              <h3 className="font-poppins font-bold text-text-primary text-lg">
-                {createType === 'restaurant' ? 'Créer un restaurant validé' : 'Créer un livreur validé'}
-              </h3>
-            </div>
-            <p className="text-text-secondary text-sm font-inter mb-4">
-              {t("Le compte est créé avec mot de passe, candidature approuvée, et accès immédiat au tableau de bord.")}
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-              <label className="block sm:col-span-2">
-                <span className="block text-text-muted text-xs font-inter mb-1">{createType === 'restaurant' ? 'Nom du responsable' : 'Nom complet'}</span>
-                <input value={createForm.applicantName} onChange={(e) => updateCreateForm('applicantName', e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" placeholder="Ex: Alain M. Talla" />
-              </label>
-              {createType === 'restaurant' && (
-                <label className="block sm:col-span-2">
-                  <span className="block text-text-muted text-xs font-inter mb-1">{t("Nom du restaurant")}</span>
-                  <input value={createForm.restaurantName} onChange={(e) => updateCreateForm('restaurantName', e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" placeholder="Ex: Saveurs du Mboa" />
-                </label>
-              )}
-              <label className="block">
-                <span className="block text-text-muted text-xs font-inter mb-1">{t("Téléphone")}</span>
-                <div className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 h-11">
-                  <span className="text-text-primary font-inter text-sm font-semibold shrink-0">+237</span>
-                  <input value={displayCameroonPhone(createForm.contactPhone)} onChange={(e) => updateCreateForm('contactPhone', normalizeCameroonPhone(e.target.value))} className="flex-1 min-w-0 bg-transparent text-text-primary font-inter text-sm outline-none" placeholder="690000000" />
-                </div>
-              </label>
-              <label className="block">
-                <span className="block text-text-muted text-xs font-inter mb-1">{t("Mot de passe")}</span>
-                <input value={createForm.password} onChange={(e) => updateCreateForm('password', e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" placeholder={ADMIN_DEFAULT_PASSWORD} />
-              </label>
-              <label className="block">
-                <span className="block text-text-muted text-xs font-inter mb-1">{t("Ville")}</span>
-                <input value={createForm.city} onChange={(e) => updateCreateForm('city', e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" placeholder="Douala" />
-              </label>
-              <label className="block">
-                <span className="block text-text-muted text-xs font-inter mb-1">{t("Quartier")}</span>
-                <input value={createForm.neighborhood} onChange={(e) => updateCreateForm('neighborhood', e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" placeholder="Bonamoussadi" />
-              </label>
-              <label className="block sm:col-span-2">
-                <span className="block text-text-muted text-xs font-inter mb-1">{t("Adresse")}</span>
-                <input value={createForm.address} onChange={(e) => updateCreateForm('address', e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none" placeholder="Adresse opérationnelle" />
-              </label>
-              <label className="block sm:col-span-2">
-                <span className="block text-text-muted text-xs font-inter mb-1">{t("Notes internes")}</span>
-                <textarea value={createForm.notes} onChange={(e) => updateCreateForm('notes', e.target.value)} rows={3} className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-text-primary font-inter text-sm outline-none resize-none" placeholder="Infos utiles pour l'équipe admin" />
-              </label>
-            </div>
-
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setCreateType(null)} disabled={creating} className="px-4 h-10 rounded-lg border border-border-custom text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors disabled:opacity-60">
-                {t("Annuler")}
-              </button>
-              <button onClick={handleCreateAccount} disabled={creating} className="inline-flex items-center gap-1.5 px-4 h-10 rounded-lg bg-green-primary text-white font-inter text-sm font-medium hover:bg-green-dark transition-colors disabled:opacity-60">
-                {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                {t("Créer et valider")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Rejection reason dialog */}
       {rejectTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setRejectTarget(null)}>

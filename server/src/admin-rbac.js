@@ -47,6 +47,8 @@ const PERMISSIONS = [
   ['orders.disputes.resolve', 'orders', 'Traiter les litiges de commande', true],
   ['operations.view', 'operations', 'Acceder au Centre Operations (anomalies SLA)', false],
   ['operations.handle', 'operations', 'Tracer la prise en charge d\'une anomalie', true],
+  ['kyc.view', 'kyc', 'Consulter les dossiers KYC (verification profils)', false],
+  ['kyc.review', 'kyc', 'Valider/refuser les pieces et statuer un dossier KYC', true],
   ['reviews.view', 'reviews', 'Voir les avis et resumes', false],
   ['reviews.moderate', 'reviews', 'Moderation des avis', true],
   ['reviews.reply', 'reviews', 'Repondre ou moderer une reponse avis', true],
@@ -89,6 +91,7 @@ const ROLE_PERMISSIONS = {
     'orders.view', 'orders.view_live', 'orders.assign_courier', 'orders.update_status',
     'orders.cancel', 'orders.disputes.resolve', 'operations.view', 'operations.handle',
     'reviews.view', 'reviews.moderate', 'dishes.manage', 'media.manage', 'audit.view',
+    'kyc.view', 'kyc.review',
   ],
   restaurant_manager: [
     'dashboard.view', 'applications.view', 'applications.approve', 'applications.reject',
@@ -96,17 +99,20 @@ const ROLE_PERMISSIONS = {
     'restaurants.update_profile', 'restaurants.update_menu', 'restaurants.approve',
     'restaurants.reject', 'restaurants.suspend', 'restaurants.reactivate',
     'orders.view', 'reviews.view', 'dishes.manage', 'media.manage', 'audit.view',
+    'kyc.view', 'kyc.review',
   ],
   courier_manager: [
     'dashboard.view', 'applications.view', 'applications.approve', 'applications.reject',
     'couriers.view', 'couriers.create', 'couriers.create_approved', 'couriers.update_profile',
     'couriers.approve', 'couriers.reject', 'couriers.suspend', 'couriers.reactivate',
     'couriers.payouts.update', 'orders.view', 'orders.view_live', 'reviews.view', 'audit.view',
+    'kyc.view', 'kyc.review',
   ],
   support_agent: [
     'dashboard.view', 'customers.view', 'customers.view_new', 'customers.update_profile',
     'customers.block', 'customers.unblock', 'orders.view', 'orders.cancel',
     'orders.disputes.resolve', 'operations.view', 'reviews.view', 'restaurants.view', 'couriers.view',
+    'kyc.view',
   ],
   dispatcher: [
     'dashboard.view', 'orders.view', 'orders.view_live', 'orders.assign_courier',

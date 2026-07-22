@@ -44,6 +44,7 @@ const adminCategories: CategoryGroup[] = [
     icon: RadioTower,
     children: [
       { name: 'Centre opérations', path: '/admin/operations', icon: RadioTower, permission: 'operations.view' },
+      { name: 'Centre KYC', path: '/admin/kyc', icon: ShieldCheck, permission: 'kyc.view' },
     ],
   },
   {

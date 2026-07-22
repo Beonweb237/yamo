@@ -15,6 +15,7 @@ import { registerPointsRoutes } from './points-routes.js';
 import { registerLoyaltyRoutes } from './loyalty-routes.js';
 import { registerTrackingRoutes } from './tracking-routes.js';
 import { registerOperationsRoutes } from './operations-routes.js';
+import { registerKycRoutes } from './kyc-routes.js';
 import { startSmartDispatch, handleDriverPingResponse } from './smart_dispatch.js';
 import {
   adminPermissionDefinitions,
@@ -544,6 +545,8 @@ registerLoyaltyRoutes(app, { pool, authRequired, adminPermissionRequired, fromSn
 registerTrackingRoutes(app, { pool, authRequired, adminRequired, fromSnake });
 // Série OPS : /api/admin/operations + /api/incidents (Centre Opérations) — AVANT /api/:table.
 registerOperationsRoutes(app, { pool, authRequired, adminPermissionRequired, fromSnake });
+// Série KYC : /api/admin/kyc/* (dossiers de vérification profils) — AVANT /api/:table.
+registerKycRoutes(app, { pool, authRequired, adminPermissionRequired, fromSnake });
 
 // ─── Admin : comptes, clients et validation directe ─────────────
 const ADMIN_CREATABLE_ROLES = new Set(['restaurant', 'livreur']);

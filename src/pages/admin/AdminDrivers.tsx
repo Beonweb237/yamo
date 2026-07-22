@@ -1,5 +1,6 @@
 import { usePolling } from '../../hooks/usePolling';
 import { useState, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Bike, Search, Star, Wallet, Check, X, KeyRound, Eye, EyeOff, ChevronRight, Phone, MapPin, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchAllApplications } from '../../lib/applications';
@@ -129,9 +130,14 @@ export default function AdminDrivers() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <h1 className="font-poppins font-bold text-text-primary text-2xl mb-6 flex items-center gap-2">
-        <Bike className="w-6 h-6 text-green-primary" />{t("Livreurs (")}{drivers.length})
-      </h1>
+      <div className="flex items-center justify-between gap-2 mb-6 flex-wrap">
+        <h1 className="font-poppins font-bold text-text-primary text-2xl flex items-center gap-2">
+          <Bike className="w-6 h-6 text-green-primary" />{t("Livreurs (")}{drivers.length})
+        </h1>
+        <Link to="/admin/kyc" className="inline-flex items-center gap-1.5 h-10 px-3 rounded-xl border border-border-custom bg-white text-text-secondary hover:bg-bg-secondary text-sm font-medium">
+          <ShieldCheck className="w-4 h-4 text-green-primary" />{t("Centre KYC")}
+        </Link>
+      </div>
 
       <div className="flex items-center gap-2 bg-white rounded-lg border border-border-custom px-3 h-11 mb-6 max-w-md">
         <Search className="w-4 h-4 text-text-muted shrink-0" />

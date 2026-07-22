@@ -38,6 +38,9 @@ import AdminTrash from './pages/admin/AdminTrash'
 import AdminQuotas from './pages/admin/AdminQuotas'
 import AdminRoles from './pages/admin/AdminRoles'
 import AdminOperations from './pages/admin/AdminOperations'
+import AdminApplicationCreate from './pages/admin/AdminApplicationCreate'
+import AdminKyc from './pages/admin/AdminKyc'
+import AdminKycDossier from './pages/admin/AdminKycDossier'
 import FoodRequestCreate from './pages/FoodRequestCreate'
 import FoodRequestList from './pages/FoodRequestList'
 import NotFound from './pages/NotFound'
@@ -134,8 +137,11 @@ export default function App() {
           <Route index element={<Navigate to="/admin/connexion" replace />} />
           <Route path="dashboard" element={<AdminPermissionGate permission="dashboard.view"><AdminDashboard /></AdminPermissionGate>} />
           <Route path="applications" element={<AdminPermissionGate permission="applications.view"><AdminApplications /></AdminPermissionGate>} />
+          <Route path="applications/nouveau/:role" element={<AdminPermissionGate permission="applications.view"><AdminApplicationCreate /></AdminPermissionGate>} />
           <Route path="orders" element={<AdminPermissionGate permission="orders.view"><AdminOrders /></AdminPermissionGate>} />
           <Route path="operations" element={<AdminPermissionGate permission="operations.view"><AdminOperations /></AdminPermissionGate>} />
+          <Route path="kyc" element={<AdminPermissionGate permission="kyc.view"><AdminKyc /></AdminPermissionGate>} />
+          <Route path="kyc/:applicationId" element={<AdminPermissionGate permission="kyc.view"><AdminKycDossier /></AdminPermissionGate>} />
           <Route path="restaurants" element={<AdminPermissionGate permission="restaurants.view"><AdminRestaurants /></AdminPermissionGate>} />
           <Route path="drivers" element={<AdminPermissionGate permission="couriers.view"><AdminDrivers /></AdminPermissionGate>} />
           <Route path="disputes" element={<AdminPermissionGate permission="orders.disputes.resolve"><AdminDisputes /></AdminPermissionGate>} />
