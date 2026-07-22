@@ -12,6 +12,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
+import { useSeo } from '../hooks/useSeo';
 import PageHeader from '../components/PageHeader';
 import { ZoneAlertBanner, useZoneAlert } from '../components/ZoneAlertBanner';
 import { fetchRestaurantsByOwner, createMenuItem, deleteMenuItem, fetchMenuItems, updateMenuItem, updateRestaurantProfile, updateRestaurantOpenStatus } from '../lib/catalog';
@@ -24,8 +25,9 @@ import { confirmOrderWithPreparation, fetchOrdersByRestaurant, getOrderPreparati
 import { getPreferredDrivers, addPreferredDriver, removePreferredDriver, fetchDriversStats, getOwnDriverIds, addOwnDriver, removeOwnDriver, type DriverStats } from '../lib/drivers';
 import { processFormImage } from '../lib/media';
 import { parseHours, formatHours, isWithinHours } from '../lib/hours';
-import { getBalance, canAcceptOrder, grantWelcomeBonus, requestRecharge, fetchLedger, listRecharges, InsufficientPointsError, type PointsBalance, type PointsLedgerEntry, type RechargeRequest, type RechargeMethod } from '../lib/points';
-import { POINTS_CONFIG } from '../data/launchConfig';
+import { getBalance, grantWelcomeBonus, requestRecharge, fetchLedger, listRecharges, InsufficientPointsError, type PointsBalance, type PointsLedgerEntry, type RechargeRequest, type RechargeMethod } from '../lib/points';
+import { POINTS_CONFIG, commissionForSubtotal } from '../data/launchConfig';
+import { getRechargeMomoNumber } from '../lib/tracking';
 import { displayCameroonPhone, normalizeCameroonPhone, phoneForTel } from '../lib/phone';
 import {
   Dialog,
@@ -100,6 +102,7 @@ type Tab = 'orders' | 'menu' | 'profile' | 'finances' | 'drivers';
 export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) {
     const { t } = useTranslation();
   const { user } = useAuth();
+  useSeo({ title: t('Espace Restaurateur'), noindex: true });
   const { restaurants: allRestaurants } = useRestaurants();
   const [ownedRestaurants, setOwnedRestaurants] = useState<Restaurant[]>([]);
   const restaurants = user?.role === 'admin' ? allRestaurants : ownedRestaurants;
@@ -169,19 +172,19 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
   // ledger à chaque rafraîchissement des commandes (hold/settle le modifient).
   const navigate = useNavigate();
   const [pointsBalance, setPointsBalance] = useState<PointsBalance | null>(null);
-  const [canAccept, setCanAccept] = useState(true);
   const lowBalanceToastShown = useRef(false);
 
   const refreshPoints = useCallback(async (restaurantId: string) => {
     const balance = await getBalance(restaurantId);
     setPointsBalance(balance);
-    setCanAccept(await canAcceptOrder(restaurantId));
+    // Le blocage réel est par commande (le solde doit couvrir sa commission),
+    // calculé sur chaque carte de commande via commissionForSubtotal.
     if (
-      balance.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_POINTS &&
+      balance.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_FCFA &&
       !lowBalanceToastShown.current
     ) {
       lowBalanceToastShown.current = true;
-      toast.warning(`Solde de points faible : ${balance.available} pt${balance.available > 1 ? 's' : ''}`, {
+      toast.warning(`Solde faible : ${balance.available.toLocaleString()} FCFA`, {
         description: 'Rechargez pour continuer à accepter des commandes.',
       });
     }
@@ -429,14 +432,14 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
               {pointsBalance !== null && (
                 <button
                   onClick={() => navigate('/partenaires/dashboard/finances')}
-                  title={`${pointsBalance.available} point${pointsBalance.available > 1 ? 's' : ''} disponible${pointsBalance.available > 1 ? 's' : ''}${pointsBalance.held > 0 ? ` · ${pointsBalance.held} réservés` : ''} — voir / recharger`}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-inter font-semibold backdrop-blur-sm transition-colors ${pointsBalance.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_POINTS
+                  title={`${pointsBalance.available.toLocaleString()} FCFA disponibles${pointsBalance.held > 0 ? ` · ${pointsBalance.held.toLocaleString()} réservés` : ''} — voir / recharger`}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-inter font-semibold backdrop-blur-sm transition-colors ${pointsBalance.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_FCFA
                     ? 'bg-error/80 hover:bg-error text-white'
                     : 'bg-white/15 hover:bg-white/25 text-white'
                     }`}
                 >
                   <Coins className="w-4 h-4" />
-                  {pointsBalance.available} {t("pts")}
+                  {pointsBalance.available.toLocaleString()} {t("FCFA")}
                 </button>
               )}
               <button onClick={() => setSoundEnabled(!soundEnabled)}
@@ -533,11 +536,11 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
             {tab === 'orders' ? (
               <>
                 {/* Série PTS : alerte solde faible — le resto doit anticiper la recharge */}
-                {pointsBalance !== null && pointsBalance.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_POINTS && (
+                {pointsBalance !== null && pointsBalance.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_FCFA && (
                   <div className="flex items-center justify-between gap-3 bg-gold-light border border-gold-accent/40 rounded-xl px-4 py-3 mb-4">
                     <span className="text-amber-700 text-sm font-inter">
-                      <span className="font-semibold">{t("Solde faible :")} {pointsBalance.available} {t("pt")}{pointsBalance.available > 1 ? 's' : ''}.</span>{' '}
-                      {t("Accepter une commande réserve")} {POINTS_CONFIG.ORDER_COST_POINTS} {t("points.")}
+                      <span className="font-semibold">{t("Solde faible :")} {pointsBalance.available.toLocaleString()} {t("FCFA")}.</span>{' '}
+                      {t("Chaque commande livrée prélève 15 % de commission.")}
                     </span>
                     <button
                       onClick={() => navigate('/partenaires/dashboard/finances')}
@@ -572,8 +575,10 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                 ) : (
                   <div className="space-y-4">
                     {orders.map((order) => {
-                        const { t } = useTranslation();
                       const next = nextStatus(order.status);
+                      // Commission MiamExpress (15 %) de CETTE commande + solde suffisant ?
+                      const orderCommission = commissionForSubtotal(order.subtotal);
+                      const canAffordOrder = (pointsBalance?.available ?? 0) >= orderCommission;
                       const isFinal = order.status === 'delivered' || order.status === 'cancelled';
                       const ageMs = Date.now() - new Date(order.createdAt).getTime();
                       const ageMin = Math.round(ageMs / 60000);
@@ -679,8 +684,8 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                   <div className="flex gap-2">
                                     <button
                                       onClick={() => handleConfirm(order)}
-                                      disabled={isProcessing || !canAccept}
-                                      title={!canAccept ? 'Solde de points insuffisant pour accepter' : undefined}
+                                      disabled={isProcessing || !canAffordOrder}
+                                      title={!canAffordOrder ? `Solde insuffisant : cette commande prélève ${orderCommission.toLocaleString()} FCFA de commission` : undefined}
                                       className="flex-1 bg-green-primary text-white font-inter font-medium text-sm h-10 rounded-lg hover:bg-green-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                                     >
                                       {isProcessing ? 'Confirmation...' : `Accepter — prêt dans ${selectedPrepTime} min`}
@@ -695,10 +700,10 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                   </div>
                                   {/* Série PTS : solde épuisé — le resto VOIT la commande mais ne peut
                                       pas l'accepter tant qu'il n'a pas rechargé. */}
-                                  {!canAccept && (
+                                  {!canAffordOrder && (
                                     <div className="flex items-center justify-between gap-2 bg-error/5 border border-error/20 rounded-lg px-3 py-2">
                                       <span className="text-error text-xs font-inter">
-                                        {t("Solde insuffisant (")}{pointsBalance?.available ?? 0} {t("pts) — accepter réserve")} {POINTS_CONFIG.ORDER_COST_POINTS} {t("points.")}
+                                        {t("Solde insuffisant (")}{(pointsBalance?.available ?? 0).toLocaleString()} {t("FCFA) — cette commande prélève")} {orderCommission.toLocaleString()} {t("FCFA de commission.")}
                                       </span>
                                       <button
                                         onClick={() => navigate('/partenaires/dashboard/finances')}
@@ -751,7 +756,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                     {order.status === 'confirmed' && order.guarantee && order.guarantee.status === 'declared' && (
                                       <div className="flex-1 bg-gold-light border border-gold-accent/40 rounded-lg px-3 py-2.5">
                                         <p className="text-amber-700 text-xs font-inter font-semibold mb-2">
-                                          {t("Garantie déclarée payée")}{order.guarantee.proofNote ? ` — réf. ${order.guarantee.proofNote}` : ''}{t(".\r\n                                          Vérifiez votre compte marchand.")}
+                                          {t("Garantie déclarée payée")}{order.guarantee.proofNote ? ` — réf. ${order.guarantee.proofNote}` : ''}{t(". Vérifiez votre compte marchand.")}
                                         </p>
                                         <div className="flex gap-2">
                                           <button
@@ -809,7 +814,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                     <AlertDialogHeader>
                       <AlertDialogTitle>{t("Annuler la commande ?")}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        {t("La commande #")}{cancelTarget?.id.slice(0, 8)} {t("sera définitivement annulée.\r\n                        Le client sera informé du motif. Cette action est irréversible.")}
+                        {t("La commande #")}{cancelTarget?.id.slice(0, 8)} {t("sera définitivement annulée. Le client sera informé du motif. Cette action est irréversible.")}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <div className="space-y-3">
@@ -863,7 +868,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                     <AlertDialogHeader>
                       <AlertDialogTitle>{t("Supprimer ce plat ?")}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        <strong>{deleteTargetItem?.name}</strong> {t("sera déplacé dans la corbeille pour 7 jours.\r\n                        Vous pourrez le restaurer depuis le tableau de bord pendant cette période.")}
+                        <strong>{deleteTargetItem?.name}</strong> {t("sera déplacé dans la corbeille pour 7 jours. Vous pourrez le restaurer depuis le tableau de bord pendant cette période.")}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -916,7 +921,7 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                 <AlertDialogHeader>
                   <AlertDialogTitle>{t("Fermer temporairement le restaurant ?")}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    {activeRestaurant?.name} {t("n’apparaîtra plus comme ouvert et ne recevra\r\n                    plus de nouvelles commandes jusqu’à sa réouverture. Les commandes en\r\n                    cours ne sont pas affectées.")}
+                    {activeRestaurant?.name} {t("n’apparaîtra plus comme ouvert et ne recevra plus de nouvelles commandes jusqu’à sa réouverture. Les commandes en cours ne sont pas affectées.")}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -940,7 +945,8 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
 // ─────────────────────────────────────────────────────────────
 // Série PTS — Section « Mes points » (onglet finances)
 // ─────────────────────────────────────────────────────────────
-const RECHARGE_PRESETS = [10, 20, 50];
+// Montants de recharge proposés (FCFA).
+const RECHARGE_PRESETS = [5000, 10000, 25000];
 
 function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string; onBalanceChange: () => void }) {
     const { t } = useTranslation();
@@ -949,10 +955,13 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
   const [recharges, setRecharges] = useState<RechargeRequest[]>([]);
   const [loadError, setLoadError] = useState(false);
   const [historyLimit, setHistoryLimit] = useState(8);
+  // Numéro de dépôt Mobile Money (réglage admin, app_settings). Null = non encore renseigné.
+  const [momoNumber, setMomoNumber] = useState<string | null>(null);
+  useEffect(() => { getRechargeMomoNumber().then(setMomoNumber).catch(() => setMomoNumber(null)); }, []);
 
   // Dialog de recharge
   const [rechargeOpen, setRechargeOpen] = useState(false);
-  const [rechargePoints, setRechargePoints] = useState<number>(POINTS_CONFIG.MIN_RECHARGE_POINTS);
+  const [rechargePoints, setRechargePoints] = useState<number>(POINTS_CONFIG.MIN_RECHARGE_FCFA);
   const [rechargeMethod, setRechargeMethod] = useState<RechargeMethod>('momo');
   const [submitting, setSubmitting] = useState(false);
   const [createdRequest, setCreatedRequest] = useState<RechargeRequest | null>(null);
@@ -995,7 +1004,7 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
   const closeRechargeDialog = () => {
     setRechargeOpen(false);
     setCreatedRequest(null);
-    setRechargePoints(POINTS_CONFIG.MIN_RECHARGE_POINTS);
+    setRechargePoints(POINTS_CONFIG.MIN_RECHARGE_FCFA);
   };
 
   // Historique fusionné : écritures du ledger + demandes non validées (une
@@ -1019,7 +1028,7 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
       })),
   ].sort((a, b) => b.date.localeCompare(a.date));
 
-  const fmtPts = (n: number) => `${n > 0 ? '+' : ''}${n} pt${Math.abs(n) > 1 ? 's' : ''}`;
+  const fmtPts = (n: number) => `${n > 0 ? '+' : ''}${n.toLocaleString()} FCFA`;
 
   return (
     <section className="bg-white rounded-xl border border-border-custom p-5 sm:p-6">
@@ -1027,7 +1036,7 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
         <div className="w-8 h-8 rounded-lg bg-green-light flex items-center justify-center">
           <Coins className="w-4 h-4 text-green-primary" />
         </div>
-        <h2 className="font-poppins font-semibold text-text-primary text-lg">{t("Mes points")}</h2>
+        <h2 className="font-poppins font-semibold text-text-primary text-lg">{t("Mon solde MiamExpress")}</h2>
       </div>
 
       {loadError ? (
@@ -1047,11 +1056,11 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
           <div className="flex flex-wrap items-center justify-between gap-3 bg-bg-secondary rounded-xl p-4 mb-4">
             <div>
               <p className="font-poppins font-bold text-text-primary text-3xl leading-none">
-                {balance.available} <span className="text-base font-semibold">{t("pts")}</span>
+                {balance.available.toLocaleString()} <span className="text-base font-semibold">{t("FCFA")}</span>
               </p>
               <p className="text-text-muted text-xs font-inter mt-1">
-                ≈ {(balance.available * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} {t("FCFA")}
-                {balance.held > 0 && ` · ${balance.held} pts réservés (commandes en cours)`}
+                {t("Crédit disponible")}
+                {balance.held > 0 && ` · ${balance.held.toLocaleString()} FCFA réservés (commandes en cours)`}
               </p>
             </div>
             <button
@@ -1062,7 +1071,7 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
             </button>
           </div>
           <p className="text-text-muted text-xs font-inter mb-4">
-            {t("Une commande livrée coûte")} {POINTS_CONFIG.ORDER_COST_POINTS} {t("points (")}{(POINTS_CONFIG.ORDER_COST_POINTS * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} {t("FCFA).\r\n            En dessous de")} {POINTS_CONFIG.MIN_BALANCE_TO_ACCEPT_POINTS} {t("points disponibles, vous ne pouvez plus accepter de nouvelles commandes.")}
+            {t("Chaque commande livrée prélève")} {Math.round(POINTS_CONFIG.COMMISSION_RATE * 100)}{t("% de commission sur le sous-total. Le solde doit couvrir la commission de la commande pour pouvoir l'accepter.")}
           </p>
 
           <h3 className="font-inter font-semibold text-text-primary text-sm mb-2">{t("Historique")}</h3>
@@ -1115,18 +1124,18 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
                   <p className="font-poppins font-bold text-green-primary text-2xl tracking-wider">{createdRequest.paymentRef}</p>
                 </div>
                 <p className="text-text-secondary text-sm font-inter">
-                  {createdRequest.points} {t("points ·")} {createdRequest.amountFcfa.toLocaleString()} {t("FCFA ·")}{' '}
+                  {createdRequest.amountFcfa.toLocaleString()} {t("FCFA ·")}{' '}
                   {createdRequest.method === 'momo' ? 'Mobile Money' : 'cash chez un partenaire MiamExpress'}.
                 </p>
                 {createdRequest.method === 'momo' && (
                   <p className="text-text-secondary text-sm font-inter bg-bg-secondary rounded-lg p-3">
-                    {POINTS_CONFIG.RECHARGE_MOMO_NUMBER
-                      ? <>{t("Déposez")} {createdRequest.amountFcfa.toLocaleString()} {t("FCFA au")} {POINTS_CONFIG.RECHARGE_MOMO_NUMBER} {t("en indiquant la référence")} {createdRequest.paymentRef}.</>
+                    {momoNumber
+                      ? <>{t("Déposez")} {createdRequest.amountFcfa.toLocaleString()} {t("FCFA au")} {momoNumber} {t("en indiquant la référence")} {createdRequest.paymentRef}.</>
                       : <>{t("Le numéro de dépôt vous sera communiqué par l'assistance MiamExpress (bientôt affiché ici).")}</>}
                   </p>
                 )}
                 <p className="text-text-muted text-xs font-inter">
-                  {t("Vos points seront crédités après validation par MiamExpress (sous 24 h ouvrées).")}
+                  {t("Votre solde sera crédité après validation par MiamExpress (sous 24 h ouvrées).")}
                 </p>
               </div>
               <DialogFooter>
@@ -1138,12 +1147,12 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
           ) : (
             <>
               <DialogHeader>
-                <DialogTitle className="font-poppins">{t("Recharger mes points")}</DialogTitle>
+                <DialogTitle className="font-poppins">{t("Recharger mon solde")}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
                   <p className="text-sm font-inter font-medium text-text-primary mb-2">
-                    {t("Nombre de points (minimum")} {POINTS_CONFIG.MIN_RECHARGE_POINTS})
+                    {t("Montant (FCFA, minimum")} {POINTS_CONFIG.MIN_RECHARGE_FCFA.toLocaleString()})
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     {RECHARGE_PRESETS.map((n) => (
@@ -1153,20 +1162,21 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
                         onClick={() => setRechargePoints(n)}
                         className={`px-4 min-h-11 rounded-lg text-sm font-inter font-semibold transition-colors ${rechargePoints === n ? 'bg-green-primary text-white' : 'bg-bg-secondary text-text-secondary hover:text-text-primary'}`}
                       >
-                        {n} {t("pts")}
+                        {n.toLocaleString()} {t("FCFA")}
                       </button>
                     ))}
                     <input
                       type="number"
-                      min={POINTS_CONFIG.MIN_RECHARGE_POINTS}
+                      min={POINTS_CONFIG.MIN_RECHARGE_FCFA}
+                      step={1000}
                       value={rechargePoints}
                       onChange={(e) => setRechargePoints(parseInt(e.target.value) || 0)}
-                      aria-label="Nombre de points personnalisé"
-                      className="w-24 min-w-0 h-11 rounded-lg border border-border-custom bg-white px-3 text-sm font-inter text-center font-semibold outline-none focus:border-green-primary focus:ring-2 focus:ring-green-primary/10"
+                      aria-label="Montant de recharge personnalisé en FCFA"
+                      className="w-28 min-w-0 h-11 rounded-lg border border-border-custom bg-white px-3 text-sm font-inter text-center font-semibold outline-none focus:border-green-primary focus:ring-2 focus:ring-green-primary/10"
                     />
                   </div>
                   <p className="text-text-muted text-xs font-inter mt-2">
-                    {t("Total :")} <span className="font-semibold text-text-primary">{(Math.max(0, rechargePoints) * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} {t("FCFA")}</span>
+                    {t("Total :")} <span className="font-semibold text-text-primary">{Math.max(0, rechargePoints).toLocaleString()} {t("FCFA")}</span>
                   </p>
                 </div>
                 <div>
@@ -1190,10 +1200,10 @@ function PointsSection({ restaurantId, onBalanceChange }: { restaurantId: string
                 </button>
                 <button
                   onClick={handleRecharge}
-                  disabled={submitting || rechargePoints < POINTS_CONFIG.MIN_RECHARGE_POINTS}
+                  disabled={submitting || rechargePoints < POINTS_CONFIG.MIN_RECHARGE_FCFA}
                   className="px-5 h-11 rounded-lg bg-green-primary text-white font-inter font-medium text-sm hover:bg-green-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {submitting ? 'Enregistrement...' : `Demander ${Math.max(0, rechargePoints)} pts`}
+                  {submitting ? 'Enregistrement...' : `Demander ${Math.max(0, rechargePoints).toLocaleString()} FCFA`}
                 </button>
               </DialogFooter>
             </>
@@ -1267,7 +1277,7 @@ function PreferredDriversTab({ restaurantId, orders }: { restaurantId: string; o
         {t("Mes livreurs préférés")}
       </h2>
       <p className="text-text-muted text-xs font-inter mb-5">
-        {t("Les commandes marquées « Prête » sont proposées en priorité à vos livreurs préférés pendant 30 secondes avant d'être diffusées à tous.\r\n        Max")} {5} {t("livreurs.")}
+        {t("Les commandes marquées « Prête » sont proposées en priorité à vos livreurs préférés pendant 30 secondes avant d'être diffusées à tous. Max")} {5} {t("livreurs.")}
       </p>
 
       <div className="space-y-2">
@@ -1302,7 +1312,7 @@ function PreferredDriversTab({ restaurantId, orders }: { restaurantId: string; o
           </p>
           {recentDriverIds.length === 0 ? (
             <p className="text-text-muted text-xs font-inter bg-bg-secondary rounded-xl px-3 py-3">
-              {t("Aucun livreur récent — les livreurs de vos commandes livrées apparaîtront ici,\r\n              prêts à être ajoutés en un clic.")}
+              {t("Aucun livreur récent — les livreurs de vos commandes livrées apparaîtront ici, prêts à être ajoutés en un clic.")}
             </p>
           ) : (
             <div className="space-y-2">
@@ -1375,7 +1385,7 @@ function OwnCourierSection({
         {t("Mes livreurs internes (livraison directe)")}
       </h2>
       <p className="text-text-muted text-xs font-inter mb-5">
-        {t("Ces livreurs assurent la livraison pour votre compte. Quand vous marquez une commande\r\n        « Prête », vous pouvez choisir « Mes livreurs » : elle n’est alors proposée qu’à\r\n        eux, exactement comme une livraison classique côté client. Max")} {5} {t("livreurs.")}
+        {t("Ces livreurs assurent la livraison pour votre compte. Quand vous marquez une commande « Prête », vous pouvez choisir « Mes livreurs » : elle n’est alors proposée qu’à eux, exactement comme une livraison classique côté client. Max")} {5} {t("livreurs.")}
       </p>
 
       <div className="space-y-2">
@@ -1692,7 +1702,6 @@ function MenuTab({
   ];
 
   const renderItemActions = (item: MenuItem) => {
-      const { t } = useTranslation();
     const available = isItemAvailable(item);
     const busy = busyItemId === item.id;
     return (
@@ -1737,7 +1746,6 @@ function MenuTab({
   };
 
   const renderMenuCard = (item: MenuItem) => {
-      const { t } = useTranslation();
     const available = isItemAvailable(item);
     return (
       <div
@@ -1915,7 +1923,6 @@ function MenuTab({
           ) : viewMode === 'list' ? (
             <div className="bg-white rounded-xl border border-border-custom overflow-hidden divide-y divide-border-light">
               {filteredItems.map((item) => {
-                  const { t } = useTranslation();
                 const available = isItemAvailable(item);
                 return (
                   <div key={item.id} className={`flex items-center gap-3 p-3 sm:p-4 ${available ? '' : 'bg-error/5'}`}>
@@ -2249,7 +2256,7 @@ function MenuTab({
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Supprimer ce plat ?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{deleteTargetItem?.name}</strong> {t("sera déplacé dans la corbeille pour 7 jours.\r\n              Vous pourrez le restaurer depuis le tableau de bord pendant cette période.")}
+              <strong>{deleteTargetItem?.name}</strong> {t("sera déplacé dans la corbeille pour 7 jours. Vous pourrez le restaurer depuis le tableau de bord pendant cette période.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2380,7 +2387,7 @@ function ProfileTab({
             className="w-full bg-white border border-border-custom rounded-lg px-3 h-11 text-text-primary font-inter text-sm outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
           />
           <p className="text-[11px] text-text-muted font-inter mt-1">
-            {t("Affiché au client pour payer la garantie de commande (")}{POINTS_CONFIG.GUARANTEE_AMOUNT_FCFA.toLocaleString()} {t("FCFA, déduite du total).\r\n            Laissez vide pour désactiver l’étape garantie.")}
+            {t("Affiché au client pour payer la garantie de commande (")}{POINTS_CONFIG.GUARANTEE_AMOUNT_FCFA.toLocaleString()} {t("FCFA, déduite du total). Laissez vide pour désactiver l’étape garantie.")}
           </p>
         </div>
         <div>
@@ -2992,7 +2999,7 @@ function RestaurantReviewsSection({ restaurantId }: { restaurantId: string }) {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Signaler cet avis à la modération ?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("L’avis reste visible pendant l’examen. L’équipe Yamo décidera de le\r\n              maintenir ou de le masquer. Expliquez précisément le problème\r\n              (propos injurieux, avis mensonger, hors sujet…).")}
+              {t("L’avis reste visible pendant l’examen. L’équipe Yamo décidera de le maintenir ou de le masquer. Expliquez précisément le problème (propos injurieux, avis mensonger, hors sujet…).")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <textarea

@@ -251,7 +251,6 @@ export default function AdminApplications() {
       ) : (
         <div className="space-y-3">
           {visible.map((app) => {
-              const { t } = useTranslation();
             const cfg = typeConfig[app.type];
             const Icon = cfg.icon;
             const docsExpanded = expandedDocs[app.id] ?? false;

@@ -21,6 +21,7 @@ import { contactFAQ } from '../data/mockData';
 import { whatsappLink } from '../data/support';
 import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
 import { useTranslation } from "react-i18next";
+import { useSeo } from '../hooks/useSeo';
 
 const contactChannels = [
   {
@@ -100,6 +101,11 @@ const SUPPORT_EMAIL = 'support@miamexpress.cm';
 
 export default function Contact() {
     const { t } = useTranslation();
+    useSeo({
+      title: t('Contact & support'),
+      description: t('Une question ? Contactez le support MiamExpress à Douala et Yaoundé — client, restaurant partenaire ou livreur. Réponse 7j/7.'),
+      path: '/contact',
+    });
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

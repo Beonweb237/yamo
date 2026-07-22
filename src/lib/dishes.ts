@@ -168,22 +168,26 @@ export function dishSlug(name: string): string {
 }
 
 export function buildEnrichedItems(menuItems: MenuItem[], restaurants: Restaurant[]): EnrichedItem[] {
-  return menuItems.map((item) => {
-    // `menuItems` provient toujours du catalogue mock (aucun fetch global des
-    // menus depuis Supabase pour l'instant) — une fois `restaurants` remplacé
-    // par les vraies données Supabase (identifiants différents des ids mock),
-    // le lookup ci-dessus échouerait sans ce repli sur mockRestaurants.
-    const resto = restaurants.find((r) => r.id === item.restaurantId)
-      ?? mockRestaurants.find((r) => r.id === item.restaurantId);
-    return {
+  const byId = new Map(restaurants.map((r) => [r.id, r] as const));
+  const enriched: EnrichedItem[] = [];
+  for (const item of menuItems) {
+    // En mode VPS, `menuItems` et `restaurants` viennent tous deux du serveur
+    // (mêmes UUID) ; en dev, tous deux du mock. Le repli mockRestaurants ne sert
+    // qu'aux données locales. Un plat dont le restaurant est introuvable
+    // (inexistant ou masqué car sans menu public) est EXCLU — pas de fiche
+    // fantôme « Restaurant » menant à un profil vide.
+    const resto = byId.get(item.restaurantId) ?? mockRestaurants.find((r) => r.id === item.restaurantId);
+    if (!resto) continue;
+    enriched.push({
       ...item,
-      restaurantName: resto?.name ?? 'Restaurant',
-      restaurantRating: resto?.rating ?? 0,
-      restaurantCity: resto?.city ?? '',
-      restaurantNeighborhood: resto?.neighborhood ?? '',
-      restaurantDeliveryTime: resto?.deliveryTime ?? '',
-    };
-  });
+      restaurantName: resto.name,
+      restaurantRating: resto.rating ?? 0,
+      restaurantCity: resto.city ?? '',
+      restaurantNeighborhood: resto.neighborhood ?? '',
+      restaurantDeliveryTime: resto.deliveryTime ?? '',
+    });
+  }
+  return enriched;
 }
 
 export function groupDishes(items: EnrichedItem[]): DishGroup[] {

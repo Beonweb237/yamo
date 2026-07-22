@@ -1,13 +1,17 @@
 import { usePolling } from '../../hooks/usePolling';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCw, ShoppingBag, Wallet, Store, TrendingUp, Trophy, ChefHat, Percent } from 'lucide-react';
+import { RefreshCw, ShoppingBag, Wallet, Store, TrendingUp, Trophy, ChefHat, Percent, Radio, AlertTriangle } from 'lucide-react';
+import { getDemoTracking, setDemoTracking, getRechargeMomoNumber, setRechargeMomoNumber } from '../../lib/tracking';
+import { Switch } from '../../components/ui/switch';
+import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useRestaurants } from '../../hooks/useCatalog';
 import { fetchAllOrders } from '../../lib/orders';
 import type { OrderStatus } from '../../lib/orders';
 import { CHART_PRIMARY, CHART_GRID, CHART_TICK, CHART_TOOLTIP_STYLE } from '../../lib/chartTheme';
 import { useTranslation } from "react-i18next";
+import { useSeo } from '../../hooks/useSeo';
 
 const MIAMEXPRESS_COMMISSION_RATE = 0.15;
 
@@ -19,6 +23,7 @@ const statusLabels: Record<OrderStatus, string> = {
 
 export default function AdminDashboard() {
     const { t } = useTranslation();
+  useSeo({ title: t('Administration'), noindex: true });
   const { restaurants } = useRestaurants();
   const [orders, setOrders] = useState<any[]>([]);
   const loadOrders = useCallback(async () => {
@@ -27,6 +32,40 @@ export default function AdminDashboard() {
   }, []);
 
   usePolling(loadOrders, 30000);
+
+  // Série TRK — mode démonstration du suivi (réel par défaut). Basculable ici ;
+  // un bandeau rappelle quand il est actif pour ne jamais l'oublier allumé.
+  const [demoTracking, setDemoTrackingState] = useState(false);
+  const [togglingDemo, setTogglingDemo] = useState(false);
+  useEffect(() => { getDemoTracking().then(setDemoTrackingState).catch(() => {}); }, []);
+  const toggleDemoTracking = async (next: boolean) => {
+    setTogglingDemo(true);
+    try {
+      await setDemoTracking(next);
+      setDemoTrackingState(next);
+      toast.success(next ? 'Mode démonstration du suivi ACTIVÉ' : 'Suivi réel rétabli');
+    } catch {
+      toast.error('Impossible de changer le mode de suivi.');
+    } finally {
+      setTogglingDemo(false);
+    }
+  };
+
+  // Série TRK — numéro de dépôt Mobile Money pour les recharges resto (app_settings).
+  const [momoInput, setMomoInput] = useState('');
+  const [savingMomo, setSavingMomo] = useState(false);
+  useEffect(() => { getRechargeMomoNumber().then((n) => setMomoInput(n ?? '')).catch(() => {}); }, []);
+  const saveMomo = async () => {
+    setSavingMomo(true);
+    try {
+      await setRechargeMomoNumber(momoInput);
+      toast.success(momoInput.trim() ? 'Numéro de recharge Mobile Money enregistré' : 'Numéro effacé');
+    } catch {
+      toast.error("Impossible d'enregistrer le numéro.");
+    } finally {
+      setSavingMomo(false);
+    }
+  };
 
   // S6 — top plateforme + CA/commission par période
   const [period, setPeriod] = useState<'week' | 'month' | 'all'>('week');
@@ -89,6 +128,67 @@ export default function AdminDashboard() {
         <button onClick={loadOrders} className="flex items-center gap-1.5 text-text-secondary text-sm font-inter hover:text-text-primary">
           <RefreshCw className="w-4 h-4" /> {t("Actualiser")}
         </button>
+      </div>
+
+      {/* Série TRK — bandeau d'alerte quand le suivi est en mode démonstration */}
+      {demoTracking && (
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 mb-4">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+          <span className="text-amber-800 text-sm font-inter">
+            <span className="font-semibold">{t("Mode démonstration du suivi actif.")}</span>{' '}
+            {t("Les clients voient une position simulée du livreur (signalée comme estimation), pas le GPS réel.")}
+          </span>
+        </div>
+      )}
+
+      {/* Interrupteur mode de suivi */}
+      <div className="flex items-center justify-between bg-white rounded-xl border border-border-custom p-4 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-green-light flex items-center justify-center shrink-0">
+            <Radio className="w-5 h-5 text-green-primary" />
+          </div>
+          <div>
+            <p className="font-inter font-semibold text-sm text-text-primary">{t("Suivi livreur")}</p>
+            <p className="text-text-muted text-xs font-inter">
+              {demoTracking
+                ? t("Démonstration : position simulée (pour présentations/tests).")
+                : t("Réel : position GPS envoyée par le livreur, repli honnête si indisponible.")}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs font-inter text-text-muted">{t("Mode démo")}</span>
+          <Switch checked={demoTracking} disabled={togglingDemo} onCheckedChange={toggleDemoTracking} />
+        </div>
+      </div>
+
+      {/* Numéro de dépôt Mobile Money pour les recharges restaurant */}
+      <div className="bg-white rounded-xl border border-border-custom p-4 mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-full bg-green-light flex items-center justify-center shrink-0">
+            <Wallet className="w-5 h-5 text-green-primary" />
+          </div>
+          <div>
+            <p className="font-inter font-semibold text-sm text-text-primary">{t("Numéro de recharge Mobile Money")}</p>
+            <p className="text-text-muted text-xs font-inter">{t("Affiché aux restaurateurs pour déposer leur recharge. Vide = « communiqué par l'assistance ».")}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="tel"
+            value={momoInput}
+            onChange={(e) => setMomoInput(e.target.value)}
+            placeholder="Ex. 6XX XX XX XX (MTN MoMo / Orange Money)"
+            className="flex-1 min-w-[200px] h-11 rounded-lg border border-border-custom bg-white px-3 text-sm font-inter outline-none focus:border-green-primary focus:ring-2 focus:ring-green-primary/10"
+          />
+          <button
+            onClick={saveMomo}
+            disabled={savingMomo}
+            className="h-11 px-5 rounded-lg bg-green-primary text-white font-inter font-medium text-sm hover:bg-green-dark transition-colors disabled:opacity-60"
+          >
+            {savingMomo ? 'Enregistrement...' : t("Enregistrer")}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

@@ -12,6 +12,10 @@ import dotenv from 'dotenv';
 import { initiatePayment, getSaleStatus } from './chariow.js';
 import { registerReviewRoutes } from './reviews-routes.js';
 import { registerPointsRoutes } from './points-routes.js';
+import { registerLoyaltyRoutes } from './loyalty-routes.js';
+import { registerTrackingRoutes } from './tracking-routes.js';
+import { registerOperationsRoutes } from './operations-routes.js';
+import { startSmartDispatch, handleDriverPingResponse } from './smart_dispatch.js';
 import {
   adminPermissionDefinitions,
   adminRoleDefinitions,
@@ -534,6 +538,12 @@ registerReviewRoutes(app, { pool, authRequired, adminRequired, adminPermissionRe
 // Série PTS : routes /api/points/* — AVANT le /api/:table générique
 // (déclaré plus bas), sinon « points » serait traité comme une table.
 registerPointsRoutes(app, { pool, authRequired, adminRequired, adminPermissionRequired, fromSnake });
+// Série LOY : routes /api/loyalty/* (MiamPoints fidélité client) — AVANT /api/:table.
+registerLoyaltyRoutes(app, { pool, authRequired, adminPermissionRequired, fromSnake });
+// Série TRK : /api/settings/* + /api/tracking/* (suivi livreur, mode démo) — AVANT /api/:table.
+registerTrackingRoutes(app, { pool, authRequired, adminRequired, fromSnake });
+// Série OPS : /api/admin/operations + /api/incidents (Centre Opérations) — AVANT /api/:table.
+registerOperationsRoutes(app, { pool, authRequired, adminPermissionRequired, fromSnake });
 
 // ─── Admin : comptes, clients et validation directe ─────────────
 const ADMIN_CREATABLE_ROLES = new Set(['restaurant', 'livreur']);
@@ -556,8 +566,12 @@ function emailToken(value) {
 }
 
 function cleanEmail(email) {
+  // Tout email syntaxiquement valide est accepté tel quel. La restriction
+  // historique gmail/yahoo (réalisme des données de démo) écartait les emails
+  // réels (hotmail, domaines pro…) et resolveUserEmail les remplaçait par une
+  // adresse inventée → connexion par email impossible pour ces comptes.
   const value = String(email || '').trim().toLowerCase();
-  if (!value || !/^[^\s@]+@(gmail\.com|yahoo\.fr)$/.test(value)) return '';
+  if (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)) return '';
   return value;
 }
 
@@ -1097,7 +1111,7 @@ app.patch('/api/admin/users/:id/password', authRequired, adminPermissionRequired
 // ─── Generic table API ─────────────────────────────────────────
 // GET /api/:table — list with filters (skips known non-table prefixes)
 app.get('/api/:table', (req, res, next) => {
-  const known = ['admin', 'auth', 'pay', 'rpc', 'delivery-fee', 'food-requests', 'points'];
+  const known = ['admin', 'auth', 'pay', 'rpc', 'delivery-fee', 'food-requests', 'points', 'loyalty', 'settings', 'tracking', 'incidents'];
   const prefix = req.params.table.split('/')[0];
   if (known.includes(prefix) || req.path.startsWith('/api/admin/') || req.path.startsWith('/api/delivery-fee/') || req.path.startsWith('/api/food-requests/')) return next();
   if (SENSITIVE_TABLES.has(prefix)) return authRequired(req, res, () => handleList(req, res));
@@ -1140,13 +1154,20 @@ async function handleList(req, res) {
     res.json({ data, count: parseInt(count), page, limit });
   } catch (err) {
     console.error(`GET /api/${req.params.table}:`, err.message);
+    // Si la valeur du filtre n'est pas compatible avec le type de la colonne
+    // (ex. ?id=eq.1 sur une colonne uuid), on retourne un tableau vide plutôt
+    // qu'une 500. Cela évite de bloquer le checkout quand le panier contient
+    // encore des IDs numériques (mockData) alors que la base attend des UUID.
+    if (err.message && err.message.includes('invalid input syntax for type')) {
+      return res.json({ data: [], count: 0, page: 1, limit: 20 });
+    }
     res.status(500).json({ error: err.message });
   }
 }
 
 // GET /api/:table/:id — single row (skip known non-table prefixes)
 app.get('/api/:table/:id', (req, res, next) => {
-  const known = ['admin', 'auth', 'pay', 'rpc', 'delivery-fee', 'food-requests', 'points'];
+  const known = ['admin', 'auth', 'pay', 'rpc', 'delivery-fee', 'food-requests', 'points', 'loyalty', 'settings', 'tracking', 'incidents'];
   if (known.includes(req.params.table) || req.path.startsWith('/api/admin/') || req.path.startsWith('/api/delivery-fee/') || req.path.startsWith('/api/food-requests/')) return next();
   if (SENSITIVE_TABLES.has(req.params.table)) return authRequired(req, res, () => handleSingle(req, res));
   handleSingle(req, res);
@@ -1205,7 +1226,11 @@ app.post('/api/:table', authRequired, async (req, res) => {
       values
     );
     const clean = SENSITIVE_TABLES.has(table) ? stripSecretFields(fromSnake(row)) : fromSnake(row);
-    io.emit(`realtime:${table}`, { eventType: 'INSERT', new: clean });
+    if (table === 'orders') {
+      startSmartDispatch(clean, pool, io);
+    } else {
+      io.emit(`realtime:${table}`, { eventType: 'INSERT', new: clean });
+    }
     if (SENSITIVE_TABLES.has(table)) {
       await writeAdminAuditLog(pool, req, {
         action: 'admin.users.update',
@@ -1256,7 +1281,12 @@ app.patch('/api/:table/:id', authRequired, async (req, res) => {
       const okCancel = own && data.status === 'cancelled' && ['pending', 'confirmed'].includes(ord.status);
       if (!okCancel) return res.status(403).json({ error: 'Action non autorisee sur cette commande.' });
     }
-    let keys = Object.keys(data).filter(k => k !== 'id');
+    // updated_at est géré par le serveur (now() ci-dessous) : on l'ignore s'il
+    // arrive dans le corps, sinon UPDATE ... SET updated_at=$n, updated_at=now()
+    // => "multiple assignments to same column updated_at" (500). Ce bug bloquait
+    // toutes les transitions de statut de commande (confirmer/préparer/livrer),
+    // les libs envoyant systématiquement updated_at dans le payload.
+    let keys = Object.keys(data).filter(k => k !== 'id' && k !== 'updated_at');
     if (SENSITIVE_TABLES.has(table) && !isAdmin) {
       keys = keys.filter(k => !ADMIN_ONLY_USER_FIELDS.includes(k));
     }
@@ -1497,6 +1527,16 @@ app.post('/api/auth/signup', async (req, res) => {
     // Un numéro déjà inscrit doit passer par la connexion, pas par l'inscription.
     const { rows: existing } = await pool.query('SELECT 1 FROM users WHERE phone = $1', [phone]);
     if (existing.length) return res.status(409).json({ error: 'Ce numéro est déjà utilisé. Connectez-vous.' });
+    // Quota par rôle (app_settings.quota_config) calculé sur les comptes RÉELS en
+    // base — évite la création massive de profils. 0/absent = pas de limite.
+    try {
+      const { rows: [cfg] } = await pool.query("SELECT value FROM app_settings WHERE key = 'quota_config'");
+      const max = cfg?.value?.[role];
+      if (Number.isFinite(max) && max > 0) {
+        const { rows: [{ n }] } = await pool.query('SELECT count(*)::int AS n FROM users WHERE role = $1', [role]);
+        if (n >= max) return res.status(403).json({ error: `QUOTA_EXCEEDED: quota des ${role} atteint (${n}/${max}). Contactez l'administrateur.` });
+      }
+    } catch { /* app_settings absente : aucun quota appliqué */ }
     const hash = password ? await bcrypt.hash(password, SALT_ROUNDS) : null;
     const { rows: [user] } = await pool.query(
       `INSERT INTO users (phone, email, password_hash, full_name, role) VALUES ($1, $2, $3, $4, $5)
@@ -1767,11 +1807,24 @@ app.get('/health', async (req, res) => {
 
 // ─── WebSocket (Realtime replacement) ──────────────────────────
 io.on('connection', (socket) => {
-  console.log('🔌 Client WebSocket connecté');
+  console.log('🔗 Client WebSocket connecté');
+
+  socket.on('register_user', (userId) => {
+    socket.join(`user:${userId}`);
+  });
+
+  socket.on('accept_ping_order', (data) => {
+    handleDriverPingResponse(socket, io, pool, { ...data, accepted: true });
+  });
+
+  socket.on('reject_ping_order', (data) => {
+    handleDriverPingResponse(socket, io, pool, { ...data, accepted: false });
+  });
+
   socket.on('subscribe', (table) => {
     socket.join(`realtime:${table}`);
   });
-  socket.on('disconnect', () => console.log('🔌 Client déconnecté'));
+  socket.on('disconnect', () => console.log('❌ Client déconnecté'));
 });
 
 // ─── Start ─────────────────────────────────────────────────────

@@ -238,7 +238,6 @@ export default function AdminReviews() {
         ) : (
           <div className="divide-y divide-border-light">
             {filtered.map((review) => {
-                const { t } = useTranslation();
               const restaurantName = restaurantNameById[review.restaurantId] ?? review.restaurantId;
               return (
                 <div key={review.id} className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-start gap-4">

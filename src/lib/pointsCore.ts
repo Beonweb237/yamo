@@ -70,12 +70,16 @@ export interface PointsBalance {
 export type HoldOutcome = 'consume' | 'release' | 'penalty';
 
 export interface PointsEngineConfig {
+  /** 1 = le solde est libellé en FCFA (unité de compte = 1 FCFA). */
   POINT_PRICE_FCFA: number;
-  ORDER_COST_POINTS: number;
-  PENALTY_RESTAURANT_FAULT_POINTS: number;
-  MIN_BALANCE_TO_ACCEPT_POINTS: number;
-  MIN_RECHARGE_POINTS: number;
-  WELCOME_BONUS_POINTS: number;
+  /** Pénalité conservée sur la réservation en cas d'annulation par faute du resto (FCFA). */
+  PENALTY_RESTAURANT_FAULT_FCFA: number;
+  /** Plancher de solde additionnel exigé pour accepter (FCFA, 0 = couvrir juste la commission). */
+  MIN_BALANCE_FLOOR_FCFA: number;
+  /** Recharge minimale (FCFA). */
+  MIN_RECHARGE_FCFA: number;
+  /** Crédit de bienvenue offert à l'activation (FCFA, 0 = désactivé). */
+  WELCOME_BONUS_FCFA: number;
 }
 
 export interface KeyValueStorage {
@@ -157,29 +161,36 @@ export function createPointsEngine(storage: KeyValueStorage, config: PointsEngin
     );
   };
 
-  const canAcceptOrder = (restaurantId: string): boolean => {
+  /**
+   * Le resto peut accepter une commande si son solde couvre la commission de
+   * CETTE commande (15 % de son sous-total) plus l'éventuel plancher de caution.
+   */
+  const canAcceptOrder = (restaurantId: string, commissionFcfa: number): boolean => {
     const { available } = getBalance(restaurantId);
-    return (
-      available >= config.ORDER_COST_POINTS &&
-      available >= config.MIN_BALANCE_TO_ACCEPT_POINTS
-    );
+    return available >= commissionFcfa + config.MIN_BALANCE_FLOOR_FCFA;
   };
 
-  const holdPoints = (restaurantId: string, orderId: string): PointsLedgerEntry => {
+  /** Réserve la commission (FCFA) de la commande sur le solde du resto. */
+  const holdPoints = (
+    restaurantId: string,
+    orderId: string,
+    commissionFcfa: number
+  ): PointsLedgerEntry => {
     const existing = findEntry('hold', orderId);
     if (existing) return existing; // idempotent
+    const amount = Math.max(0, Math.round(commissionFcfa));
     const { available } = getBalance(restaurantId);
-    if (available < config.ORDER_COST_POINTS) {
+    if (available < amount + config.MIN_BALANCE_FLOOR_FCFA) {
       throw new InsufficientPointsError(
-        `Solde insuffisant (${available} pt${available > 1 ? 's' : ''}) : accepter une commande réserve ${config.ORDER_COST_POINTS} points. Rechargez votre compte.`
+        `Solde insuffisant (${available.toLocaleString()} FCFA) : accepter cette commande réserve ${amount.toLocaleString()} FCFA de commission. Rechargez votre compte.`
       );
     }
     return appendEntry({
       restaurantId,
       kind: 'hold',
-      points: -config.ORDER_COST_POINTS,
+      points: -amount,
       reference: orderId,
-      note: `Réservation pour la commande #${orderId.slice(0, 8)}`,
+      note: `Réservation commission (${amount.toLocaleString()} FCFA) — commande #${orderId.slice(0, 8)}`,
       createdBy: 'system',
     });
   };
@@ -212,17 +223,18 @@ export function createPointsEngine(storage: KeyValueStorage, config: PointsEngin
         kind: 'release',
         points: holdAmount,
         reference: orderId,
-        note: `Commande #${orderId.slice(0, 8)} annulée sans faute — ${holdAmount} points restitués`,
+        note: `Commande #${orderId.slice(0, 8)} annulée sans faute — ${holdAmount.toLocaleString()} FCFA restitués`,
         createdBy: 'system',
       });
     }
-    const restored = holdAmount - config.PENALTY_RESTAURANT_FAULT_POINTS;
+    const penalty = Math.min(holdAmount, config.PENALTY_RESTAURANT_FAULT_FCFA);
+    const restored = holdAmount - penalty;
     return appendEntry({
       restaurantId,
       kind: 'penalty',
       points: restored,
       reference: orderId,
-      note: `Annulation par le restaurant — pénalité de ${config.PENALTY_RESTAURANT_FAULT_POINTS} point conservée, ${restored} restitués`,
+      note: `Annulation par le restaurant — pénalité de ${penalty.toLocaleString()} FCFA conservée, ${restored.toLocaleString()} FCFA restitués`,
       createdBy: 'system',
     });
   };
@@ -253,11 +265,11 @@ export function createPointsEngine(storage: KeyValueStorage, config: PointsEngin
 
   const requestRecharge = (
     restaurantId: string,
-    points: number,
+    points: number, // montant en FCFA (unité de compte = 1 FCFA)
     method: RechargeMethod
   ): RechargeRequest => {
-    if (!Number.isInteger(points) || points < config.MIN_RECHARGE_POINTS) {
-      throw new Error(`La recharge minimale est de ${config.MIN_RECHARGE_POINTS} points.`);
+    if (!Number.isInteger(points) || points < config.MIN_RECHARGE_FCFA) {
+      throw new Error(`La recharge minimale est de ${config.MIN_RECHARGE_FCFA.toLocaleString()} FCFA.`);
     }
     const request: RechargeRequest = {
       id: uuid(),
@@ -308,13 +320,13 @@ export function createPointsEngine(storage: KeyValueStorage, config: PointsEngin
   };
 
   const grantWelcomeBonus = (restaurantId: string): PointsLedgerEntry | null => {
-    if (config.WELCOME_BONUS_POINTS <= 0) return null;
+    if (config.WELCOME_BONUS_FCFA <= 0) return null;
     return appendEntry({
       restaurantId,
       kind: 'welcome_bonus',
-      points: config.WELCOME_BONUS_POINTS,
+      points: config.WELCOME_BONUS_FCFA,
       reference: restaurantId, // une seule fois par resto (idempotent)
-      note: `Bonus de bienvenue MiamExpress (${config.WELCOME_BONUS_POINTS} points offerts)`,
+      note: `Crédit de bienvenue MiamExpress (${config.WELCOME_BONUS_FCFA.toLocaleString()} FCFA offerts)`,
       createdBy: 'system',
     });
   };

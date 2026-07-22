@@ -21,6 +21,7 @@ import { cities } from '../data/locations';
 import ApplicationForm from '../components/ApplicationForm';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { useTranslation } from "react-i18next";
+import { useSeo } from '../hooks/useSeo';
 
 const benefits = [
   {
@@ -97,6 +98,11 @@ function Accordion({ items }: { items: { question: string; answer: string }[] })
 
 export default function Livreurs() {
     const { t } = useTranslation();
+  useSeo({
+    title: t('Devenez livreur partenaire à Douala et Yaoundé'),
+    description: t('Gagnez un revenu flexible en livrant des repas avec MiamExpress à Douala et Yaoundé. Horaires libres, paiements rapides, inscription gratuite.'),
+    path: '/livreurs',
+  });
   const [hours, setHours] = useState(20);
   const [city, setCity] = useState('Douala');
 
@@ -186,7 +192,7 @@ export default function Livreurs() {
                     <div className="font-poppins font-bold text-gold-accent text-2xl sm:text-4xl">
                       {stat.num}
                     </div>
-                    <div className="text-white/60 text-xs font-inter mt-1">{stat.label}</div>
+                    <div className="text-white/60 text-xs font-inter mt-1">{t(stat.label)}</div>
                   </div>
                 ))}
               </motion.div>

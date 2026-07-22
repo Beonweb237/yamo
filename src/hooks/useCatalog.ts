@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { fetchRestaurants, fetchRestaurant, fetchMenuItems } from '../lib/catalog';
+import { fetchRestaurants, fetchRestaurant, fetchMenuItems, fetchAllMenuItems } from '../lib/catalog';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { restaurants as mockRestaurants, menuItems as mockMenuItems } from '../data/mockData';
 import type { Restaurant, MenuItem } from '../data/mockData';
 
@@ -52,6 +53,32 @@ export function useRestaurant(id: string | undefined) {
   }, [id]);
 
   return { restaurant, loading };
+}
+
+/**
+ * Tous les plats du catalogue (vue « plats », recherche, favoris, fiche plat).
+ * En mode VPS, part d'une liste vide (pas de flash de plats mock qui
+ * disparaissent) puis charge les vrais menu_items. En mock, sert directement
+ * le catalogue local.
+ */
+export function useAllMenuItems() {
+  const [items, setItems] = useState<MenuItem[]>(isSupabaseConfigured ? [] : mockMenuItems);
+  const [loading, setLoading] = useState(isSupabaseConfigured);
+
+  useEffect(() => {
+    let active = true;
+    fetchAllMenuItems().then((data) => {
+      if (active) {
+        setItems(data);
+        setLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { items, loading };
 }
 
 export function useMenuItems(restaurantId: string | undefined) {

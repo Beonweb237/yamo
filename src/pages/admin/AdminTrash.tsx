@@ -77,7 +77,6 @@ export default function AdminTrash() {
         <div className="bg-white rounded-xl border border-border-custom overflow-hidden">
           <div className="divide-y divide-border-light">
             {entries.map((entry) => {
-                const { t } = useTranslation();
               const Icon = TYPE_ICONS[entry.type] ?? Trash2;
               const data = entry.data as Record<string, unknown> | undefined;
               return (

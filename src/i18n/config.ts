@@ -9,8 +9,13 @@ const resources = {
   en: { translation: en },
 };
 
-// Retrieve language from localStorage or default to 'fr'
-const savedLanguage = localStorage.getItem('miamexpress_lang') || 'fr';
+// Langue initiale : préfixe d'URL (/fr/, /en/ — source de vérité) d'abord,
+// sinon préférence localStorage, sinon 'fr'. Évite tout flash de langue au
+// chargement des pages prérendues (html lang + canonical corrects dès l'init).
+const urlSeg = typeof window !== 'undefined' ? window.location.pathname.split('/')[1] : '';
+const savedLanguage = urlSeg === 'fr' || urlSeg === 'en'
+  ? urlSeg
+  : localStorage.getItem('miamexpress_lang') || 'fr';
 
 i18n
   .use(initReactI18next)
@@ -27,5 +32,15 @@ i18n
       escapeValue: false, // React already safeguards from XSS
     },
   });
+
+// SEO : synchronise l'attribut <html lang> avec la langue courante
+// (initial + à chaque changement) pour l'indexation et l'accessibilité.
+const syncHtmlLang = (lng: string) => {
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = (lng || 'fr').slice(0, 2);
+  }
+};
+syncHtmlLang(savedLanguage);
+i18n.on('languageChanged', syncHtmlLang);
 
 export default i18n;

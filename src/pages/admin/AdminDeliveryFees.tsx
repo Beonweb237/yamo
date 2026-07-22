@@ -147,7 +147,7 @@ export default function AdminDeliveryFees() {
             ))}
           </div>
           <p className="text-text-muted text-xs font-inter mt-4 text-center">
-            {t("💡 Les frais sont automatiquement arrondis au multiple de 100 FCFA le plus proche.\r\n            Minimum :")} {config.minFee} {t("FCFA · Maximum :")} {config.maxFee} {t("FCFA · Tarif :")} {config.pricePerKm} {t("FCFA/km")}
+            {t("💡 Les frais sont automatiquement arrondis au multiple de 100 FCFA le plus proche. Minimum :")} {config.minFee} {t("FCFA · Maximum :")} {config.maxFee} {t("FCFA · Tarif :")} {config.pricePerKm} {t("FCFA/km")}
           </p>
         </div>
       </div>

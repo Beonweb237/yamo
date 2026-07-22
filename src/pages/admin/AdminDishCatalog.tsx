@@ -81,7 +81,7 @@ export default function AdminDishCatalog() {
       </div>
 
       <p className="text-text-secondary text-sm font-inter mb-6">
-        {t("Gérez le catalogue central des plats. Les images définies ici sont utilisées pour la recherche globale.\r\n        Les restaurants peuvent utiliser ces plats comme référence ou soumettre de nouveaux plats.")}
+        {t("Gérez le catalogue central des plats. Les images définies ici sont utilisées pour la recherche globale. Les restaurants peuvent utiliser ces plats comme référence ou soumettre de nouveaux plats.")}
       </p>
 
       <div className="flex items-center gap-2 bg-white rounded-lg border border-border-custom px-3 h-11 mb-4 max-w-md">

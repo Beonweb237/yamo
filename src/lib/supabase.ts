@@ -289,18 +289,46 @@ function fromTable(table: string) {
       // (création de profil à l'inscription — géré par /api/auth/signup).
       return this.insert(rows);
     },
-    async insert<T extends Record<string, unknown>>(rows: T | T[]) {
+    insert<T extends Record<string, unknown>>(rows: T | T[]) {
+      // Les libs chaînent AVANT le await (`.insert(x).select().single()`,
+      // pattern Supabase) : insert doit donc renvoyer un builder thenable,
+      // pas une Promise (`.select()` sur une Promise → TypeError, ce qui
+      // bloquait toutes les écritures en mode VPS, dont le checkout).
       const items = Array.isArray(rows) ? rows : [rows];
-      const results: unknown[] = [];
-      for (const item of items) {
-        const res = await apiFetch(`/api/${table}`, { method: 'POST', body: JSON.stringify(item) });
-        const json = await res.json();
-        if (!res.ok) return { data: null, error: new Error(json.error || 'Insert failed'), select: passthroughSelect(null) };
-        results.push(rowToSnake(json));
-      }
-      const data = Array.isArray(rows) ? results : results[0] ?? null;
-      // Supporte `.insert(x).select().single()` (pattern courant des libs).
-      return { data, error: null, select: passthroughSelect(data) };
+      let _single = false;
+      let _memo: Promise<QueryResult> | null = null;
+      const run = async (): Promise<QueryResult> => {
+        try {
+          const results: unknown[] = [];
+          for (const item of items) {
+            const res = await apiFetch(`/api/${table}`, { method: 'POST', body: JSON.stringify(item) });
+            const json = await res.json();
+            if (!res.ok) return { data: null, error: new Error(json.error || 'Insert failed') };
+            results.push(rowToSnake(json));
+          }
+          return { data: Array.isArray(rows) ? results : results[0] ?? null, error: null };
+        } catch (err) {
+          return { data: null, error: err as Error };
+        }
+      };
+      const exec = () => (_memo ??= run());
+      type InsertResult = QueryResult & { select: ReturnType<typeof passthroughSelect> };
+      const builder = {
+        select() { return builder; },
+        single() { _single = true; return builder; },
+        maybeSingle() { _single = true; return builder; },
+        then<R1 = InsertResult, R2 = never>(
+          onfulfilled?: ((r: InsertResult) => R1 | PromiseLike<R1>) | null,
+          onrejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
+        ): Promise<R1 | R2> {
+          return exec().then((r) => {
+            const data = _single && Array.isArray(r.data) ? r.data[0] ?? null : r.data;
+            const shaped: InsertResult = { ...r, data, select: passthroughSelect(data) };
+            return onfulfilled ? onfulfilled(shaped) : (shaped as R1);
+          }, onrejected ?? undefined);
+        },
+      };
+      return builder;
     },
   };
 }

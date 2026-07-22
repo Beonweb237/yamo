@@ -36,6 +36,7 @@ import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useRestaurant, useMenuItems, useRestaurants } from '../hooks/useCatalog';
 import { useFavorites } from '../hooks/useFavorites';
+import { useSeo } from '../hooks/useSeo';
 import { fetchRestaurantRatingSummary, fetchRestaurantReviews, type Review, type ReviewSummary } from '../lib/reviews';
 import { isEffectivelyOpen, parseHours } from '../lib/hours';
 import { restaurantMenuCategories } from '../data/mockData';
@@ -44,6 +45,7 @@ import LazyDeliveryMap from '../components/LazyDeliveryMap';
 import type { MapPoint } from '../components/DeliveryMap';
 import { useTranslation } from "react-i18next";
 import AuthChoiceModal from '../components/AuthChoiceModal';
+import { isSurgeActive } from '../lib/distance';
 
 function timeAgoFr(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -76,6 +78,13 @@ export default function RestaurantDetail() {
   // `undefined` (écran "introuvable" ci-dessous), jamais la fiche d'un autre
   // établissement (CONF-09 — ux-audit-optimal.md).
   const restaurant = fetchedById ?? restaurants.find(r => r.slug === slug || r.id === slug);
+  useSeo({
+    title: restaurant ? `${restaurant.name} — ${restaurant.neighborhood}, ${restaurant.city}` : undefined,
+    description: restaurant
+      ? `${t('Commandez chez')} ${restaurant.name} (${restaurant.category}) ${t('à')} ${restaurant.neighborhood}, ${restaurant.city}. ${t('Livraison rapide avec MiamExpress.')}`
+      : undefined,
+    path: slug ? `/restaurant/${slug}` : undefined,
+  });
   const { items: menuItems } = useMenuItems(restaurant?.id);
   const [activeTab, setActiveTab] = useState('Populaires');
   const { favorites, toggleFavorite } = useFavorites();
@@ -482,31 +491,35 @@ export default function RestaurantDetail() {
           <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-green-light px-2.5 py-1 text-xs font-inter font-semibold text-green-primary">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-green-primary border border-green-primary/20 shadow-sm">
                   <Circle className={`w-2 h-2 ${restaurantOpen ? 'fill-success text-success' : 'fill-error text-error'}`} />
                   {restaurantOpen
-                    ? parsedHours ? <>{t("Ouvert jusqu’à")} {parsedHours.close}</> : 'Ouvert maintenant'
-                    : restaurant.isOpen && parsedHours ? `Fermé · ouvre à ${parsedHours.open}` : 'Fermé actuellement'}
+                    ? parsedHours ? <>{t("Ouvert jusqu’à")} {parsedHours.close}</> : t('Ouvert maintenant')
+                    : restaurant.isOpen && parsedHours ? `${t('Fermé · ouvre à')} ${parsedHours.open}` : t('Fermé actuellement')}
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-gold-light px-2.5 py-1 text-xs font-inter font-semibold text-amber-700">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-amber-700 border border-amber-200 shadow-sm">
                   <Star className="w-3.5 h-3.5 fill-gold-accent text-gold-accent" />
                   {restaurant.verifiedReviewCount != null && restaurant.verifiedReviewCount > 0
-                    ? `${restaurant.verifiedReviewCount} avis vérifiés`
-                    : restaurant.verified ? 'Commandes vérifiées' : 'Nouveau'}
+                    ? `${restaurant.verifiedReviewCount} ${t('avis vérifiés')}`
+                    : restaurant.verified ? t('Commandes vérifiées') : t('Nouveau')}
                 </span>
               </div>
               <h1 className="font-poppins font-bold text-text-primary text-2xl sm:text-4xl mb-1 flex items-center gap-3">
                 {restaurant.name}
                 {restaurant.verified && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-600 px-2.5 py-0.5 text-xs font-inter font-semibold border border-blue-200" title="Restaurant vérifié par MiamExpress">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 text-blue-700 px-2.5 py-1 text-xs font-semibold border border-blue-200" title="Restaurant vérifié par MiamExpress">
                     <BadgeCheck className="w-4 h-4" />
                     {t("Vérifié")}
                   </span>
                 )}
               </h1>
-              <p className="text-text-secondary text-sm font-inter mb-4">
-                {restaurant.tags.join(' • ')}
-              </p>
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                {restaurant.tags.map((tag) => (
+                  <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-white text-text-secondary text-xs font-medium px-3 py-1 border border-border-custom shadow-sm">
+                    {tag}
+                  </span>
+                ))}
+              </div>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -630,7 +643,6 @@ export default function RestaurantDetail() {
 
         {/* ── Contenu de l'onglet ── */}
         {(() => {
-          const { t } = useTranslation();
           const isMenuTab = currentTab !== 'À propos' && currentTab !== 'Carte' && currentTab !== 'Avis';
 
           if (isMenuTab) {
@@ -772,7 +784,13 @@ export default function RestaurantDetail() {
                       <div>
                         <p className="font-inter font-semibold text-text-primary text-sm">{t("Catégorie")}</p>
                         <p className="text-text-secondary text-sm font-inter">{restaurant.category}</p>
-                        <p className="text-text-muted text-xs font-inter">{restaurant.tags.join(' · ')}</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {restaurant.tags.map((tag) => (
+                            <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-white text-text-muted text-[11px] font-medium px-2 py-0.5 border border-border-custom shadow-sm">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
                     {restaurant.phone && (
@@ -808,7 +826,6 @@ export default function RestaurantDetail() {
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
                       {galleryImages.slice(0, 4).map((img, idx) => {
-                        const { t } = useTranslation();
                         const linkedItem = imageToMenuItem.get(img);
                         const isOverflowTile = idx === 3 && galleryImages.length > 4;
                         const galleryLabel = isOverflowTile
@@ -842,7 +859,6 @@ export default function RestaurantDetail() {
                               alt={`${restaurant.name} - plat ${idx + 1}`}
                               className="w-full h-full object-cover aspect-[4/3] group-hover:scale-105 transition-transform duration-300"
                               onError={(e) => {
-                                const { t } = useTranslation();
                                 (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent(
                                   `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="#fdf5e0" width="100%" height="100%"/><text x="50%" y="50%" fill="#8a6d1f" font-size="14" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Photo ${idx + 1}</text></svg>`
                                 )}`;
@@ -920,7 +936,6 @@ export default function RestaurantDetail() {
                             alt={`${restaurant.name} - coulisses ${idx + 1}`}
                             className="w-full h-full object-cover aspect-[4/3] group-hover:scale-105 transition-transform duration-300"
                             onError={(e) => {
-                              const { t } = useTranslation();
                               (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent(
                                 `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="#fdf5e0" width="100%" height="100%"/><text x="50%" y="50%" fill="#8a6d1f" font-size="14" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Photo ${idx + 1}</text></svg>`
                               )}`;
@@ -1114,7 +1129,7 @@ export default function RestaurantDetail() {
                                     <span className="font-inter font-semibold text-text-primary text-sm">
                                       {review.authorName || 'Client vérifié'}
                                     </span>
-                                    <span className="inline-flex items-center gap-0.5 bg-green-light text-green-primary text-[10px] font-inter font-semibold px-1.5 py-0.5 rounded-full">
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-white text-green-primary text-[10px] font-semibold px-2 py-1 border border-green-primary/20 shadow-sm">
                                       {t("Commande vérifiée")}
                                     </span>
                                     <span className="text-text-muted text-xs font-inter">
@@ -1134,7 +1149,7 @@ export default function RestaurantDetail() {
                               {review.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mb-2">
                                   {review.tags.map((tag) => (
-                                    <span key={tag} className="bg-bg-secondary text-text-secondary text-[11px] font-inter px-2 py-0.5 rounded-full">
+                                    <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-white text-text-secondary text-[11px] font-medium px-2.5 py-1 border border-border-custom shadow-sm">
                                       {tag}
                                     </span>
                                   ))}
@@ -1194,12 +1209,16 @@ export default function RestaurantDetail() {
                   <h3 className="font-inter font-semibold text-text-primary text-sm mb-1">
                     {resto.name}
                   </h3>
-                  <p className="text-text-secondary text-xs font-inter mb-2">
-                    {resto.tags.join(' \u2022 ')}
-                  </p>
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {resto.tags.map((tag) => (
+                      <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-white text-text-secondary text-[11px] font-medium px-2 py-0.5 border border-border-custom shadow-sm">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 bg-gold-light text-amber-700 text-xs font-inter font-medium px-2 py-0.5 rounded-full">
-                      <Star className="w-3 h-3 fill-gold-accent" />
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white text-amber-700 text-xs font-medium px-2.5 py-1 border border-amber-200 shadow-sm">
+                      <Star className="w-3 h-3 fill-gold-accent text-gold-accent" />
                       {resto.rating}
                     </span>
                     <span className="text-text-secondary text-xs font-inter">
@@ -1333,7 +1352,7 @@ export default function RestaurantDetail() {
           </DialogHeader>
           <p className="text-sm font-inter text-text-secondary">
             {t("Votre panier contient des plats de")}{' '}
-            <span className="font-semibold text-text-primary">{cartRestaurantName ?? 'un autre restaurant'}</span>{t(".\n            Une commande ne peut concerner qu’un seul restaurant à la fois.\n            Voulez-vous le vider et ajouter")}{' '}
+            <span className="font-semibold text-text-primary">{cartRestaurantName ?? 'un autre restaurant'}</span>{t(". Une commande ne peut concerner qu’un seul restaurant à la fois. Voulez-vous le vider et ajouter")}{' '}
             <span className="font-semibold text-text-primary">{conflictItem?.item.name}</span>
             {' '}{t("de")} <span className="font-semibold text-text-primary">{restaurant.name}</span> ?
           </p>
@@ -1392,7 +1411,6 @@ export default function RestaurantDetail() {
               className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
               onError={(e) => {
-                const { t } = useTranslation();
                 (e.target as HTMLImageElement).src = `data:image/svg+xml,${encodeURIComponent(
                   `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect fill="#1a1a1a" width="100%" height="100%"/><text x="50%" y="50%" fill="#fff" font-size="20" text-anchor="middle" dominant-baseline="middle" font-family="Arial">Photo ${galleryIndex + 1}</text></svg>`
                 )}`;
@@ -1556,6 +1574,7 @@ function CartContent({
   onCheckout: () => void;
 }) {
   const { t } = useTranslation();
+  const surgeActive = isSurgeActive();
   const belowMinimum = minOrder > 0 && totalPrice < minOrder;
   const missingForMinimum = belowMinimum ? minOrder - totalPrice : 0;
   const orderTotal = totalPrice + deliveryFee;
@@ -1626,6 +1645,12 @@ function CartContent({
             {deliveryFee === 0 ? 'Gratuit' : `${deliveryFee.toLocaleString()} FCFA`}
           </span>
         </div>
+        {surgeActive && (
+          <div className="flex items-center gap-1.5 text-xs font-inter text-amber-700 bg-amber-50 rounded-md px-2 py-1">
+            <span>🔥</span>
+            <span>{t("Pic de demande actif")}</span>
+          </div>
+        )}
         <div className="border-t border-border-light pt-2 flex justify-between font-inter">
           <span className="text-text-primary font-bold text-lg">{t("Total")}</span>
           <span className="text-text-primary font-bold text-lg">{orderTotal.toLocaleString()} {t("FCFA")}</span>

@@ -45,6 +45,8 @@ const PERMISSIONS = [
   ['orders.update_status', 'orders', 'Modifier un statut operationnel de commande', true],
   ['orders.cancel', 'orders', 'Annuler une commande', true],
   ['orders.disputes.resolve', 'orders', 'Traiter les litiges de commande', true],
+  ['operations.view', 'operations', 'Acceder au Centre Operations (anomalies SLA)', false],
+  ['operations.handle', 'operations', 'Tracer la prise en charge d\'une anomalie', true],
   ['reviews.view', 'reviews', 'Voir les avis et resumes', false],
   ['reviews.moderate', 'reviews', 'Moderation des avis', true],
   ['reviews.reply', 'reviews', 'Repondre ou moderer une reponse avis', true],
@@ -85,7 +87,7 @@ const ROLE_PERMISSIONS = {
     'couriers.suspend', 'couriers.reactivate',
     'customers.view', 'customers.view_new', 'customers.update_profile', 'customers.block', 'customers.unblock',
     'orders.view', 'orders.view_live', 'orders.assign_courier', 'orders.update_status',
-    'orders.cancel', 'orders.disputes.resolve',
+    'orders.cancel', 'orders.disputes.resolve', 'operations.view', 'operations.handle',
     'reviews.view', 'reviews.moderate', 'dishes.manage', 'media.manage', 'audit.view',
   ],
   restaurant_manager: [
@@ -104,11 +106,12 @@ const ROLE_PERMISSIONS = {
   support_agent: [
     'dashboard.view', 'customers.view', 'customers.view_new', 'customers.update_profile',
     'customers.block', 'customers.unblock', 'orders.view', 'orders.cancel',
-    'orders.disputes.resolve', 'reviews.view', 'restaurants.view', 'couriers.view',
+    'orders.disputes.resolve', 'operations.view', 'reviews.view', 'restaurants.view', 'couriers.view',
   ],
   dispatcher: [
     'dashboard.view', 'orders.view', 'orders.view_live', 'orders.assign_courier',
     'orders.update_status', 'orders.cancel', 'orders.disputes.resolve',
+    'operations.view', 'operations.handle',
     'couriers.view', 'customers.view', 'restaurants.view',
   ],
   finance_manager: [

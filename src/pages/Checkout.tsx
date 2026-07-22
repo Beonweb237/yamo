@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { MapPin, Wallet, Smartphone, Loader2, CheckCircle2, UserRound, Phone, Navigation, Clock } from 'lucide-react';
+import { MapPin, Wallet, Smartphone, Loader2, CheckCircle2, UserRound, Phone, Navigation, Clock, HeartHandshake, TrendingUp, Award } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createOrder, CustomerBlockedError, type PaymentMethod } from '../lib/orders';
@@ -9,10 +9,14 @@ import { Skeleton } from '../components/ui/skeleton';
 import { useRestaurant } from '../hooks/useCatalog';
 import { activeCities, getNeighborhoods, getNeighborhoodCoords } from '../data/locations';
 import { haversineDistance, estimateTime } from '../lib/utils';
+import { calculateDriverEarnings, isSurgeActive, getActiveSurgeMultiplier } from '../lib/distance';
+import { DRIVER_PAY_CONFIG, LOYALTY_CONFIG, loyaltyEarnForSubtotal, loyaltyMaxRedeemForSubtotal } from '../data/launchConfig';
+import { getLoyaltyBalance, type LoyaltyBalance } from '../lib/loyalty';
 import LazyAddressPickerMap from '../components/LazyAddressPickerMap';
 import { toast } from 'sonner';
 import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
 import { useTranslation } from "react-i18next";
+import { useSeo } from '../hooks/useSeo';
 
 interface SavedAddress {
   id: string;
@@ -73,6 +77,7 @@ const paymentOptions: {
 
 export default function Checkout() {
     const { t } = useTranslation();
+  useSeo({ title: t('Finaliser ma commande'), noindex: true });
   const { items, restaurantId, totalPrice, totalItems, clearCart } = useCart();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -146,6 +151,8 @@ export default function Checkout() {
   };
 
   const [notes, setNotes] = useState('');
+  const [tipAmount, setTipAmount] = useState(0);
+  const surgeActive = isSurgeActive();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentPhone, setPaymentPhone] = useState(() => normalizeCameroonPhone(user?.phone ?? ''));
   const [orderForSomeoneElse, setOrderForSomeoneElse] = useState(false);
@@ -154,6 +161,13 @@ export default function Checkout() {
   const [callRecipientOnArrivalOnly, setCallRecipientOnArrivalOnly] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState(0);
+  // Série LOY — MiamPoints : solde du client + choix d'utilisation au checkout.
+  const [loyaltyBalance, setLoyaltyBalance] = useState<LoyaltyBalance | null>(null);
+  const [useLoyalty, setUseLoyalty] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    getLoyaltyBalance(user.id).then(setLoyaltyBalance).catch(() => setLoyaltyBalance(null));
+  }, [user]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
@@ -223,7 +237,13 @@ export default function Checkout() {
   // skeletons sans explication (QA-14).
   const cartRestaurantMissing = Boolean(restaurantId) && !cartRestaurantLoading && !restaurantReady;
   const deliveryFee = restaurantReady && cartRestaurant ? cartRestaurant.deliveryFee : 0;
-  const total = totalPrice + deliveryFee;
+  // Série LOY — réduction MiamPoints : au plus le solde, plafonnée à 50 % du
+  // sous-total, et seulement si le solde atteint le minimum d'utilisation.
+  const loyaltyEligible = (loyaltyBalance?.available ?? 0) >= LOYALTY_CONFIG.MIN_REDEEM_POINTS;
+  const loyaltyDiscount = useLoyalty && loyaltyEligible
+    ? Math.min(loyaltyBalance?.available ?? 0, loyaltyMaxRedeemForSubtotal(totalPrice))
+    : 0;
+  const total = Math.max(0, totalPrice + deliveryFee + tipAmount - loyaltyDiscount);
   const recipientMissing = orderForSomeoneElse && (!recipientName.trim() || !recipientPhone.trim());
 
   // Minimum de commande du restaurant (CONF-10) : affiché et bloquant tant
@@ -271,6 +291,25 @@ export default function Checkout() {
         }
         : null;
 
+      // Série DRV — calcul de la rémunération livreur estimée
+      const computeDriverEarnings = () => {
+        const distanceKm = deliveryInfo?.distanceKm ?? 0;
+        const earnings = calculateDriverEarnings(distanceKm);
+        return {
+          distanceKm,
+          waitMinutes: 10,
+          basePickup: earnings.basePickup,
+          distancePay: earnings.distancePay,
+          waitPay: earnings.waitPay,
+          surgeMultiplier: earnings.surgeMultiplier,
+          surgeBonus: earnings.surgeBonus,
+          subtotal: earnings.subtotal,
+          final: earnings.final,
+          surgeActive: earnings.surgeActive,
+        };
+      };
+      const driverEarnings = computeDriverEarnings();
+
       let serverSubtotal = totalPrice;
       let serverDeliveryFee = deliveryFee;
       let serverTotal = total;
@@ -316,7 +355,10 @@ export default function Checkout() {
         items,
         subtotal: serverSubtotal,
         deliveryFee: serverDeliveryFee,
-        total: serverTotal,
+        // Série LOY — le total à payer est réduit des MiamPoints utilisés ;
+        // le montant est enregistré (débit client + compensation resto serveur).
+        total: Math.max(0, serverTotal + tipAmount - loyaltyDiscount),
+        loyaltyRedeemed: loyaltyDiscount,
         paymentMethod,
         address: {
           city,
@@ -327,6 +369,8 @@ export default function Checkout() {
           lng: pinCoords?.lng,
         },
         notes,
+        tipAmount,
+        driverEarnings,
       });
 
       // Paiement MTN MoMo : déclenche la demande de confirmation sur le téléphone
@@ -845,6 +889,76 @@ export default function Checkout() {
                 <Skeleton className="h-4 w-16" aria-label="Frais de livraison en cours de chargement" />
               )}
             </div>
+            {/* Série DRV — Pourboire livreur */}
+            <div className="border-t border-border-light pt-3">
+              <p className="text-sm font-inter font-medium text-text-primary mb-2 flex items-center gap-1.5">
+                <HeartHandshake className="w-4 h-4 text-gold-accent" />
+                {t("Pourboire (optionnel)")}
+              </p>
+              <p className="text-xs text-text-muted font-inter mb-2">
+                {t("Le pourboire est reversé intégralement au livreur.")}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {DRIVER_PAY_CONFIG.TIP_FIXED_OPTIONS.map((amount) => (
+                  <button
+                    key={amount}
+                    type="button"
+                    onClick={() => setTipAmount(tipAmount === amount ? 0 : amount)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-inter font-medium transition-all ${
+                      tipAmount === amount
+                        ? 'bg-gold-light text-amber-700 border-2 border-gold-accent'
+                        : 'bg-bg-secondary text-text-secondary border-2 border-transparent hover:border-gold-accent/30'
+                    }`}
+                  >
+                    +{amount.toLocaleString()} FCFA
+                  </button>
+                ))}
+              </div>
+              {tipAmount > 0 && (
+                <div className="flex justify-between text-sm font-inter mt-2 text-[#D4A843]">
+                  <span>{t("Pourboire livreur")}</span>
+                  <span className="font-medium">+{tipAmount.toLocaleString()} FCFA</span>
+                </div>
+              )}
+            </div>
+            {/* Série DRV — Indicateur surge */}
+            {surgeActive && (
+              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+                <TrendingUp className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-inter font-medium text-amber-700">
+                  {t("🔥 Pic de demande")}
+                </span>
+              </div>
+            )}
+            {/* Série LOY — utiliser ses MiamPoints (si solde suffisant) */}
+            {loyaltyEligible && loyaltyMaxRedeemForSubtotal(totalPrice) >= LOYALTY_CONFIG.MIN_REDEEM_POINTS && (
+              <div className="border-t border-border-light pt-3">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useLoyalty}
+                    onChange={(e) => setUseLoyalty(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-green-primary shrink-0"
+                  />
+                  <span className="flex-1">
+                    <span className="text-sm font-inter font-medium text-text-primary flex items-center gap-1.5">
+                      <Award className="w-4 h-4 text-green-primary" />
+                      {t("Utiliser mes")} {LOYALTY_CONFIG.UNIT_NAME}
+                    </span>
+                    <span className="block text-xs text-text-muted font-inter mt-0.5">
+                      {(loyaltyBalance?.available ?? 0).toLocaleString()} {LOYALTY_CONFIG.UNIT_NAME} {t("disponibles · jusqu'à")}{' '}
+                      {Math.min(loyaltyBalance?.available ?? 0, loyaltyMaxRedeemForSubtotal(totalPrice)).toLocaleString()} {t("FCFA de réduction")}
+                    </span>
+                  </span>
+                </label>
+              </div>
+            )}
+            {loyaltyDiscount > 0 && (
+              <div className="flex justify-between text-sm font-inter text-green-primary">
+                <span>{t("Réduction")} {LOYALTY_CONFIG.UNIT_NAME}</span>
+                <span className="font-medium">-{loyaltyDiscount.toLocaleString()} {t("FCFA")}</span>
+              </div>
+            )}
             <div className="border-t border-border-light pt-2 flex justify-between items-center font-inter">
               <span className="text-text-primary font-bold text-lg">{t("Total")}</span>
               {restaurantReady ? (
@@ -853,6 +967,15 @@ export default function Checkout() {
                 <Skeleton className="h-6 w-24" aria-label="Total en cours de chargement" />
               )}
             </div>
+            {/* Série LOY — aperçu du gain MiamPoints (crédités à la livraison) */}
+            {loyaltyEarnForSubtotal(totalPrice) > 0 && (
+              <div className="flex items-center justify-center gap-1.5 bg-green-light rounded-lg px-3 py-2 mt-2">
+                <Award className="w-4 h-4 text-green-primary shrink-0" />
+                <span className="text-green-primary font-inter text-xs font-medium">
+                  {t("Vous gagnerez")} {loyaltyEarnForSubtotal(totalPrice).toLocaleString()} {LOYALTY_CONFIG.UNIT_NAME} {t("à la livraison")}
+                </span>
+              </div>
+            )}
           </div>
         </section>
 

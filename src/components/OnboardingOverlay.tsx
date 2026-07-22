@@ -54,9 +54,21 @@ export default function OnboardingOverlay({ onClose }: { onClose: () => void }) 
     localStorage.setItem(LANG_STORAGE_KEY, lang);
   }, [lang, i18n]);
 
+  // La langue vit dans l'URL (/fr/, /en/) : si le choix d'onboarding diffère du
+  // préfixe courant, on recharge sur le bon préfixe à la fermeture (l'aperçu en
+  // direct via i18n.changeLanguage reste instantané pendant l'onboarding).
+  const urlLang = window.location.pathname.split('/')[1] === 'en' ? 'en' : 'fr';
+  const syncUrlLang = (path?: string): boolean => {
+    if (lang === urlLang) return false;
+    const rest = path ?? window.location.pathname.replace(/^\/(fr|en)(?=\/|$)/, '') + window.location.search;
+    window.location.assign(`/${lang}${rest || '/'}`);
+    return true;
+  };
+
   const close = () => {
     markCompleted();
     onClose();
+    syncUrlLang();
   };
 
   useEffect(() => {
@@ -71,7 +83,12 @@ export default function OnboardingOverlay({ onClose }: { onClose: () => void }) 
   const finish = (goExplore: boolean) => {
     markCompleted();
     onClose();
-    if (goExplore) navigate(`/restaurants?ville=${encodeURIComponent(city)}`);
+    if (goExplore) {
+      const path = `/restaurants?ville=${encodeURIComponent(city)}`;
+      if (!syncUrlLang(path)) navigate(path);
+    } else {
+      syncUrlLang();
+    }
   };
 
   // 4 écrans : langue en premier

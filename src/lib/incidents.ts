@@ -38,6 +38,15 @@ export interface DeliveryIncident {
 }
 
 const STORAGE_KEY = 'yamo_incidents';
+const USE_VPS = import.meta.env.VITE_USE_VPS_API === 'true';
+
+function authHeader(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem('miamexpress_session');
+    const token = raw ? JSON.parse(raw)?.access_token : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch { return {}; }
+}
 
 function readAll(): DeliveryIncident[] {
   try {
@@ -60,6 +69,31 @@ export async function reportIncident(params: {
   note?: string;
   reportedBy?: 'driver' | 'customer';
 }): Promise<DeliveryIncident> {
+  // Mode VPS : l'incident vit en base (alimente le Centre Opérations, scénario 10).
+  if (USE_VPS) {
+    const res = await fetch('/api/incidents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
+      body: JSON.stringify({
+        orderId: params.orderId,
+        type: params.type,
+        note: params.note?.trim() || undefined,
+        reportedBy: params.reportedBy ?? 'driver',
+      }),
+    });
+    if (!res.ok) throw new Error('Impossible de signaler l\'incident.');
+    const row = await res.json();
+    return {
+      id: String(row.id),
+      orderId: String(row.orderId ?? params.orderId),
+      driverId: String(row.driverId ?? params.driverId),
+      type: (row.type ?? params.type) as IncidentType,
+      note: row.note ?? undefined,
+      reportedBy: (row.reportedBy ?? params.reportedBy ?? 'driver') as 'driver' | 'customer',
+      status: 'open',
+      createdAt: row.createdAt ?? new Date().toISOString(),
+    };
+  }
   const incident: DeliveryIncident = {
     id: crypto.randomUUID(),
     orderId: params.orderId,
@@ -76,11 +110,26 @@ export async function reportIncident(params: {
 
 /** Tous les incidents (admin), plus récents d'abord. */
 export async function fetchAllIncidents(): Promise<DeliveryIncident[]> {
+  if (USE_VPS) {
+    try {
+      const res = await fetch('/api/admin/incidents', { headers: authHeader() });
+      if (res.ok) return (await res.json()) as DeliveryIncident[];
+    } catch { /* repli localStorage */ }
+  }
   return readAll();
 }
 
 /** Marque un incident comme résolu (admin). */
 export async function resolveIncident(id: string, resolutionNote?: string): Promise<void> {
+  if (USE_VPS) {
+    const res = await fetch(`/api/admin/incidents/${encodeURIComponent(id)}/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
+      body: JSON.stringify({ resolutionNote: resolutionNote?.trim() || undefined }),
+    });
+    if (!res.ok) throw new Error('Impossible de résoudre l\'incident.');
+    return;
+  }
   const updated = readAll().map((i) =>
     i.id === id
       ? { ...i, status: 'resolved' as const, resolvedAt: new Date().toISOString(), resolutionNote: resolutionNote?.trim() || null }

@@ -152,7 +152,6 @@ export default function AdminDrivers() {
         ) : (
           <div className="divide-y divide-border-light">
             {filteredDrivers.map((d) => {
-                const { t } = useTranslation();
               const s = stats[d.applicantId];
               const isActive = !(s?.isSuspended ?? false);
               return (
@@ -232,7 +231,6 @@ export default function AdminDrivers() {
         ) : (
           <div className="divide-y divide-border-light">
             {pendingPayouts.map((p) => {
-                const { t } = useTranslation();
               const driver = drivers.find((d) => d.applicantId === p.driverId);
               return (
                 <div key={p.id} className="flex items-center justify-between gap-3 p-4">
@@ -274,7 +272,7 @@ export default function AdminDrivers() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Suspendre ce livreur ?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("Le livreur ne pourra plus accéder à son espace ni recevoir de courses.\r\n              Le motif est visible par l’équipe uniquement.")}
+              {t("Le livreur ne pourra plus accéder à son espace ni recevoir de courses. Le motif est visible par l’équipe uniquement.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <textarea
@@ -308,7 +306,7 @@ export default function AdminDrivers() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Refuser ce virement ?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("Le montant redeviendra disponible dans le solde du livreur.\r\n              Le motif lui sera affiché.")}
+              {t("Le montant redeviendra disponible dans le solde du livreur. Le motif lui sera affiché.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <textarea
@@ -454,7 +452,7 @@ export default function AdminDrivers() {
                     <span className="text-sm text-amber-700 font-inter">{t("Code OTP")}</span>
                     <span className="text-sm font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">12345</span>
                   </div>
-                  <p className="text-[11px] text-amber-600 font-inter mt-1">{t("Connexion : email ou téléphone + mot de passe")} {ADMIN_DEFAULT_PASSWORD}</p>
+                  <p className="text-[11px] text-amber-600 font-inter mt-1">{t("Connexion : email ou téléphone + mot de passe")} {ADMIN_DEFAULT_PASSWORD} — {t("mot de passe par défaut ; si vous l'avez réinitialisé, c'est le nouveau qui compte.")}</p>
                 </div>
               )}
 

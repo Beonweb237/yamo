@@ -8,14 +8,22 @@
 //
 // À garder synchrone avec POINTS_CONFIG (app/src/data/launchConfig.ts).
 
+// MODÈLE (21/07/2026) : solde en FCFA (1 unité = 1 FCFA). Commission = 15 % du
+// sous-total nourriture, calculée ICI (jamais confiée au client). À garder
+// synchrone avec POINTS_CONFIG (app/src/data/launchConfig.ts).
 const POINTS_CONFIG = {
-  POINT_PRICE_FCFA: 500,
-  ORDER_COST_POINTS: 3,
-  PENALTY_RESTAURANT_FAULT_POINTS: 1,
-  MIN_BALANCE_TO_ACCEPT_POINTS: 6,
-  MIN_RECHARGE_POINTS: 10,
-  WELCOME_BONUS_POINTS: 10,
+  POINT_PRICE_FCFA: 1,
+  COMMISSION_RATE: 0.15,
+  PENALTY_RESTAURANT_FAULT_FCFA: 500,
+  MIN_BALANCE_FLOOR_FCFA: 0,
+  MIN_RECHARGE_FCFA: 5000,
+  WELCOME_BONUS_FCFA: 5000,
 };
+
+/** Commission (FCFA) due sur une commande, à partir de son sous-total nourriture. */
+function commissionForSubtotal(subtotal) {
+  return Math.round(Math.max(0, Number(subtotal) || 0) * POINTS_CONFIG.COMMISSION_RATE);
+}
 
 const SETTLEMENT_KINDS = ['consume', 'release', 'penalty'];
 
@@ -153,17 +161,26 @@ export function registerPointsRoutes(app, { pool, authRequired, adminRequired, a
           "SELECT * FROM points_ledger WHERE kind = 'hold' AND reference = $1", [orderId]
         );
         if (existing.rows[0]) return { entry: existing.rows[0], created: false };
+        // Commission = 15 % du sous-total EN BASE (source de vérité serveur ;
+        // le client n'envoie jamais le montant à facturer).
+        const ord = await client.query('SELECT subtotal FROM orders WHERE id::text = $1', [String(orderId)]);
+        if (!ord.rows[0]) {
+          const err = new Error('Commande introuvable pour la réservation de commission.');
+          err.statusCode = 404;
+          throw err;
+        }
+        const commission = commissionForSubtotal(ord.rows[0].subtotal);
         const { available } = await computeBalance(client, restaurantId);
-        if (available < POINTS_CONFIG.ORDER_COST_POINTS) {
+        if (available < commission + POINTS_CONFIG.MIN_BALANCE_FLOOR_FCFA) {
           const err = new Error(
-            `Solde insuffisant (${available} pts) : accepter une commande réserve ${POINTS_CONFIG.ORDER_COST_POINTS} points. Rechargez votre compte.`
+            `Solde insuffisant (${available} FCFA) : accepter cette commande réserve ${commission} FCFA de commission. Rechargez votre compte.`
           );
           err.statusCode = 402;
           throw err;
         }
         return appendEntry(client, {
-          restaurantId, kind: 'hold', points: -POINTS_CONFIG.ORDER_COST_POINTS,
-          reference: orderId, note: `Réservation pour la commande #${String(orderId).slice(0, 8)}`,
+          restaurantId, kind: 'hold', points: -commission,
+          reference: orderId, note: `Réservation commission (${commission} FCFA) — commande #${String(orderId).slice(0, 8)}`,
         });
       });
       res.json(fromSnake(result.entry));
@@ -203,8 +220,8 @@ export function registerPointsRoutes(app, { pool, authRequired, adminRequired, a
             ? { kind: 'release', points: holdAmount, note: `Commande #${String(orderId).slice(0, 8)} annulée sans faute — points restitués` }
             : {
               kind: 'penalty',
-              points: holdAmount - POINTS_CONFIG.PENALTY_RESTAURANT_FAULT_POINTS,
-              note: `Annulation par le restaurant — pénalité de ${POINTS_CONFIG.PENALTY_RESTAURANT_FAULT_POINTS} point conservée`,
+              points: holdAmount - Math.min(holdAmount, POINTS_CONFIG.PENALTY_RESTAURANT_FAULT_FCFA),
+              note: `Annulation par le restaurant — pénalité de ${Math.min(holdAmount, POINTS_CONFIG.PENALTY_RESTAURANT_FAULT_FCFA)} FCFA conservée`,
             };
         return appendEntry(client, { restaurantId, reference: orderId, ...spec });
       });
@@ -223,7 +240,7 @@ export function registerPointsRoutes(app, { pool, authRequired, adminRequired, a
       return res.status(400).json({ error: 'restaurantId, disputeId et amountFcfa requis.' });
     }
     try {
-      const pts = Math.ceil(amountFcfa / POINTS_CONFIG.POINT_PRICE_FCFA);
+      const pts = Math.round(amountFcfa); // solde en FCFA : 1 unité = 1 FCFA
       const result = await withRestaurantLock(restaurantId, async (client) => {
         const existing = await client.query(
           "SELECT * FROM points_ledger WHERE kind = 'convert_refund' AND reference = $1", [disputeId]
@@ -257,16 +274,17 @@ export function registerPointsRoutes(app, { pool, authRequired, adminRequired, a
     if (!restaurantId || !['momo', 'cash_partner'].includes(method)) {
       return res.status(400).json({ error: 'restaurantId et method (momo|cash_partner) requis.' });
     }
-    if (!Number.isInteger(points) || points < POINTS_CONFIG.MIN_RECHARGE_POINTS) {
-      return res.status(400).json({ error: `La recharge minimale est de ${POINTS_CONFIG.MIN_RECHARGE_POINTS} points.` });
+    if (!Number.isInteger(points) || points < POINTS_CONFIG.MIN_RECHARGE_FCFA) {
+      return res.status(400).json({ error: `La recharge minimale est de ${POINTS_CONFIG.MIN_RECHARGE_FCFA} FCFA.` });
     }
     if (!assertOwnRestaurant(req, res, restaurantId)) return;
     try {
       const paymentRef = 'PTS-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+      // `points` = montant en FCFA (unité de compte = 1 FCFA) → amount_fcfa identique.
       const { rows } = await pool.query(
         `INSERT INTO point_recharges (restaurant_id, points, amount_fcfa, method, payment_ref)
          VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        [restaurantId, points, points * POINTS_CONFIG.POINT_PRICE_FCFA, method, paymentRef]
+        [restaurantId, points, points, method, paymentRef]
       );
       res.json(fromSnake(rows[0]));
     } catch (err) {
@@ -344,13 +362,13 @@ export function registerPointsRoutes(app, { pool, authRequired, adminRequired, a
     const { restaurantId } = req.body || {};
     if (!restaurantId) return res.status(400).json({ error: 'restaurantId requis.' });
     if (!assertOwnRestaurant(req, res, restaurantId)) return;
-    if (POINTS_CONFIG.WELCOME_BONUS_POINTS <= 0) return res.json(null);
+    if (POINTS_CONFIG.WELCOME_BONUS_FCFA <= 0) return res.json(null);
     try {
       const result = await withRestaurantLock(restaurantId, (client) =>
         appendEntry(client, {
-          restaurantId, kind: 'welcome_bonus', points: POINTS_CONFIG.WELCOME_BONUS_POINTS,
+          restaurantId, kind: 'welcome_bonus', points: POINTS_CONFIG.WELCOME_BONUS_FCFA,
           reference: restaurantId,
-          note: `Bonus de bienvenue MiamExpress (${POINTS_CONFIG.WELCOME_BONUS_POINTS} points offerts)`,
+          note: `Crédit de bienvenue MiamExpress (${POINTS_CONFIG.WELCOME_BONUS_FCFA} FCFA offerts)`,
         })
       );
       res.json(fromSnake(result.entry));

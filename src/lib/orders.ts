@@ -7,7 +7,44 @@ import { parseCityFromAddress, parseNeighborhoodFromAddress } from '../data/loca
 // hold/settle est fait côté serveur dans la même transaction que le statut
 // (PTS-08) — les appels ci-dessous ne concernent que le chemin mock.
 import { holdPoints, settleHold, hasActiveHold, convertPointsToRefund } from './points';
+// Série LOY — MiamPoints : le client gagne des points à la livraison. Best-effort
+// (un échec de fidélité ne doit jamais bloquer la livraison de la commande).
+import { earnLoyalty, redeemLoyalty, refundLoyalty } from './loyalty';
 import { POINTS_CONFIG } from '../data/launchConfig';
+
+/**
+ * Crédite les MiamPoints d'une commande livrée — best-effort, jamais bloquant.
+ * VPS : le serveur dérive le client et le montant (5 %) depuis la commande en
+ * base (idempotent). Mock : on lit la commande locale pour connaître client et
+ * sous-total.
+ */
+async function earnLoyaltyForOrder(orderId: string): Promise<void> {
+  try {
+    if (isSupabaseConfigured) {
+      await earnLoyalty('', orderId, 0); // serveur : dérive client + 5 % du sous-total
+      return;
+    }
+    const o = readLocalOrders().find((x) => x.id === orderId);
+    if (o?.customerId) await earnLoyalty(o.customerId, orderId, o.subtotal);
+  } catch {
+    /* la fidélité ne doit jamais casser le parcours de livraison */
+  }
+}
+
+/**
+ * Débite les MiamPoints utilisés sur une commande fraîchement créée. VPS : le
+ * serveur valide (min/plafond/solde) ET crédite la compensation au restaurant.
+ * Best-effort : un échec (solde modifié entre-temps) ne bloque pas la commande.
+ */
+async function maybeRedeemLoyalty(input: OrderInput, orderId: string): Promise<void> {
+  const r = input.loyaltyRedeemed ?? 0;
+  if (r <= 0) return;
+  try {
+    await redeemLoyalty(input.customerId, orderId, r, input.subtotal);
+  } catch (e) {
+    console.warn('[loyalty] débit après création échoué', e);
+  }
+}
 
 // Série PTS — code marchand effectif d'un resto : mock + overrides locaux
 // (précédent yamo_own_drivers : lecture directe pour éviter l'import croisé
@@ -162,6 +199,8 @@ export interface OrderInput {
   subtotal: number;
   deliveryFee: number;
   total: number;
+  /** Série LOY — MiamPoints utilisés en réduction (FCFA). Déduits du total. */
+  loyaltyRedeemed?: number;
   paymentMethod: PaymentMethod;
   address: {
     city: string;
@@ -172,6 +211,21 @@ export interface OrderInput {
     lng?: number;
   };
   notes?: string;
+  /** Série DRV — pourboire ajouté par le client. 100% livreur. */
+  tipAmount?: number;
+  /** Série DRV — décomposition de la rémunération livreur estimée. */
+  driverEarnings?: {
+    distanceKm: number;
+    waitMinutes: number;
+    basePickup: number;
+    distancePay: number;
+    waitPay: number;
+    surgeMultiplier: number;
+    surgeBonus: number;
+    subtotal: number;
+    final: number;
+    surgeActive: boolean;
+  };
 }
 
 /** Auteur d'une annulation de commande. */
@@ -242,6 +296,8 @@ export interface Order extends Omit<OrderInput, 'items'> {
   deliveryCode?: string | null;
   /** Clôturée sans code (repli « client sans code ») — visible par l'admin. */
   deliveredWithoutCode?: boolean;
+  /** Série LOY — MiamPoints utilisés en réduction sur cette commande (FCFA). */
+  loyaltyRedeemed?: number | null;
   /** Litige d'annulation traité par l'admin (CONF-20). */
   disputeResolved?: boolean;
   /** Note de traitement du litige (admin). */
@@ -271,6 +327,26 @@ export interface Order extends Omit<OrderInput, 'items'> {
     contactInstructions?: string;
   } | null;
   items: { name: string; price: number; quantity: number; baseItemId?: string }[];
+  /**
+   * Série DRV — décomposition des frais de livraison visible côté livreur.
+   * Présente quand le calcul décomposé a été appliqué (VPS et mock).
+   */
+  feeBreakdown?: {
+    basePickup: number;
+    distancePay: number;
+    waitPay: number;
+    surgeMultiplier: number;
+    surgeBonus: number;
+    final: number;
+  } | null;
+  /**
+   * Série DRV — pourboire ajouté par le client au checkout. 100% livreur.
+   */
+  tipAmount?: number;
+  /**
+   * Série DRV — indique si le surge pricing était actif au moment de la commande.
+   */
+  surgeApplied?: boolean;
 }
 
 const LOCAL_ORDERS_KEY = 'yamo_local_orders';
@@ -441,6 +517,17 @@ export async function createOrder(input: OrderInput): Promise<Order> {
       recipient_name: recipient?.name || null,
       recipient_phone: recipient?.phone || null,
       recipient_contact_instructions: recipient?.contactInstructions || null,
+      // Série DRV — rémunération livreur
+      tip_amount: input.tipAmount ?? 0,
+      surge_applied: input.driverEarnings?.surgeActive ?? false,
+      fee_breakdown: input.driverEarnings ? JSON.stringify({
+        basePickup: input.driverEarnings.basePickup,
+        distancePay: input.driverEarnings.distancePay,
+        waitPay: input.driverEarnings.waitPay,
+        surgeMultiplier: input.driverEarnings.surgeMultiplier,
+        surgeBonus: input.driverEarnings.surgeBonus,
+        final: input.driverEarnings.final,
+      }) : null,
     };
 
     let { data: orderRow, error: orderError } = await supabase
@@ -486,6 +573,8 @@ export async function createOrder(input: OrderInput): Promise<Order> {
     const { error: itemsError } = await supabase.from('order_items').insert(orderItemsPayload);
     if (itemsError) throw itemsError;
 
+    await maybeRedeemLoyalty(input, orderRow.id);
+
     return {
       id: orderRow.id,
       customerId: input.customerId,
@@ -494,6 +583,7 @@ export async function createOrder(input: OrderInput): Promise<Order> {
       subtotal: input.subtotal,
       deliveryFee: input.deliveryFee,
       total: input.total,
+      loyaltyRedeemed: input.loyaltyRedeemed ?? null,
       paymentMethod: input.paymentMethod,
       address: input.address,
       notes: input.notes,
@@ -507,6 +597,17 @@ export async function createOrder(input: OrderInput): Promise<Order> {
       estimatedReadyAt: null,
       readyAt: null,
       items: input.items.map((ci) => ({ name: ci.item.name, price: ci.item.price, quantity: ci.quantity, baseItemId: ci.baseItemId })),
+      // Série DRV
+      tipAmount: input.tipAmount ?? 0,
+      surgeApplied: input.driverEarnings?.surgeActive ?? false,
+      feeBreakdown: input.driverEarnings ? {
+        basePickup: input.driverEarnings.basePickup,
+        distancePay: input.driverEarnings.distancePay,
+        waitPay: input.driverEarnings.waitPay,
+        surgeMultiplier: input.driverEarnings.surgeMultiplier,
+        surgeBonus: input.driverEarnings.surgeBonus,
+        final: input.driverEarnings.final,
+      } : null,
     };
   }
 
@@ -524,6 +625,7 @@ export async function createOrder(input: OrderInput): Promise<Order> {
     subtotal: input.subtotal,
     deliveryFee: input.deliveryFee,
     total: input.total,
+    loyaltyRedeemed: input.loyaltyRedeemed ?? null,
     paymentMethod: input.paymentMethod,
     address: input.address,
     notes: input.notes,
@@ -537,9 +639,21 @@ export async function createOrder(input: OrderInput): Promise<Order> {
     estimatedReadyAt: null,
     readyAt: null,
     items: input.items.map((ci) => ({ name: ci.item.name, price: ci.item.price, quantity: ci.quantity, baseItemId: ci.baseItemId })),
+    // Série DRV
+    tipAmount: input.tipAmount ?? 0,
+    surgeApplied: input.driverEarnings?.surgeActive ?? false,
+    feeBreakdown: input.driverEarnings ? {
+      basePickup: input.driverEarnings.basePickup,
+      distancePay: input.driverEarnings.distancePay,
+      waitPay: input.driverEarnings.waitPay,
+      surgeMultiplier: input.driverEarnings.surgeMultiplier,
+      surgeBonus: input.driverEarnings.surgeBonus,
+      final: input.driverEarnings.final,
+    } : null,
   };
   const existing = readLocalOrders();
   writeLocalOrders([order, ...existing]);
+  await maybeRedeemLoyalty(input, order.id);
   return order;
 }
 
@@ -592,6 +706,10 @@ function mapOrderRow(row: Record<string, unknown>): Order {
     estimatedReadyAt: (row.estimated_ready_at as string | null) ?? null,
     readyAt: (row.ready_at as string | null) ?? null,
     items: orderItems.map((oi) => ({ name: oi.name, price: oi.price, quantity: oi.quantity })),
+    // Série DRV — rémunération livreur décomposée
+    feeBreakdown: (row.fee_breakdown as Order['feeBreakdown']) ?? null,
+    tipAmount: (row.tip_amount as number) ?? 0,
+    surgeApplied: (row.surge_applied as boolean) ?? false,
   };
 }
 
@@ -659,10 +777,12 @@ export async function updateOrderStatus(
       if (isSchemaColumnMissing(error)) {
         const { error: fallbackError } = await supabase.from('orders').update({ status }).eq('id', orderId);
         if (fallbackError) throw fallbackError;
+        if (status === 'delivered') await earnLoyaltyForOrder(orderId);
         return;
       }
       throw error;
     }
+    if (status === 'delivered') await earnLoyaltyForOrder(orderId);
     return;
   }
 
@@ -672,7 +792,7 @@ export async function updateOrderStatus(
   // Série PTS — acceptation : réserver les points AVANT d'écrire le statut.
   // InsufficientPointsError remonte à l'appelant et la transition n'a pas lieu.
   if (status === 'confirmed' && current && current.status === 'pending') {
-    await holdPoints(current.restaurantId, orderId);
+    await holdPoints(current.restaurantId, orderId, current.subtotal);
   }
   // Série PTS — la préparation ne démarre pas tant que la garantie n'est pas
   // confirmée par le resto (sous-état de 'confirmed' ; absente = pas de blocage).
@@ -697,6 +817,7 @@ export async function updateOrderStatus(
       : o
   );
   writeLocalOrders(updated);
+  if (status === 'delivered') await earnLoyaltyForOrder(orderId);
 }
 
 /**
@@ -718,6 +839,11 @@ export async function cancelOrder(orderId: string, reason: string, by: Cancelled
   if (current && (await hasActiveHold(current.restaurantId, orderId))) {
     await settleHold(current.restaurantId, orderId, by === 'restaurant' ? 'penalty' : 'release');
   }
+  // Série LOY — restituer au client les MiamPoints utilisés (et reverser la
+  // compensation resto côté serveur). Best-effort, idempotent, jamais bloquant.
+  try {
+    await refundLoyalty(orderId, current?.customerId ?? '');
+  } catch { /* la restitution fidélité ne doit pas bloquer l'annulation */ }
   // Série PTS — garantie déjà sécurisée : toute annulation la rembourse au
   // client. Faute du resto → remboursement garanti par sa caution points
   // (idempotent sur orderId — pas de double conversion si l'arbitrage admin
@@ -781,7 +907,7 @@ export async function confirmOrderWithPreparation(orderId: string, preparationEt
   // d'écrire (InsufficientPointsError ⇒ la commande reste en attente).
   const current = readLocalOrders().find((o) => o.id === orderId);
   if (current && current.status === 'pending') {
-    await holdPoints(current.restaurantId, orderId);
+    await holdPoints(current.restaurantId, orderId, current.subtotal);
   }
 
   const updated = readLocalOrders().map((o) =>
@@ -1114,16 +1240,14 @@ export async function markPickedUp(orderId: string): Promise<void> {
  * (le serveur vérifie le code ; ici en mock la vérification est faite côté UI).
  */
 export async function markDelivered(orderId: string, options?: { withoutCode?: boolean }): Promise<void> {
-  if (options?.withoutCode) {
-    const now = new Date().toISOString();
-    const updated = readLocalOrders().map((o) =>
-      o.id === orderId
-        ? { ...o, status: 'delivered' as OrderStatus, deliveredWithoutCode: true, updatedAt: now }
-        : o
-    );
-    writeLocalOrders(updated);
-    return;
-  }
+  const withoutCode = options?.withoutCode === true;
+
+  // Mode VPS EN PREMIER, y compris pour le repli « sans code » : auparavant ce
+  // cas n'écrivait QUE dans localStorage, donc en production la livraison n'était
+  // jamais persistée côté serveur (commande bloquée « prête » pour tous les
+  // autres). Faute de colonne dédiée en base, la clôture sans code est
+  // enregistrée comme une livraison normale (statut delivered) — l'essentiel est
+  // que la commande soit réellement terminée.
   if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
     const now = new Date().toISOString();
     const { error: orderError } = await supabase
@@ -1137,6 +1261,19 @@ export async function markDelivered(orderId: string, options?: { withoutCode?: b
       .update({ status: 'delivered', delivered_at: now })
       .eq('order_id', orderId);
     if (deliveryError) throw deliveryError;
+    await earnLoyaltyForOrder(orderId);
+    return;
+  }
+
+  if (withoutCode) {
+    const now = new Date().toISOString();
+    const updated = readLocalOrders().map((o) =>
+      o.id === orderId
+        ? { ...o, status: 'delivered' as OrderStatus, deliveredWithoutCode: true, updatedAt: now }
+        : o
+    );
+    writeLocalOrders(updated);
+    await earnLoyaltyForOrder(orderId);
     return;
   }
 

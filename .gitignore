@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Archives de build (ne pas versionner)
+dist*.zip
+dist*.tar.gz
+dist-upload.zip
+
 # Environment
 .env
 .env.*

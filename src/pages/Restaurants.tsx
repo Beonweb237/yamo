@@ -25,6 +25,7 @@ import AppImage from '../components/AppImage';
 import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
 import DishResults from '../components/DishResults';
 import { useTranslation } from 'react-i18next';
+import { useSeo } from '../hooks/useSeo';
 
 type QuickFilterId = 'open' | 'freeDelivery' | 'fast' | 'premium';
 
@@ -65,6 +66,11 @@ function ratingForRanking(restaurant: Restaurant): number {
 
 export default function Restaurants() {
   const { t } = useTranslation();
+  useSeo({
+    title: t('Restaurants à Douala et Yaoundé'),
+    description: t('Découvrez et commandez auprès des meilleurs restaurants de Douala et Yaoundé. Cuisine camerounaise, fast-food, pizza, grillades — livrés chez vous.'),
+    path: '/restaurants',
+  });
   const { restaurants, loading } = useRestaurants();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -650,7 +656,6 @@ export default function Restaurants() {
                         </div>
                       ))
                     ) : filtered.map((resto, i) => {
-                        const { t } = useTranslation();
                       const isOpen = isEffectivelyOpen(resto);
                       return (
                         <motion.div
@@ -709,7 +714,7 @@ export default function Restaurants() {
                                 <h3 className="font-inter font-semibold text-text-primary text-base truncate min-w-0 flex items-center gap-1.5">
                                   {resto.name}
                                   {resto.verified && (
-                                  <span title="Restaurant vérifié"><BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" /></span>
+                                    <span title="Restaurant vérifié"><BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" /></span>
                                   )}
                                 </h3>
                                 <span className={`shrink-0 inline-flex items-center gap-1 text-[11px] font-inter font-medium mt-0.5 ${isOpen ? 'text-green-primary' : 'text-text-muted'}`}>
@@ -717,18 +722,22 @@ export default function Restaurants() {
                                   {isOpen ? 'Ouvert' : 'Fermé'}
                                 </span>
                               </div>
-                              <p className="text-text-muted text-xs font-inter mb-2.5 truncate">
-                                {resto.tags.join(' · ')}
-                              </p>
+                              <div className="flex flex-wrap gap-1 mb-2.5">
+                                {resto.tags.map((tag) => (
+                                  <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-white text-text-muted text-[11px] font-medium px-2 py-0.5 border border-border-custom shadow-sm">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
                               <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-xs font-inter">
-                                <span className="inline-flex items-center gap-1 bg-gold-light text-amber-700 font-medium px-2 py-0.5 rounded-full">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-white text-amber-700 font-medium px-2.5 py-1 border border-amber-200 shadow-sm">
                                   <Star className="w-3 h-3 fill-gold-accent text-gold-accent" />
                                   {resto.rating.toFixed(1)}
                                   {resto.dynamicReviewCount != null && resto.dynamicReviewCount > 0 && (
                                     <span className="text-amber-600/70">({resto.dynamicReviewCount})</span>
                                   )}
                                 </span>
-                                <span className="inline-flex items-center gap-1 text-text-secondary">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-white text-text-secondary text-xs font-medium px-2.5 py-1 border border-border-custom shadow-sm">
                                   <Clock className="w-3 h-3" />
                                   {resto.deliveryTime}
                                 </span>

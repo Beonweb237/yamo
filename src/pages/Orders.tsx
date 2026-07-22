@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import OrderStatusStepper from '../components/OrderStatusStepper';
 import { Skeleton } from '../components/ui/skeleton';
 import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
+import { fetchDriverPosition, getDemoTracking } from '../lib/tracking';
 import { getRestaurantCoords, getCustomerCoords, simulateDriverPosition } from '../lib/tracking';
 import {
   AlertDialog,
@@ -27,6 +28,7 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import { useTranslation } from "react-i18next";
+import { useSeo } from '../hooks/useSeo';
 
 // Motifs d'annulation proposés au client (CONF-04 — motif obligatoire).
 const CANCEL_REASONS = [
@@ -40,20 +42,48 @@ const DELIVERY_REVIEW_TAGS = ['Ponctuel', 'Courtois', 'Suivi clair', 'Commande i
 const RESTAURANT_REVIEW_TAGS = ['Tres bon', 'Bien emballe', 'Portions genereuses', 'Conforme', 'Rapide'];
 
 
-// Points de suivi — uniquement si les coordonnées du restaurant ET du client
-// sont réellement résolues (pas de positions inventées : sans coordonnées, la
-// carte n'est pas affichée). La position livreur reste une estimation
-// (interpolation), signalée par le badge `estimated` de la carte.
-function buildTrackingPoints(order: Order): MapPoint[] | null {
+// Carte de suivi (série TRK) — affiche la VRAIE position du livreur si elle est
+// disponible (envoyée par son appareil, actualisée toutes les 20 s). À défaut,
+// ou en mode démonstration (réglage admin), on retombe sur l'estimation par
+// interpolation, HONNÊTEMENT signalée (badge « estimation » + libellé). Jamais
+// de faux point présenté comme réel à un client payant.
+function DeliveryTrackingMap({ order }: { order: Order }) {
+  const { t } = useTranslation();
   const resto = getRestaurantCoords(order.restaurantId);
   const customer = getCustomerCoords(order);
+  const [realPos, setRealPos] = useState<{ lat: number; lng: number; stale: boolean } | null>(null);
+  const [demo, setDemo] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const [pos, d] = await Promise.all([fetchDriverPosition(order.id), getDemoTracking()]);
+      if (active) { setRealPos(pos); setDemo(d); }
+    };
+    void load();
+    const id = setInterval(() => void load(), 20000);
+    return () => { active = false; clearInterval(id); };
+  }, [order.id]);
+
   if (!resto || !customer) return null;
-  const driver = simulateDriverPosition(resto, customer, order);
-  return [
+  const useReal = !demo && !!realPos && !realPos.stale;
+  const driver = useReal && realPos
+    ? { lat: realPos.lat, lng: realPos.lng }
+    : simulateDriverPosition(resto, customer, order);
+  const points: MapPoint[] = [
     { ...resto, label: order.restaurantName || 'Restaurant', type: 'restaurant' },
     { ...driver, label: 'Votre livreur', type: 'driver' },
     { ...customer, label: 'Vous', type: 'customer' },
   ];
+  return (
+    <div className="mb-3">
+      <LazyDeliveryMap height="220px" scrollWheelZoom={false} points={points} estimated={!useReal} />
+      {!useReal && (
+        <p className="text-[11px] text-text-muted font-inter mt-1 text-center">
+          {demo ? t("Suivi en mode démonstration.") : t("Position approximative — le suivi précis s'actualise dès que le livreur partage sa position.")}
+        </p>
+      )}
+    </div>
+  );
 }
 
 // Lien WhatsApp vers un numéro arbitraire (livreur) avec message prérempli.
@@ -89,7 +119,7 @@ function GuaranteeCard({
         </p>
         <p className="text-text-secondary text-xs font-inter mb-3">
           {t("Payez la garantie au code marchand du restaurant. Elle sera")}{' '}
-          <span className="font-semibold">{t("déduite du total")}</span> {t("à la livraison\r\n          (remboursée intégralement en cas de non-livraison).")}
+          <span className="font-semibold">{t("déduite du total")}</span> {t("à la livraison (remboursée intégralement en cas de non-livraison).")}
         </p>
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <span className="bg-white rounded-lg border border-border-custom px-3 py-2 font-poppins font-bold text-text-primary text-lg tracking-wider">
@@ -131,7 +161,7 @@ function GuaranteeCard({
       <div className="flex items-start gap-2 bg-bg-secondary rounded-lg px-3 py-2.5 mb-3 text-xs font-inter text-text-secondary">
         <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
         <span>
-          {t("Garantie déclarée payée")}{g.proofNote ? ` (réf. ${g.proofNote})` : ''} {t("— en attente\r\n          de confirmation du restaurant. La préparation démarrera juste après.")}
+          {t("Garantie déclarée payée")}{g.proofNote ? ` (réf. ${g.proofNote})` : ''} {t("— en attente de confirmation du restaurant. La préparation démarrera juste après.")}
         </span>
       </div>
     );
@@ -175,6 +205,7 @@ const statusColors: Record<OrderStatus, string> = {
 
 export default function Orders() {
     const { t } = useTranslation();
+  useSeo({ title: t('Mes commandes'), noindex: true });
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -539,14 +570,9 @@ export default function Orders() {
                   </div>
                 )}
 
-                {(order.status === 'picked_up' || order.status === 'delivering') && (() => {
-                  const trackingPoints = buildTrackingPoints(order);
-                  return trackingPoints ? (
-                    <div className="mb-3">
-                      <LazyDeliveryMap height="220px" scrollWheelZoom={false} points={trackingPoints} estimated />
-                    </div>
-                  ) : null;
-                })()}
+                {(order.status === 'picked_up' || order.status === 'delivering') && (
+                  <DeliveryTrackingMap order={order} />
+                )}
 
                 {getOrderPreparationMessage(order) && (
                   <div className="flex items-center gap-1.5 bg-bg-secondary rounded-lg px-3 py-2 mb-3 text-xs font-inter text-text-secondary">
@@ -642,7 +668,6 @@ export default function Orders() {
                 )}
 
                 {(() => {
-                        const { t } = useTranslation();
                   // Annulation client bornée par le risque : possible tant que le
                   // parcours n'est pas « en route » (livreur) — libre avant
                   // préparation, avec avertissement pendant (customerCancelPolicy).
@@ -663,7 +688,6 @@ export default function Orders() {
                 })()}
 
                 {(order.status === 'picked_up' || order.status === 'delivering') && (() => {
-                        const { t } = useTranslation();
                   // Actions de contact réelles : appel + WhatsApp vers le
                   // livreur quand son numéro est résolvable, sinon vers le
                   // support MiamExpress (jamais de message simulé).
@@ -910,7 +934,7 @@ export default function Orders() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Remplacer votre panier ?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("Votre panier contient des articles d’un autre restaurant.\r\n              Recommander chez")} {reorderTarget?.restaurantName || 'ce restaurant'} {t("le videra.")}
+              {t("Votre panier contient des articles d’un autre restaurant. Recommander chez")} {reorderTarget?.restaurantName || 'ce restaurant'} {t("le videra.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -931,7 +955,7 @@ export default function Orders() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Signaler un problème — commande")} {disputeTarget ? shortOrderId(disputeTarget.id) : ''}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("Décrivez précisément le problème (plat manquant, commande non conforme…).\r\n              L’équipe MiamExpress tranche sous 24 h : si la livraison est jugée\r\n              conforme, la garantie est perdue ; sinon elle vous est remboursée intégralement.")}
+              {t("Décrivez précisément le problème (plat manquant, commande non conforme…). L’équipe MiamExpress tranche sous 24 h : si la livraison est jugée conforme, la garantie est perdue ; sinon elle vous est remboursée intégralement.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <textarea

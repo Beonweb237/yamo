@@ -102,6 +102,7 @@ export const ADMIN_ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/trash': 'trash.manage',
   '/admin/quotas': 'quotas.manage',
   '/admin/roles': 'admin.roles.view',
+  '/admin/operations': 'operations.view',
 };
 
 export function hasAdminPermission(user: AuthUser | null | undefined, permission?: string): boolean {

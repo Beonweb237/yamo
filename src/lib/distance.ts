@@ -1,9 +1,11 @@
 // ============================================================
-// MiamExpress — Calcul de distance Haversine
+// MiamExpress — Calcul de distance Haversine + Rémunération livreur
 // Formule mathématique gratuite, pas d'appel API, instantanée
 // Précision : ~0.5% pour des distances < 100 km (largement suffisant
 // pour de la livraison urbaine au Cameroun)
 // ============================================================
+
+import { DRIVER_PAY_CONFIG, estimateDriverEarnings as configEstimateEarnings } from '../data/launchConfig';
 
 const EARTH_RADIUS_KM = 6371;
 
@@ -58,6 +60,10 @@ export function estimateDeliveryTime(distanceInKm: number): { min: number; max: 
   return { min, max, label: `${min}–${max} min` };
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Frais de livraison CLIENT (ce que le client paie)
+// ═══════════════════════════════════════════════════════════════
+
 /**
  * Calcule des frais de livraison selon la distance (FCFA).
  * Utilise la config admin si disponible, sinon les valeurs par défaut.
@@ -71,17 +77,116 @@ export async function calculateDeliveryFee(distanceInKm: number): Promise<number
       return data.fee;
     }
   } catch { /* fallback */ }
-  // Fallback si l'API est injoignable
-  const raw = distanceInKm * 200;
+  // Fallback si l'API est injoignable — utilise la config livreur comme référence
+  const raw = distanceInKm * DRIVER_PAY_CONFIG.PER_KM_RATE_FCFA;
   const rounded = Math.round(raw / 100) * 100;
   return Math.max(500, Math.min(3000, rounded));
 }
 
 /** Version synchrone avec config par défaut (utilisable sans await) */
 export function calculateDeliveryFeeSync(distanceInKm: number): number {
-  const raw = distanceInKm * 200;
+  const raw = distanceInKm * DRIVER_PAY_CONFIG.PER_KM_RATE_FCFA;
   const rounded = Math.round(raw / 100) * 100;
   return Math.max(500, Math.min(3000, rounded));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Rémunération LIVREUR (décomposition complète — série DRV)
+// ═══════════════════════════════════════════════════════════════
+
+/** Décomposition complète de la rémunération d'une course pour le livreur. */
+export interface DriverEarningsBreakdown {
+  /** Tarif de base (prise en charge). */
+  basePickup: number;
+  /** Composante distance (FCFA/km × km). */
+  distancePay: number;
+  /** Composante temps d'attente estimé (FCFA/min × min). */
+  waitPay: number;
+  /** Sous-total avant surge (base + distance + temps). */
+  subtotal: number;
+  /** Multiplicateur surge actif (1.0 = pas de surge). */
+  surgeMultiplier: number;
+  /** Bonus surge (subtotal × (multiplier - 1)). */
+  surgeBonus: number;
+  /** Après garantie du minimum (plateforme complète si < minimum). */
+  guaranteed: number;
+  /** Rémunération finale garantie (avant pourboire et bonus volume). */
+  final: number;
+  /** Le surge est-il actif en ce moment ? */
+  surgeActive: boolean;
+  /** Heure actuelle (pour debug / transparence). */
+  currentHour: number;
+}
+
+/**
+ * Calcule la rémunération totale estimée pour le livreur (FCFA).
+ * Décomposition complète : base pickup + distance + temps d'attente + surge.
+ * Utilisé côté DriverDashboard AVANT acceptation d'une course.
+ *
+ * @param distanceKm - Distance restaurant → client (km)
+ * @param waitMinutes - Temps d'attente estimé au resto (min), défaut 10
+ */
+export function calculateDriverEarnings(distanceKm: number, waitMinutes: number = 10): DriverEarningsBreakdown {
+  const estimated = configEstimateEarnings(distanceKm, waitMinutes);
+  return {
+    ...estimated,
+    currentHour: new Date().getHours(),
+  };
+}
+
+/**
+ * Version simplifiée : retourne juste le total estimé pour le livreur.
+ */
+export function estimateDriverTotalEarnings(distanceKm: number, waitMinutes: number = 10): number {
+  return calculateDriverEarnings(distanceKm, waitMinutes).final;
+}
+
+/**
+ * Détermine si une heure donnée est en période de surge.
+ */
+export function isSurgeActive(hour?: number): boolean {
+  const h = hour ?? new Date().getHours();
+  return DRIVER_PAY_CONFIG.SURGE_SCHEDULE.some(s => h >= s.startHour && h < s.endHour);
+}
+
+/**
+ * Retourne le multiplicateur surge actif pour l'heure donnée.
+ */
+export function getActiveSurgeMultiplier(hour?: number): number {
+  const h = hour ?? new Date().getHours();
+  const active = DRIVER_PAY_CONFIG.SURGE_SCHEDULE.find(s => h >= s.startHour && h < s.endHour);
+  return active?.multiplier ?? 1.0;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Bonus de volume hebdomadaire
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Calcule le bonus de volume applicable selon le nombre de livraisons
+ * cette semaine. Retourne le palier atteint et le bonus correspondant.
+ */
+export function calculateVolumeBonus(completedThisWeek: number): {
+  tier: { minDeliveries: number; bonusFcfa: number; label: string } | null;
+  bonusFcfa: number;
+  nextTier: { minDeliveries: number; bonusFcfa: number; label: string; remaining: number } | null;
+  progressPercent: number;
+} {
+  const tiers = [...DRIVER_PAY_CONFIG.VOLUME_BONUS_TIERS].sort((a, b) => b.minDeliveries - a.minDeliveries);
+  const achieved = tiers.find(t => completedThisWeek >= t.minDeliveries) ?? null;
+
+  const nextTiers = [...DRIVER_PAY_CONFIG.VOLUME_BONUS_TIERS].sort((a, b) => a.minDeliveries - b.minDeliveries);
+  const next = nextTiers.find(t => completedThisWeek < t.minDeliveries) ?? null;
+
+  const maxTier = DRIVER_PAY_CONFIG.VOLUME_BONUS_TIERS[DRIVER_PAY_CONFIG.VOLUME_BONUS_TIERS.length - 1];
+  const progressPercent = Math.min(100, Math.round((completedThisWeek / maxTier.minDeliveries) * 100));
+
+  return {
+    tier: achieved,
+    bonusFcfa: achieved?.bonusFcfa ?? 0,
+    nextTier: next ? { ...next, remaining: next.minDeliveries - completedThisWeek } : null,
+    progressPercent,
+  };
 }
 
 /**

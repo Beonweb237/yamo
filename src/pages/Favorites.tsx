@@ -1,20 +1,22 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, Store, ChefHat, Star, ImageOff } from 'lucide-react';
-import { useRestaurants } from '../hooks/useCatalog';
+import { useRestaurants, useAllMenuItems } from '../hooks/useCatalog';
 import { useFavorites } from '../hooks/useFavorites';
 import { useFavoriteDishes } from '../hooks/useFavoriteDishes';
-import { menuItems as mockMenuItems } from '../data/mockData';
 import { buildEnrichedItems, groupDishes, dishSlug } from '../lib/dishes';
 import AppImage from '../components/AppImage';
 import PageHeader from '../components/PageHeader';
 import { useTranslation } from "react-i18next";
+import { useSeo } from '../hooks/useSeo';
 
 type Tab = 'restaurants' | 'plats';
 
 export default function Favorites() {
     const { t } = useTranslation();
+  useSeo({ title: t('Mes favoris'), noindex: true });
   const { restaurants } = useRestaurants();
+  const { items: allMenuItems } = useAllMenuItems();
   const { favorites, toggleFavorite } = useFavorites();
   const { favoriteDishes, toggleFavoriteDish } = useFavoriteDishes();
   const [tab, setTab] = useState<Tab>('restaurants');
@@ -25,10 +27,10 @@ export default function Favorites() {
   );
 
   const favoriteDishGroups = useMemo(() => {
-    const allItems = buildEnrichedItems(mockMenuItems, restaurants);
+    const allItems = buildEnrichedItems(allMenuItems, restaurants);
     const groups = groupDishes(allItems.filter((i) => i.isAvailable !== false));
     return groups.filter((g) => favoriteDishes.has(g.key));
-  }, [restaurants, favoriteDishes]);
+  }, [allMenuItems, restaurants, favoriteDishes]);
 
   const tabs: { id: Tab; label: string; icon: typeof Store; count: number }[] = [
     { id: 'restaurants', label: 'Restaurants', icon: Store, count: favoriteRestaurants.length },

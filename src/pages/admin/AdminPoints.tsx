@@ -82,7 +82,7 @@ function RechargeHistory({
                 <div className="min-w-0">
                   <p className="font-inter text-sm text-text-primary">
                     <span className="font-semibold">{nameOf(request.restaurantId)}</span>
-                    {' '}· +{request.points} {t("pts (")}{request.amountFcfa.toLocaleString()} {t("FCFA)")}
+                    {' '}· +{request.amountFcfa.toLocaleString()} {t("FCFA")}
                     {' '}· {request.method === 'momo' ? 'Mobile Money' : 'Cash partenaire'}
                     {' '}{t("· réf.")} <span className="font-semibold">{request.paymentRef}</span>
                   </p>
@@ -201,7 +201,7 @@ export default function AdminPoints() {
     setAdjusting(true);
     try {
       await adminAdjust(adjustTarget, pts, user.id, adjustNote);
-      toast.success(`Ajustement appliqué : ${pts > 0 ? '+' : ''}${pts} pts pour ${nameOf(adjustTarget)}.`);
+      toast.success(`Ajustement appliqué : ${pts > 0 ? '+' : ''}${pts.toLocaleString()} FCFA pour ${nameOf(adjustTarget)}.`);
       setAdjustTarget(null);
       setAdjustPoints('');
       setAdjustNote('');
@@ -215,9 +215,9 @@ export default function AdminPoints() {
 
   // ── Dotation promotionnelle en masse (lancement) ──
   const [promoOpen, setPromoOpen] = useState(false);
-  const [promoPoints, setPromoPoints] = useState('10');
+  const [promoPoints, setPromoPoints] = useState('5000');
   const [promoCampaign, setPromoCampaign] = useState('lancement-2026');
-  const [promoNote, setPromoNote] = useState('Points offerts — lancement MiamExpress');
+  const [promoNote, setPromoNote] = useState('Crédit offert — lancement MiamExpress');
   const [promoGranting, setPromoGranting] = useState(false);
 
   const handlePromoGrant = async () => {
@@ -234,7 +234,7 @@ export default function AdminPoints() {
         user.id
       );
       toast.success(
-        `Dotation « ${promoCampaign.trim()} » : ${result.granted} resto${result.granted > 1 ? 's' : ''} crédité${result.granted > 1 ? 's' : ''} de ${pts} pts` +
+        `Dotation « ${promoCampaign.trim()} » : ${result.granted} resto${result.granted > 1 ? 's' : ''} crédité${result.granted > 1 ? 's' : ''} de ${pts.toLocaleString()} FCFA` +
         (result.alreadyGranted > 0 ? ` (${result.alreadyGranted} déjà servi${result.alreadyGranted > 1 ? 's' : ''} — ignorés)` : '')
       );
       setPromoOpen(false);
@@ -268,18 +268,18 @@ export default function AdminPoints() {
   const monthRevenue = recharges
     .filter((r) => r.status === 'validated' && r.decidedAt && new Date(r.decidedAt).getMonth() === new Date().getMonth())
     .reduce((s, r) => s + r.amountFcfa, 0);
-  const lowCount = Object.values(balances).filter((b) => b.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_POINTS).length;
+  const lowCount = Object.values(balances).filter((b) => b.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_FCFA).length;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <PageHeader
         icon={Coins}
-        title="Points restaurants"
+        title="Soldes & commissions restaurants"
         subtitle={`${pending.length} recharge${pending.length !== 1 ? 's' : ''} en attente de validation`}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setPromoOpen(true)} className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors">
-              <Gift className="w-4 h-4" />{t("Offrir des points")}
+              <Gift className="w-4 h-4" />{t("Créditer les restaurants")}
             </button>
             <button onClick={load} className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors">
               <RefreshCw className="w-4 h-4" />{t("Actualiser")}
@@ -292,7 +292,7 @@ export default function AdminPoints() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-green-light flex items-center justify-center shrink-0"><Coins className="w-5 h-5 text-green-primary" /></div>
-          <div><p className="text-text-muted text-xs font-inter">{t("Points en circulation")}</p><p className="font-poppins font-bold text-text-primary text-xl">{totalCirculating}</p></div>
+          <div><p className="text-text-muted text-xs font-inter">{t("Crédit en circulation")}</p><p className="font-poppins font-bold text-text-primary text-xl">{totalCirculating.toLocaleString()} F</p></div>
         </div>
         <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-green-light flex items-center justify-center shrink-0"><TrendingUp className="w-5 h-5 text-green-primary" /></div>
@@ -321,7 +321,7 @@ export default function AdminPoints() {
                   <p className="font-inter font-semibold text-sm text-text-primary">
                     {nameOf(request.restaurantId)}
                     <span className="ml-2 font-normal text-text-secondary">
-                      +{request.points} {t("pts ·")} {request.amountFcfa.toLocaleString()} {t("FCFA")}
+                      +{request.amountFcfa.toLocaleString()} {t("FCFA")}
                     </span>
                   </p>
                   <p className="text-xs text-text-muted font-inter">
@@ -357,7 +357,7 @@ export default function AdminPoints() {
       {/* Derniers mouvements — flux global du ledger, tous restos confondus */}
       <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-5 mb-6">
         <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">
-          {t("Derniers mouvements de points")}
+          {t("Derniers mouvements")}
         </h2>
         {loading ? (
           <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
@@ -378,7 +378,7 @@ export default function AdminPoints() {
                   </p>
                 </div>
                 <span className={`shrink-0 text-sm font-inter font-semibold ${entry.points < 0 ? 'text-error' : entry.points > 0 ? 'text-green-primary' : 'text-text-muted'}`}>
-                  {entry.points > 0 ? '+' : ''}{entry.points} {t("pt")}{Math.abs(entry.points) > 1 ? 's' : ''}
+                  {entry.points > 0 ? '+' : ''}{entry.points.toLocaleString()} {t("FCFA")}
                 </span>
               </li>
             ))}
@@ -422,13 +422,13 @@ export default function AdminPoints() {
                 {balanceRows.map((row) => (
                   <tr key={row.restaurantId}>
                     <td className="py-2.5 pr-4 font-medium text-text-primary">{row.name}</td>
-                    <td className={`py-2.5 pr-4 font-semibold ${row.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_POINTS ? 'text-error' : 'text-text-primary'}`}>
-                      {row.available} {t("pts")}
-                      {row.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_POINTS && (
+                    <td className={`py-2.5 pr-4 font-semibold ${row.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_FCFA ? 'text-error' : 'text-text-primary'}`}>
+                      {row.available.toLocaleString()} {t("FCFA")}
+                      {row.available < POINTS_CONFIG.LOW_BALANCE_THRESHOLD_FCFA && (
                         <span className="ml-1.5 text-[10px] font-bold text-error bg-error/10 px-1.5 py-0.5 rounded-full">{t("BAS")}</span>
                       )}
                     </td>
-                    <td className="py-2.5 pr-4 text-text-secondary">{row.held} {t("pts")}</td>
+                    <td className="py-2.5 pr-4 text-text-secondary">{row.held.toLocaleString()} {t("FCFA")}</td>
                     <td className="py-2.5">
                       <div className="flex items-center gap-1.5">
                         <button
@@ -457,18 +457,19 @@ export default function AdminPoints() {
       <Dialog open={promoOpen} onOpenChange={(open) => { if (!open) setPromoOpen(false); }}>
         <DialogContent className="sm:max-w-[440px] max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-poppins">{t("Offrir des points en masse")}</DialogTitle>
+            <DialogTitle className="font-poppins">{t("Créditer les restaurants en masse")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-text-secondary text-sm font-inter">
-              {t("Crédite")} <span className="font-semibold text-text-primary">{t("tous les restaurants du catalogue\n              (")}{restaurants.length})</span> {t("en une fois. Une campagne ne peut servir chaque resto\n              qu’une seule fois : relancer la même campagne ignore les restos déjà crédités\n              (aucun double-crédit possible).")}
+              {t("Crédite")} <span className="font-semibold text-text-primary">{t("tous les restaurants du catalogue (")}{restaurants.length})</span> {t("en une fois. Une campagne ne peut servir chaque resto qu’une seule fois : relancer la même campagne ignore les restos déjà crédités (aucun double-crédit possible).")}
             </p>
             <div>
-              <label htmlFor="promo-points" className="block text-sm font-inter font-medium text-text-primary mb-1">{t("Points offerts par restaurant")}</label>
+              <label htmlFor="promo-points" className="block text-sm font-inter font-medium text-text-primary mb-1">{t("Crédit offert par restaurant (FCFA)")}</label>
               <input
                 id="promo-points"
                 type="number"
                 min={1}
+                step={1000}
                 value={promoPoints}
                 onChange={(e) => setPromoPoints(e.target.value)}
                 className="w-full bg-white rounded-lg border border-border-custom px-3 h-11 text-sm font-inter outline-none focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
@@ -499,8 +500,7 @@ export default function AdminPoints() {
               />
             </div>
             <p className="bg-gold-light text-amber-700 rounded-lg px-3 py-2 text-xs font-inter">
-              {t("Total offert :")} <span className="font-semibold">{((parseInt(promoPoints, 10) || 0) * restaurants.length).toLocaleString()} {t("points")}</span>
-              {' '}{t("(valeur")} {(((parseInt(promoPoints, 10) || 0) * restaurants.length) * POINTS_CONFIG.POINT_PRICE_FCFA).toLocaleString()} {t("FCFA).")}
+              {t("Total offert :")} <span className="font-semibold">{((parseInt(promoPoints, 10) || 0) * restaurants.length).toLocaleString()} {t("FCFA")}</span>
             </p>
           </div>
           <DialogFooter>
@@ -523,7 +523,7 @@ export default function AdminPoints() {
             <DialogTitle className="font-poppins">{t("Rejeter la recharge")} {rejectTarget?.paymentRef} ?</DialogTitle>
           </DialogHeader>
           <p className="text-text-secondary text-sm font-inter">
-            {rejectTarget && `${nameOf(rejectTarget.restaurantId)} — ${rejectTarget.points} pts (${rejectTarget.amountFcfa.toLocaleString()} FCFA).`}
+            {rejectTarget && `${nameOf(rejectTarget.restaurantId)} — ${rejectTarget.amountFcfa.toLocaleString()} FCFA.`}
           </p>
           <textarea
             value={rejectReason}
@@ -549,14 +549,15 @@ export default function AdminPoints() {
       <Dialog open={!!adjustTarget} onOpenChange={(open) => { if (!open) setAdjustTarget(null); }}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle className="font-poppins">{t("Ajuster les points —")} {adjustTarget && nameOf(adjustTarget)}</DialogTitle>
+            <DialogTitle className="font-poppins">{t("Ajuster le solde —")} {adjustTarget && nameOf(adjustTarget)}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <input
               type="number"
+              step={500}
               value={adjustPoints}
               onChange={(e) => setAdjustPoints(e.target.value)}
-              placeholder="Points (négatif pour retirer, ex. -2)"
+              placeholder="Montant FCFA (négatif pour retirer, ex. -1000)"
               className="w-full bg-white rounded-lg border border-border-custom px-3 h-11 text-sm font-inter outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
             />
             <textarea
@@ -600,7 +601,7 @@ export default function AdminPoints() {
                       </p>
                     </div>
                     <span className={`shrink-0 text-sm font-inter font-semibold ${entry.points < 0 ? 'text-error' : entry.points > 0 ? 'text-green-primary' : 'text-text-muted'}`}>
-                      {entry.points > 0 ? '+' : ''}{entry.points} {t("pt")}{Math.abs(entry.points) > 1 ? 's' : ''}
+                      {entry.points > 0 ? '+' : ''}{entry.points.toLocaleString()} {t("FCFA")}
                     </span>
                   </li>
                 ))}

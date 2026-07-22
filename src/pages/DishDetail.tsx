@@ -6,11 +6,11 @@ import {
   Leaf, Beef, Wheat, Coffee, Apple, Heart,
   ShoppingCart, Plus, Minus, Check, Send,
 } from 'lucide-react';
-import { useRestaurants } from '../hooks/useCatalog';
+import { useRestaurants, useAllMenuItems } from '../hooks/useCatalog';
 import { useFavoriteDishes } from '../hooks/useFavoriteDishes';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
-import { menuItems as mockMenuItems } from '../data/mockData';
+import { useSeo } from '../hooks/useSeo';
 import {
   buildEnrichedItems,
   groupDishes,
@@ -44,14 +44,15 @@ const dietaryLabel = (id: string) => DIETARY_TAG_META.find((t) => t.id === id)?.
 // évite de réinitialiser galleryIndex via un effet et garantit un scroll en
 // haut de page cohérent, sans état résiduel de la fiche précédente.
 export default function DishDetail() {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   const { slug } = useParams<{ slug: string }>();
   return <DishDetailContent key={slug} slug={slug} />;
 }
 
 function DishDetailContent({ slug }: { slug?: string }) {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   const { restaurants } = useRestaurants();
+  const { items: allMenuItems, loading: menuLoading } = useAllMenuItems();
   const { favoriteDishes, toggleFavoriteDish } = useFavoriteDishes();
   const { user } = useAuth();
   const { items: cartItems, addToCart, removeFromCart, replaceCartWith } = useCart();
@@ -66,8 +67,8 @@ function DishDetailContent({ slug }: { slug?: string }) {
   }, []);
 
   const allItems = useMemo(
-    () => buildEnrichedItems(mockMenuItems, restaurants),
-    [restaurants]
+    () => buildEnrichedItems(allMenuItems, restaurants),
+    [allMenuItems, restaurants]
   );
 
   const dishGroups = useMemo(
@@ -81,6 +82,14 @@ function DishDetailContent({ slug }: { slug?: string }) {
     () => dishGroups.find((g) => dishSlug(g.displayName) === slug || legacyDishSlug(g.displayName) === slug),
     [dishGroups, slug]
   );
+
+  useSeo({
+    title: dish ? `${dish.displayName} — ${t('livraison à domicile')}` : undefined,
+    description: dish
+      ? `${t('Commandez')} ${dish.displayName} ${t('en livraison à Douala et Yaoundé. Paiement à la livraison ou Mobile Money.')}`
+      : undefined,
+    path: slug ? `/plat/${slug}` : undefined,
+  });
 
   const restaurantById = useMemo(
     () => new Map(restaurants.map((r) => [r.id, r])),
@@ -177,6 +186,16 @@ function DishDetailContent({ slug }: { slug?: string }) {
   const userCity = user?.city?.trim() ?? '';
   const isDifferentCity = Boolean(userCity && orderItemCity && userCity !== orderItemCity);
 
+  // Ne pas afficher « plat introuvable » tant que les menus se chargent (VPS) :
+  // le plat existe peut-être, il n'est simplement pas encore arrivé.
+  if (!dish && menuLoading) {
+    return (
+      <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
+        <div className="w-8 h-8 border-2 border-green-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (!dish) {
     return (
       <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
@@ -265,7 +284,7 @@ function DishDetailContent({ slug }: { slug?: string }) {
                 {dish.tags.map((tag) => {
                   const Icon = DIETARY_ICONS[tag] ?? Leaf;
                   return (
-                    <span key={tag} className="inline-flex items-center gap-1.5 bg-green-light text-green-primary text-xs font-inter font-medium px-2.5 py-1 rounded-full">
+                    <span key={tag} className="inline-flex items-center gap-1.5 rounded-full bg-white text-green-primary text-xs font-inter font-medium px-3 py-1.5 border border-green-primary/20 shadow-sm">
                       <Icon className="w-3.5 h-3.5" />
                       {dietaryLabel(tag)}
                     </span>
@@ -315,7 +334,6 @@ function DishDetailContent({ slug }: { slug?: string }) {
           </div>
           <div className="divide-y divide-border-light">
             {dish.items.map((item) => {
-                const { t } = useTranslation();
               const resto = restaurantById.get(item.restaurantId);
               const location = [resto?.neighborhood ?? item.restaurantNeighborhood, resto?.city ?? item.restaurantCity].filter(Boolean).join(', ');
               const deliveryTime = resto?.deliveryTime ?? item.restaurantDeliveryTime;

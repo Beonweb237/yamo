@@ -16,6 +16,7 @@ import { useRestaurants } from '../hooks/useCatalog';
 import AppImage from '../components/AppImage';
 import { APP_STORE_URL, PLAY_STORE_URL } from '../data/launchConfig';
 import { useTranslation } from 'react-i18next';
+import { useSeo } from '../hooks/useSeo';
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 30 },
@@ -31,6 +32,11 @@ export default function Home() {
   const { t } = useTranslation();
   const { restaurants } = useRestaurants();
   const navigate = useNavigate();
+  useSeo({
+    title: t('Livraison de repas à Douala et Yaoundé'),
+    description: t('Commandez vos plats préférés auprès des meilleurs restaurants de Douala et Yaoundé. Livraison rapide, paiement à la livraison ou Mobile Money.'),
+    path: '/',
+  });
   const [searchValue, setSearchValue] = useState('');
   const topRestaurants = useMemo(
     () => [...restaurants]
@@ -63,7 +69,6 @@ export default function Home() {
             alt="Cameroonian food spread"
             className="w-full h-full object-cover"
             onError={(e) => {
-                const { t } = useTranslation();
               (e.target as HTMLImageElement).src =
                 'data:image/svg+xml,' +
                 encodeURIComponent(
@@ -270,16 +275,20 @@ export default function Home() {
                     <h3 className="font-inter font-semibold text-text-primary text-base mb-1 truncate">
                       {resto.name}
                     </h3>
-                    <p className="text-text-secondary text-xs font-inter mb-3 truncate">
-                      {resto.tags.join(' \u2022 ')}
-                    </p>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {resto.tags.map((tag) => (
+                        <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-white text-text-secondary text-[11px] font-medium px-2 py-0.5 border border-border-custom shadow-sm">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                     <div className="flex items-center gap-3 flex-wrap">
                       {/* Correction contraste : amber-900 sur gold-light au lieu de amber-700 */}
-                      <span className="inline-flex items-center gap-1 bg-gold-light text-amber-900 text-xs font-inter font-semibold px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white text-amber-700 text-xs font-semibold px-2.5 py-1 border border-amber-200 shadow-sm">
                         <Star className="w-3 h-3 fill-gold-accent text-gold-accent" />
                         {resto.rating.toFixed(1)}
                       </span>
-                      <span className="inline-flex items-center gap-1 bg-bg-secondary text-text-secondary text-xs font-inter px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white text-text-secondary text-xs font-medium px-2.5 py-1 border border-border-custom shadow-sm">
                         <Clock className="w-3 h-3" />
                         {resto.deliveryTime}
                       </span>
@@ -361,10 +370,10 @@ export default function Home() {
                 </motion.div>
                 <step.icon className="w-8 h-8 text-green-primary mb-3" />
                 <h4 className="font-poppins font-semibold text-text-primary text-lg mb-2">
-                  {step.title}
+                  {t(step.title)}
                 </h4>
                 <p className="text-text-secondary font-inter text-sm leading-relaxed max-w-[320px]"
-                  dangerouslySetInnerHTML={{ __html: step.desc }}
+                  dangerouslySetInnerHTML={{ __html: t(step.desc) }}
                 />
               </motion.div>
             ))}
@@ -434,7 +443,7 @@ export default function Home() {
                 ].map((feat, i) => (
                   <span key={i} className="inline-flex items-center gap-2 text-white/70 font-inter text-sm">
                     <feat.icon className="w-4 h-4 text-gold-accent" />
-                    <span dangerouslySetInnerHTML={{ __html: feat.text }} />
+                    <span dangerouslySetInnerHTML={{ __html: t(feat.text) }} />
                   </span>
                 ))}
               </div>

@@ -3,7 +3,7 @@ import { Users, Store, Bike, ShieldCheck, Save, AlertTriangle } from 'lucide-rea
 import { toast } from 'sonner';
 import type { UserRole } from '../../contexts/AuthContext';
 import {
-  getQuotaConfig, setQuotaConfig, getUserCounts, checkQuota,
+  DEFAULT_QUOTAS, fetchQuotaConfig, saveQuotaConfig, fetchUserCounts,
   QUOTA_ROLES, type QuotaConfig,
 } from '../../lib/quotas';
 import { useTranslation } from "react-i18next";
@@ -17,30 +17,41 @@ const ROLE_ICONS: Record<string, typeof Users> = {
 
 export default function AdminQuotas() {
     const { t } = useTranslation();
-  const [config, setConfig] = useState<QuotaConfig>(getQuotaConfig());
-  const [counts, setCounts] = useState(getUserCounts());
+  const [config, setConfig] = useState<QuotaConfig>({ ...DEFAULT_QUOTAS });
+  const [counts, setCounts] = useState<Record<UserRole, number>>({ client: 0, restaurant: 0, livreur: 0, admin: 0 });
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<QuotaConfig>({ ...config });
+  const [draft, setDraft] = useState<QuotaConfig>({ ...DEFAULT_QUOTAS });
+  const [saving, setSaving] = useState(false);
 
-  const refresh = () => {
-    setConfig(getQuotaConfig());
-    setCounts(getUserCounts());
+  const refresh = async () => {
+    const [cfg, c] = await Promise.all([fetchQuotaConfig(), fetchUserCounts()]);
+    setConfig(cfg);
+    setCounts(c);
   };
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => { void refresh(); }, []);
 
-  const handleSave = () => {
-    // Validation: chaque quota doit être >= 1
-    for (const [role, val] of Object.entries(draft)) {
-      if (val < 1) {
-        toast.error(`Le quota pour ${role} doit être au moins 1.`);
+  const handleSave = async () => {
+    // Validation : chaque quota doit être >= 1 et ne pas être sous le compte réel.
+    for (const { role, label } of QUOTA_ROLES) {
+      const val = draft[role];
+      if (val < 1) { toast.error(`Le quota pour ${label} doit être au moins 1.`); return; }
+      if (val < (counts[role] ?? 0)) {
+        toast.error(`Le quota ${label} (${val}) est sous le nombre actuel (${counts[role]}).`);
         return;
       }
     }
-    setQuotaConfig(draft);
-    setConfig({ ...draft });
-    setEditing(false);
-    toast.success('Quotas mis à jour');
+    setSaving(true);
+    try {
+      await saveQuotaConfig(draft);
+      setConfig({ ...draft });
+      setEditing(false);
+      toast.success('Quotas mis à jour');
+    } catch {
+      toast.error('Impossible d\'enregistrer les quotas.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -51,13 +62,12 @@ export default function AdminQuotas() {
 
       {/* Info banner */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-sm text-blue-800 font-inter">
-        <strong>{t("Fonctionnement :")}</strong> {t("Une fois le quota atteint pour un type de profil,\r\n        plus aucune inscription de ce type n'est acceptée. Les quotas évitent la création\r\n        massive de profils lors des tests.")}
+        <strong>{t("Fonctionnement :")}</strong> {t("Une fois le quota atteint pour un type de profil, plus aucune inscription de ce type n'est acceptée. Les quotas évitent la création massive de profils lors des tests.")}
       </div>
 
       {/* Quota cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {QUOTA_ROLES.map(({ role, label, icon }) => {
-            const { t } = useTranslation();
           const Icon = ROLE_ICONS[role] ?? Users;
           const max = config[role as UserRole] ?? 0;
           const current = counts[role as UserRole] ?? 0;
@@ -133,9 +143,10 @@ export default function AdminQuotas() {
           <div className="flex gap-2">
             <button
               onClick={handleSave}
-              className="flex items-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl bg-green-primary text-white hover:bg-green-dark transition-colors"
+              disabled={saving}
+              className="flex items-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl bg-green-primary text-white hover:bg-green-dark transition-colors disabled:opacity-60"
             >
-              <Save className="w-4 h-4" /> {t("Enregistrer")}
+              <Save className="w-4 h-4" /> {saving ? t("Enregistrement...") : t("Enregistrer")}
             </button>
             <button
               onClick={() => setEditing(false)}

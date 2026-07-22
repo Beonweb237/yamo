@@ -7,7 +7,7 @@ import {
   Send, UserRound, Plus, Minus, Check, Navigation, Loader2,
 } from 'lucide-react';
 import type { Restaurant } from '../data/mockData';
-import { menuItems as mockMenuItems } from '../data/mockData';
+import { useAllMenuItems } from '../hooks/useCatalog';
 import { useFavoriteDishes } from '../hooks/useFavoriteDishes';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
@@ -92,7 +92,8 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
   const [activeDietary, setActiveDietary] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortBy>('popular');
-  const allItems = useMemo(() => buildEnrichedItems(mockMenuItems, restaurants), [restaurants]);
+  const { items: allMenuItems, loading: menuLoading } = useAllMenuItems();
+  const allItems = useMemo(() => buildEnrichedItems(allMenuItems, restaurants), [allMenuItems, restaurants]);
 
   // Mode commande : pour soi ou pour quelqu'un d'autre
   const [orderMode, setOrderMode] = useState<OrderMode>(() => {
@@ -463,7 +464,19 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
       </div>
 
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
-        {dishGroups.length === 0 ? (
+        {menuLoading && dishGroups.length === 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl border border-border-custom shadow-sm overflow-hidden animate-pulse">
+                <div className="aspect-[4/3] bg-bg-secondary" />
+                <div className="p-3 space-y-2">
+                  <div className="h-4 bg-bg-secondary rounded w-3/4" />
+                  <div className="h-3 bg-bg-secondary rounded w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : dishGroups.length === 0 ? (
           <div className="bg-white rounded-2xl border border-border-custom shadow-sm p-12 text-center">
             <SlidersHorizontal className="w-12 h-12 text-text-muted mx-auto mb-4" />
             <p className="text-text-secondary font-inter font-medium text-lg mb-1">{t("Aucun plat trouvé")}</p>
@@ -473,7 +486,6 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
             {dishGroups.map(group => {
-                const { t } = useTranslation();
               const isTrending = trendingKeys.has(group.key);
               const dishLocation = getDishLocationSummary(group.items);
               const visibleTags = [
@@ -552,7 +564,6 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
                       </span>
 
                       {(() => {
-                                  const { t } = useTranslation();
                         // Vérifier si un item de ce groupe est déjà dans le panier
                         const inCartItem = group.items.find(i => cartItemIds.has(i.id));
                         if (inCartItem) {
@@ -676,7 +687,7 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
               <div className="space-y-3">
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-sm font-inter text-amber-800">
-                    {t("🚫 Vous êtes à")} <strong>{userCity}</strong>{t(", mais ce restaurant est à")} <strong>{orderItemCity}</strong>{t(".\n                    La livraison n'est pas possible dans votre ville.")}
+                    {t("🚫 Vous êtes à")} <strong>{userCity}</strong>{t(", mais ce restaurant est à")} <strong>{orderItemCity}</strong>{t(". La livraison n'est pas possible dans votre ville.")}
                   </p>
                 </div>
                 <div className="p-3 bg-green-light border border-green-primary/20 rounded-lg">

@@ -9,7 +9,7 @@
 // - Mode mock : moteur pur `pointsCore` branché sur localStorage.
 // Règles métier : POINTS_CONFIG (launchConfig.ts) — référence unique §0.
 
-import { POINTS_CONFIG } from '../data/launchConfig';
+import { POINTS_CONFIG, commissionForSubtotal } from '../data/launchConfig';
 import {
   createPointsEngine,
   InsufficientPointsError,
@@ -79,15 +79,19 @@ export async function getBalance(restaurantId: string): Promise<PointsBalance> {
   return engine.getBalance(restaurantId);
 }
 
-export async function canAcceptOrder(restaurantId: string): Promise<boolean> {
+/**
+ * Le resto peut-il accepter une commande dont le sous-total nourriture vaut
+ * `subtotalFcfa` ? (solde ≥ commission 15 % + plancher). Sans sous-total, on
+ * vérifie juste qu'il reste du crédit (garde-fou souple ; le vrai blocage est
+ * `holdPoints` à l'acceptation).
+ */
+export async function canAcceptOrder(restaurantId: string, subtotalFcfa = 0): Promise<boolean> {
+  const commission = commissionForSubtotal(subtotalFcfa);
   if (USE_VPS) {
     const { available } = await getBalance(restaurantId);
-    return (
-      available >= POINTS_CONFIG.ORDER_COST_POINTS &&
-      available >= POINTS_CONFIG.MIN_BALANCE_TO_ACCEPT_POINTS
-    );
+    return available >= commission + POINTS_CONFIG.MIN_BALANCE_FLOOR_FCFA;
   }
-  return engine.canAcceptOrder(restaurantId);
+  return engine.canAcceptOrder(restaurantId, commission);
 }
 
 export async function hasActiveHold(restaurantId: string, orderId: string): Promise<boolean> {
@@ -100,9 +104,14 @@ export async function hasActiveHold(restaurantId: string, orderId: string): Prom
   return engine.hasActiveHold(restaurantId, orderId);
 }
 
-export async function holdPoints(restaurantId: string, orderId: string): Promise<PointsLedgerEntry> {
+/**
+ * Réserve la commission (15 %) de la commande. En mode VPS, le serveur recalcule
+ * la commission à partir du sous-total EN BASE (le `subtotalFcfa` local n'est
+ * qu'un repli pour le moteur mock — jamais une source de vérité de facturation).
+ */
+export async function holdPoints(restaurantId: string, orderId: string, subtotalFcfa = 0): Promise<PointsLedgerEntry> {
   if (USE_VPS) return pointsApi<PointsLedgerEntry>('/hold', { method: 'POST', body: JSON.stringify({ restaurantId, orderId }) });
-  return engine.holdPoints(restaurantId, orderId);
+  return engine.holdPoints(restaurantId, orderId, commissionForSubtotal(subtotalFcfa));
 }
 
 export async function settleHold(

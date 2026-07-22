@@ -4,6 +4,8 @@ export interface Restaurant {
   id: string;
   /** Slug URL-friendly unique, généré depuis le nom. Définitif après soumission. Auto-généré si absent. */
   slug?: string;
+  /** users.id du compte propriétaire (mode VPS) — cible du reset mot de passe admin. */
+  ownerId?: string;
   name: string;
   image: string;
   category: string;

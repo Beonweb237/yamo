@@ -24,6 +24,7 @@ function mapRestaurant(row: Record<string, unknown>): Restaurant {
   const neighborhood = (row.neighborhood as string) || parseNeighborhoodFromAddress(address, city);
   return {
     id: row.id as string,
+    ownerId: (row.owner_id as string) ?? undefined,
     name: row.name as string,
     image: (row.image as string) || getMealCategoryImage(row.category as string),
     category: row.category as string,
@@ -324,6 +325,20 @@ export async function fetchMenuItems(restaurantId: string, options: { includeUna
   const visibleData = options.includeUnavailable ? data : data?.filter((row) => row.is_available !== false);
   if (error || !visibleData || visibleData.length === 0) return [];
   return visibleData.map(mapMenuItem);
+}
+
+/**
+ * Tous les plats disponibles du catalogue (vue « plats », recherche globale,
+ * favoris, fiche plat). En mode VPS, récupère les vrais menu_items — jusqu'ici
+ * ces vues utilisaient toujours mockMenuItems, ce qui affichait des plats
+ * fictifs rattachés à des restaurants inexistants (profil vide, blocage
+ * "démo" au checkout). En mode mock (dev), renvoie le catalogue local.
+ */
+export async function fetchAllMenuItems(): Promise<MenuItem[]> {
+  if (!isSupabaseConfigured || !supabase) return mockMenuItems;
+  const { data, error } = await supabase.from('menu_items').select('*').limit(2000);
+  if (error || !data) return [];
+  return data.filter((row) => row.is_available !== false).map(mapMenuItem);
 }
 
 export interface MenuItemInput {

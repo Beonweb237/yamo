@@ -187,7 +187,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
       <div className="bg-white rounded-xl border border-border-custom p-6 text-center max-w-[520px] mx-auto">
         <CheckCircle2 className="w-10 h-10 text-success mx-auto mb-3" />
         <p className="text-text-secondary font-inter text-sm">
-          {t("Candidature envoyée ! Notre équipe l’examine et vous recevrez l’accès à votre\n          espace dès son approbation.")}
+          {t("Candidature envoyée ! Notre équipe l’examine et vous recevrez l’accès à votre espace dès son approbation.")}
         </p>
       </div>
     );

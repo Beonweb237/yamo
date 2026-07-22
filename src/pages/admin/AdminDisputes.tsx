@@ -174,7 +174,6 @@ export default function AdminDisputes() {
                   {/* Série PTS — arbitrage d'un litige portant sur une commande garantie :
                       la décision applique en une action garantie + points + annulation. */}
                   {incident.status === 'open' && (() => {
-                            const { t } = useTranslation();
                     const order = orderById[incident.orderId];
                     const g = order?.guarantee;
                     if (!order || !g || !['declared', 'confirmed'].includes(g.status)) return null;

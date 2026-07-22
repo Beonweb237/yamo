@@ -199,8 +199,8 @@ function Sidebar({
           side={side}
         >
           <SheetHeader className="sr-only">
-            <SheetTitle>{t("Sidebar")}</SheetTitle>
-            <SheetDescription>{t("Displays the mobile sidebar.")}</SheetDescription>
+            <SheetTitle>{t("Menu latéral")}</SheetTitle>
+            <SheetDescription>{t("Affiche le menu latéral mobile.")}</SheetDescription>
           </SheetHeader>
           <div className="flex h-full w-full flex-col">{children}</div>
         </SheetContent>
@@ -278,7 +278,7 @@ function SidebarTrigger({
       {...props}
     >
       <PanelLeftIcon />
-      <span className="sr-only">{t("Toggle Sidebar")}</span>
+      <span className="sr-only">{t("Afficher/masquer le menu latéral")}</span>
     </Button>
   )
 }

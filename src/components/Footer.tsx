@@ -46,7 +46,7 @@ Sécurité — Les accès aux données sont protégés par des règles de sécur
 Vos droits — Vous pouvez à tout moment demander l'accès, la correction ou la suppression de vos données personnelles en contactant le support MiamExpress.`;
 
 export default function Footer() {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null);
 
   return (
@@ -56,13 +56,13 @@ export default function Footer() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.1 }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 pt-16 pb-8"
+        className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 pt-10 sm:pt-16 pb-6 sm:pb-8"
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 lg:gap-6">
           {/* Brand Column */}
           <div>
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <img src="/logo-compact.png" alt="MiamExpress" className="h-10 w-auto object-contain" />
+              <img src="/logo-horizontal.png" alt="MiamExpress" className="h-10 sm:h-12 w-auto object-contain" />
             </Link>
             <p className="text-text-secondary text-sm font-inter leading-relaxed max-w-[280px]">
               {t("La plateforme de livraison de repas qui célèbre la richesse culinaire du Cameroun. De Douala à Yaoundé, savourez l’excellence à domicile.")}
@@ -155,7 +155,7 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-12 pt-6 border-t border-border-custom flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="mt-8 sm:mt-12 pt-5 sm:pt-6 border-t border-border-custom flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pb-24 sm:pb-0">
           <p className="text-text-muted text-xs font-inter">
             {t("© 2026 MiamExpress. Tous droits réservés.")}
           </p>

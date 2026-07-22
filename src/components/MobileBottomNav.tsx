@@ -4,7 +4,6 @@ import { useCart } from '../contexts/CartContext';
 import { useTranslation } from 'react-i18next';
 
 const tabs = [
-  { path: '/', label: 'Accueil', icon: Home },
   { path: '/restaurants', label: 'Explorer', icon: Search },
   { path: '/commandes', label: 'Commandes', icon: Package },
   { path: '/favoris', label: 'Favoris', icon: Heart },
@@ -25,7 +24,6 @@ export default function MobileBottomNav() {
     <>
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border-custom shadow-[0_-2px_8px_rgba(0,0,0,0.06)] px-1 py-1 flex items-center justify-around">
         {tabs.map((tab) => {
-            const { t } = useTranslation();
           const isActive = tab.path === '/' ? location.pathname === '/' : location.pathname.startsWith(tab.path.split('?')[0]);
           return (
             <Link

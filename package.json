@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "postbuild": "",
     "lint": "eslint .",
     "preview": "vite preview",
     "seed": "node scripts/seed.mjs",
@@ -15,8 +16,13 @@
     "seed:test-profiles": "node scripts/seed-test-profiles.mjs",
     "verify:catalog": "node scripts/verify-catalog.mjs",
     "verify:points": "node scripts/verify-points.mjs",
+    "verify:loyalty": "node scripts/verify-loyalty.mjs",
     "verify:integrity": "node scripts/verify-data-integrity.mjs",
-    "deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1",
+    "gen:sitemap": "node scripts/gen-sitemap.mjs",
+    "verify:i18n": "node scripts/verify-i18n.mjs",
+    "verify:hooks": "node scripts/verify-hooks.mjs",
+    "predeploy": "npm run verify:hooks && npm run verify:i18n && npm run build",
+    "deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 -SkipBuild",
     "deploy:dry": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 -DryRun",
     "vps:shell": "powershell -ExecutionPolicy Bypass -File scripts/connect-vps.ps1 -Command shell",
     "vps:status": "powershell -ExecutionPolicy Bypass -File scripts/connect-vps.ps1 -Command status",
@@ -26,6 +32,25 @@
     "vps:process": "powershell -ExecutionPolicy Bypass -File scripts/connect-vps.ps1 -Command check-process",
     "vps:update": "powershell -ExecutionPolicy Bypass -File scripts/connect-vps.ps1 -Command update-app",
     "vps:backup": "powershell -ExecutionPolicy Bypass -File scripts/connect-vps.ps1 -Command backup-db"
+  },
+  "reactSnap": {
+    "source": "dist",
+    "include": [
+      "/fr/",
+      "/en/",
+      "/fr/partenaires",
+      "/en/partenaires",
+      "/fr/livreurs",
+      "/en/livreurs",
+      "/fr/contact",
+      "/en/contact"
+    ],
+    "crawl": false,
+    "puppeteerExecutablePath": "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+    "puppeteerArgs": [
+      "--no-sandbox",
+      "--disable-setuid-sandbox"
+    ]
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -77,6 +102,7 @@
     "react-router": "^7.6.1",
     "react-router-dom": "^7.18.0",
     "recharts": "^2.15.4",
+    "socket.io-client": "^4.8.3",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "vaul": "^1.1.2",
@@ -96,6 +122,7 @@
     "pg": "^8.22.0",
     "plugin-inspect-react-code": "^1.0.3",
     "postcss": "^8.5.6",
+    "react-snap": "^1.23.0",
     "tailwindcss": "^3.4.19",
     "tailwindcss-animate": "^1.0.7",
     "ts-morph": "^28.0.0",

@@ -1,16 +1,19 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Bike, Clock, MapPin, RefreshCw, CheckCircle2, Phone, Navigation, Wallet, PackageCheck, ExternalLink, Banknote, Smartphone, Star, Volume2, VolumeX } from 'lucide-react';
+import { Bike, Clock, MapPin, RefreshCw, CheckCircle2, Phone, Navigation, Wallet, PackageCheck, ExternalLink, Banknote, Smartphone, Star, Volume2, VolumeX, TrendingUp, HeartHandshake } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchAvailableDeliveries, fetchDriverOrders, acceptDelivery, getDeliveryContactPhone, getOrderPreparationMessage, markDelivered, markPickedUp, type Order } from '../lib/orders';
 import { haversineDistance, estimateTime } from '../lib/utils';
-import { fetchDriverOnlineStatus, setDriverOnline, requestPayout, fetchDriverPayouts, getRestaurantsThatPreferMe, type PayoutRequest } from '../lib/drivers';
+import { fetchDriverOnlineStatus, setDriverOnline, requestPayout, fetchDriverPayouts, requestInstantCashout, getAutoSettlementInfo, getRestaurantsThatPreferMe, type PayoutRequest } from '../lib/drivers';
 import { Skeleton } from '../components/ui/skeleton';
+import { calculateDriverEarnings, isSurgeActive, getActiveSurgeMultiplier, calculateVolumeBonus } from '../lib/distance';
+import { DRIVER_PAY_CONFIG } from '../data/launchConfig';
 import { Badge } from '../components/ui/badge';
 import { Switch } from '../components/ui/switch';
 import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
-import { getRestaurantCoords, getCustomerCoords, simulateDriverPosition } from '../lib/tracking';
+import { getRestaurantCoords, getCustomerCoords, simulateDriverPosition, sendDriverPosition } from '../lib/tracking';
 import { reportIncident, INCIDENT_LABELS, type IncidentType } from '../lib/incidents';
 import { usePolling } from '../hooks/usePolling';
+import { useSeo } from '../hooks/useSeo';
 import { toast } from 'sonner';
 import { phoneForWhatsapp } from '../lib/phone';
 import {
@@ -35,6 +38,7 @@ function whatsappTo(phone: string, message: string): string {
 export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
     const { t } = useTranslation();
   const { user } = useAuth();
+  useSeo({ title: t('Espace Livreur'), noindex: true });
   const [tab, setTab] = useState<Tab>(initialTab ?? 'available');
 
   useEffect(() => {
@@ -47,6 +51,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
   const [isOnline, setIsOnline] = useState(true);
   const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
   const [requestingPayout, setRequestingPayout] = useState(false);
+  const [requestingInstantCashout, setRequestingInstantCashout] = useState(false);
   const [preferredByRestaurants, setPreferredByRestaurants] = useState<Set<string>>(new Set());
 
   // Position réelle du livreur (CONF-15) — suivie uniquement quand il est en
@@ -125,7 +130,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
         playNewDeliverySound();
         toast.info(
           fresh.length === 1
-            ? `Nouvelle course disponible — vous gagnez ${fresh[0].deliveryFee.toLocaleString()} FCFA`
+            ? `Nouvelle course disponible — vous gagnez ${fresh[0].feeBreakdown?.final?.toLocaleString() ?? fresh[0].deliveryFee.toLocaleString()} FCFA`
             : `${fresh.length} nouvelles courses disponibles`,
           { duration: 8000 },
         );
@@ -236,19 +241,43 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
   };
 
   const activeMine = mine.filter((o) => ['ready', 'picked_up', 'delivering'].includes(o.status));
+
+  // Série TRK — le livreur publie sa VRAIE position pour ses courses en route
+  // (picked_up/delivering) → le client voit le suivi réel. Throttlé (≥ 15 s)
+  // pour ménager le réseau 3G ; best-effort (un échec n'a aucun effet visible).
+  const lastPosSentRef = useRef(0);
+  useEffect(() => {
+    if (!effectiveDriverPos) return;
+    const now = Date.now();
+    if (now - lastPosSentRef.current < 15000) return;
+    const enRoute = mine.filter((o) => ['picked_up', 'delivering'].includes(o.status));
+    if (enRoute.length === 0) return;
+    lastPosSentRef.current = now;
+    for (const o of enRoute) void sendDriverPosition(o.id, effectiveDriverPos.lat, effectiveDriverPos.lng);
+  }, [effectiveDriverPos, mine]);
   const completedMine = mine.filter((o) => o.status === 'delivered');
 
   // S4 — revenus par période (Semaine/Mois/Tout), sélectionnable dans l'onglet "Gains".
   const [earningsPeriod, setEarningsPeriod] = useState<'week' | 'month' | 'all'>('week');
+  const getEffectiveEarnings = (order: Order) => {
+    return order.feeBreakdown?.final ?? order.deliveryFee;
+  };
   const earningsPeriodStart =
     earningsPeriod === 'week' ? Date.now() - 7 * 86400000 :
       earningsPeriod === 'month' ? Date.now() - 30 * 86400000 : 0;
   const periodDeliveries = completedMine.filter((o) => new Date(o.createdAt).getTime() >= earningsPeriodStart);
-  const periodEarnings = periodDeliveries.reduce((sum, order) => sum + order.deliveryFee, 0);
+  const periodEarnings = periodDeliveries.reduce((sum, order) => sum + getEffectiveEarnings(order), 0);
+
+  // Série DRV — bonus de volume hebdomadaire
+  const weekStart = new Date();
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Lundi
+  const completedThisWeek = completedMine.filter((o) => new Date(o.createdAt).getTime() >= weekStart.getTime()).length;
+  const volumeBonus = calculateVolumeBonus(completedThisWeek);
 
   // Balance still owed to the driver: all-time earnings minus whatever has
   // already been requested (pending or paid) — rejected requests free up the balance again.
-  const allTimeEarnings = completedMine.reduce((sum, order) => sum + order.deliveryFee, 0);
+  const allTimeEarnings = completedMine.reduce((sum, order) => sum + getEffectiveEarnings(order), 0);
   const alreadyClaimed = payouts
     .filter((p) => p.status !== 'rejected')
     .reduce((sum, p) => sum + p.amount, 0);
@@ -264,6 +293,26 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
       setPayouts((prev) => [payout, ...prev]);
     } finally {
       setRequestingPayout(false);
+    }
+  };
+
+  // Série DRV — Règlement automatique
+  const autoSettlement = getAutoSettlementInfo(availableBalance);
+
+  // Série DRV — Retrait instantané
+  const handleInstantCashout = async () => {
+    if (!user || availableBalance < DRIVER_PAY_CONFIG.INSTANT_CASHOUT_MINIMUM_FCFA || requestingInstantCashout) return;
+    setRequestingInstantCashout(true);
+    try {
+      const { payout, grossAmount, fee, netAmount } = await requestInstantCashout(user.id, availableBalance);
+      setPayouts((prev) => [payout, ...prev]);
+      toast.success(
+        `${grossAmount.toLocaleString()} FCFA - ${fee.toLocaleString()} FCFA frais = ${netAmount.toLocaleString()} FCFA net`,
+      );
+    } catch {
+      toast.error("Échec du retrait instantané");
+    } finally {
+      setRequestingInstantCashout(false);
     }
   };
 
@@ -368,7 +417,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                   <p className="font-poppins font-bold text-sm text-green-primary">
                     {completedMine
                       .filter((o) => new Date(o.createdAt).toDateString() === new Date().toDateString())
-                      .reduce((s, o) => s + o.deliveryFee, 0)
+                      .reduce((s, o) => s + getEffectiveEarnings(o), 0)
                       .toLocaleString()} {t("FCFA")}
                   </p>
                 </div>
@@ -384,8 +433,20 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                 </div>
               </div>
               <div className="space-y-4">
+                {isSurgeActive() && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <TrendingUp className="w-5 h-5 text-amber-600 shrink-0" />
+                    <div>
+                      <p className="font-inter font-semibold text-sm text-amber-800">
+                        {t("🔥 Heure de pointe active")} — {t("Multiplicateur")} ×{getActiveSurgeMultiplier()}
+                      </p>
+                      <p className="text-xs font-inter text-amber-600 mt-0.5">
+                        {t("Les courses de cette période rapportent un bonus de pointe. Profitez-en !")}
+                      </p>
+                    </div>
+                  </div>
+                )}
                 {available.map((order) => {
-                    const { t } = useTranslation();
                   // Distance réelle : position GPS du livreur → restaurant.
                   // Sans position (permission refusée) ou sans coordonnées
                   // resto : aucune distance affichée — jamais de valeur
@@ -412,10 +473,43 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                         )}
                       </div>
 
-                      {/* Rémunération = l'information de décision n°1 */}
-                      <p className="font-poppins font-bold text-green-primary text-xl mb-1">
-                        {t("Vous gagnez :")} {order.deliveryFee.toLocaleString()} {t("FCFA")}
-                      </p>
+                      {/* Série DRV — Décomposition de la rémunération */}
+                      <div className="bg-green-light/40 rounded-lg p-3 mb-2">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-poppins font-bold text-green-primary text-lg">
+                            {order.feeBreakdown?.final 
+                              ? `${order.feeBreakdown.final.toLocaleString()} FCFA`
+                              : `${order.deliveryFee.toLocaleString()} FCFA`}
+                          </span>
+                          {order.surgeApplied && (
+                            <span className="inline-flex items-center gap-1 text-xs font-inter font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                              <TrendingUp className="w-3 h-3" /> {t("🔥 Pic de demande")}
+                            </span>
+                          )}
+                        </div>
+                        {order.feeBreakdown ? (
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs font-inter text-text-secondary">
+                            <span>{t("Base")} · {order.feeBreakdown.basePickup} FCFA</span>
+                            <span>{t("Distance")} · {order.feeBreakdown.distancePay} FCFA</span>
+                            <span>{t("Temps d'attente")} · {order.feeBreakdown.waitPay} FCFA</span>
+                            {order.feeBreakdown.surgeBonus > 0 && (
+                              <span className="text-amber-700">{t("Bonus surge")} · +{order.feeBreakdown.surgeBonus} FCFA</span>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-xs font-inter text-text-secondary">
+                            {t("Vous gagnez :")} {order.deliveryFee.toLocaleString()} FCFA
+                          </p>
+                        )}
+                        {order.tipAmount && order.tipAmount > 0 && (
+                          <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-green-primary/10">
+                            <HeartHandshake className="w-3.5 h-3.5 text-gold-accent" />
+                            <span className="text-xs font-inter font-medium text-[#D4A843]">
+                              +{order.tipAmount.toLocaleString()} FCFA {t("Pourboire livreur")}
+                            </span>
+                          </div>
+                        )}
+                      </div>
 
                       {/* Privacy (CONF-23) : quartier + ville uniquement — le
                           téléphone et l'adresse exacte sont révélés après
@@ -427,7 +521,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                       <p className="text-xs text-text-muted font-inter mb-2">
                         {km != null
                           ? <>{t("📍 Restaurant à ~")}{km.toFixed(1)} {t("km · 🕐 ~")}{min} {t("min")}</>
-                          : 'Distance indisponible — activez la localisation pour l’estimer'}
+                          : t("Distance indisponible — activez la localisation pour l'estimer")}
                       </p>
                       {prepMessage && (
                         <p className="flex items-center gap-1 text-xs text-text-secondary font-inter bg-bg-secondary rounded-lg px-3 py-2 mb-3">
@@ -531,7 +625,6 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                         {t("Appeler le")} {order.recipient ? 'bénéficiaire' : 'client'}
                       </a>
                       {(() => {
-                                const { t } = useTranslation();
                         // GPS contextuel (CONF-15) : vers le RESTAURANT tant que
                         // la commande n'est pas récupérée, vers le client ensuite.
                         const goingToResto = order.status === 'ready';
@@ -681,6 +774,61 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
               <p className="text-xs font-inter text-text-muted mb-6">
                 {t("Solde disponible :")} {availableBalance.toLocaleString()} {t("FCFA")}
               </p>
+
+              {/* Série DRV — Barre de progression bonus de volume */}
+              <div className="bg-white border border-border-custom rounded-xl p-5 mb-5 max-w-sm mx-auto text-left">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-poppins font-semibold text-sm text-text-primary">
+                    {t("Bonus hebdomadaire")}
+                  </h3>
+                  {volumeBonus.bonusFcfa > 0 && (
+                    <span className="text-xs font-inter font-bold text-gold-accent bg-gold-light/50 px-2 py-0.5 rounded-full">
+                      +{volumeBonus.bonusFcfa.toLocaleString()} {t("FCFA")}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-xs font-inter text-text-muted">{t("Progression bonus")}</span>
+                  <span className="text-xs font-inter font-semibold text-text-primary ml-auto">
+                    {completedThisWeek} {t("courses cette semaine")}
+                  </span>
+                </div>
+                {/* Barre de progression */}
+                <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden mb-2">
+                  <div
+                    className="h-full bg-gradient-to-r from-green-primary to-gold-accent rounded-full transition-all duration-500"
+                    style={{ width: `${volumeBonus.progressPercent}%` }}
+                  />
+                </div>
+                {/* Paliers */}
+                <div className="flex items-center justify-between mb-2">
+                  {DRIVER_PAY_CONFIG.VOLUME_BONUS_TIERS.map((tier) => {
+                    const isReached = completedThisWeek >= tier.minDeliveries;
+                    return (
+                      <div key={tier.minDeliveries} className="flex flex-col items-center">
+                        <div className={`w-2 h-2 rounded-full mb-0.5 ${isReached ? 'bg-gold-accent' : 'bg-gray-300'}`} />
+                        <span className={`text-[10px] font-inter ${isReached ? 'font-bold text-gold-accent' : 'text-text-muted'}`}>
+                          {tier.minDeliveries}
+                        </span>
+                        <span className={`text-[9px] font-inter ${isReached ? 'text-[#D4A843]' : 'text-text-muted'}`}>
+                          +{tier.bonusFcfa.toLocaleString()}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {volumeBonus.nextTier ? (
+                  <p className="text-xs font-inter text-text-secondary">
+                    {t("Prochain palier")} : {volumeBonus.nextTier.minDeliveries} {t("courses cette semaine")} (+{volumeBonus.nextTier.bonusFcfa.toLocaleString()} {t("FCFA")})
+                    {' — '}{volumeBonus.nextTier.remaining} {t("courses cette semaine")} {t("restantes")}
+                  </p>
+                ) : (
+                  volumeBonus.bonusFcfa > 0 && (
+                    <p className="text-xs font-inter font-medium text-gold-accent">{t("Palier atteint")} 🎉</p>
+                  )
+                )}
+              </div>
+
               {pendingPayout ? (
                 <p className="text-sm font-inter text-amber-700 font-medium">
                   {t("Virement de")} {pendingPayout.amount.toLocaleString()} {t("FCFA en attente de traitement")}
@@ -701,6 +849,44 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                   )}
                 </>
               )}
+
+              {/* Série DRV — Retrait instantané */}
+              <div className="mt-3 pt-3 border-t border-border-light">
+                <button
+                  onClick={handleInstantCashout}
+                  disabled={availableBalance < DRIVER_PAY_CONFIG.INSTANT_CASHOUT_MINIMUM_FCFA || requestingInstantCashout}
+                  className="w-full bg-white border border-gold-accent text-gold-accent font-inter font-medium text-sm h-11 rounded-lg hover:bg-gold-light/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {requestingInstantCashout
+                    ? 'Envoi...'
+                    : `${t("Retrait instantané")} (−${DRIVER_PAY_CONFIG.INSTANT_CASHOUT_FEE_PERCENT}% ${t("Frais de retrait instantané")})`}
+                </button>
+                {availableBalance < DRIVER_PAY_CONFIG.INSTANT_CASHOUT_MINIMUM_FCFA && (
+                  <p className="text-xs font-inter text-text-muted mt-2">
+                    {t("Solde minimum pour un virement :")} {DRIVER_PAY_CONFIG.INSTANT_CASHOUT_MINIMUM_FCFA.toLocaleString()} {t("FCFA")}
+                  </p>
+                )}
+              </div>
+
+              {/* Série DRV — Prochain règlement automatique */}
+              <div className="mt-4 bg-green-light/30 rounded-xl px-4 py-3 max-w-sm mx-auto">
+                <div className="flex items-center gap-2 mb-1">
+                  <Wallet className="w-4 h-4 text-green-primary" />
+                  <span className="font-inter font-semibold text-xs text-green-primary">
+                    {t("Règlement automatique")}
+                  </span>
+                </div>
+                <p className="text-xs font-inter text-text-secondary">
+                  {autoSettlement.isToday
+                    ? t("Virement automatique chaque lundi")
+                    : `${t("Prochain règlement")} : ${autoSettlement.nextSettlementDay}`}
+                </p>
+                {!autoSettlement.eligible && (
+                  <p className="text-xs font-inter text-text-muted mt-1">
+                    {t("Solde minimum pour un virement :")} {autoSettlement.minimumFcfa.toLocaleString()} {t("FCFA")}
+                  </p>
+                )}
+              </div>
             </div>
             {payouts.length > 0 && (
               <div className="bg-white rounded-xl border border-border-custom p-5">
@@ -741,7 +927,7 @@ export default function DriverDashboard({ tab: initialTab }: { tab?: Tab }) {
                         <p className="text-xs text-text-muted">{new Date(order.createdAt).toLocaleString('fr-FR')}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-inter font-semibold text-sm text-green-primary">+{order.deliveryFee.toLocaleString()} {t("FCFA")}</p>
+                        <p className="font-inter font-semibold text-sm text-green-primary">+{getEffectiveEarnings(order).toLocaleString()} {t("FCFA")}</p>
                       </div>
                     </div>
                   ))}

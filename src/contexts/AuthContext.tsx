@@ -272,72 +272,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const sendOtp = useCallback(async (phone: string) => {
-    if (isSupabaseConfigured && supabase) {
-      const result = await supabase.auth.sendOtp(normalizeCameroonPhone(phone));
-      return result;
-    }
-    // Mock mode: any code works in verifyOtp.
+    const result = await supabase.auth.sendOtp(normalizeCameroonPhone(phone));
+    return result;
   }, []);
 
   const verifyOtp = useCallback(async (phone: string, code: string, requestedRole: UserRole = 'client') => {
-    if (isSupabaseConfigured && supabase) {
-      const json = await supabase.auth.verifyOtp(normalizeCameroonPhone(phone), code, requestedRole);
-      if (json?.user) {
-        const { data } = await supabase.auth.getSession();
-        const resolvedUser: AuthUser = data?.session?.user
-          ? toAuthUserFromSession(data.session.user as Record<string, unknown>)
-          : toAuthUserFromSession(json.user as Record<string, unknown>);
-        setUser(resolvedUser);
-        return resolvedUser;
-      }
-      throw new Error('Code invalide.');
+    const json = await supabase.auth.verifyOtp(normalizeCameroonPhone(phone), code, requestedRole);
+    if (json?.user) {
+      const { data } = await supabase.auth.getSession();
+      const resolvedUser: AuthUser = data?.session?.user
+        ? toAuthUserFromSession(data.session.user as Record<string, unknown>)
+        : toAuthUserFromSession(json.user as Record<string, unknown>);
+      setUser(resolvedUser);
+      return resolvedUser;
     }
-
-    // Dev mode fallback: simulate a verified session without a real SMS provider.
-    // The role/approval are fixed the first time a phone number "signs up" and reused after that.
-    const registry = readLocalRegistry();
-    const phoneKey = normalizeCameroonPhone(phone);
-    const existing = registry[phoneKey];
-    // Verifie quota avant de creer un nouveau profil
-    if (!existing) {
-      const quota = checkQuota(requestedRole);
-      if (!quota.allowed) {
-        throw new Error('QUOTA_EXCEEDED:' + quota.message);
-      }
-    }
-    if (existing && existing.role !== requestedRole) {
-      throw new RoleMismatchError(existing.role);
-    }
-    const localUser: AuthUser = existing ?? {
-      id: `local-${phoneKey}`,
-      phone: phoneKey,
-      email: getUserEmail(phoneKey),
-      role: requestedRole,
-      isApproved: isSelfApprovingRole(requestedRole),
-      isSuspended: false,
-    };
-    // La map de suspension de drivers.ts ne concerne que les livreurs — pour
-    // les autres rôles elle écraserait le blocage posé par AdminCustomers
-    // directement dans le registre (LOT-16), qui doit survivre à la reconnexion.
-    if (localUser.role === 'livreur') {
-      const suspensionInfo = getLocalSuspensionInfo(localUser.id);
-      localUser.isSuspended = suspensionInfo.isSuspended;
-      localUser.suspensionReason = suspensionInfo.reason ?? null;
-    }
-    registry[phoneKey] = localUser;
-    localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(registry));
-    localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(localUser));
-    // Auto-génère email + mot de passe par défaut pour tout nouveau profil
-    autoGenerateCredentials(phoneKey, localUser.name);
-    setUser(localUser);
-    return localUser;
+    throw new Error('Code invalide.');
   }, []);
 
-  const signInWithPassword = useCallback(async (email: string, password: string) => {
+  const signInWithPassword = useCallback(async (identifier: string, password: string) => {
     if (!isSupabaseConfigured || !supabase) {
       throw new Error("Password sign-in requires l'API VPS (VITE_USE_VPS_API).");
     }
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const isEmail = identifier.includes('@');
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: isEmail ? identifier : undefined,
+      phone: isEmail ? undefined : identifier,
+      password,
+    });
     if (error) throw error;
     if (!data?.session?.user) throw new Error('Échec de la connexion.');
     // /api/auth/me pour le profil complet (suspension, ville, zones).

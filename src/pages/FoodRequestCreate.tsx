@@ -8,6 +8,7 @@ import {
   UtensilsCrossed, MapPin, ArrowLeft, Send, CheckCircle2, ChevronDown,
 } from 'lucide-react';
 import { useTranslation } from "react-i18next";
+import { useSeo } from '../hooks/useSeo';
 
 const FORM_STORAGE_KEY = 'miam_draft_food_request';
 
@@ -17,6 +18,11 @@ function clearDraft() { localStorage.removeItem(FORM_STORAGE_KEY); }
 
 export default function FoodRequestCreate() {
     const { t } = useTranslation();
+  useSeo({
+    title: t('Demande de plat sur mesure'),
+    description: t("Un plat introuvable au menu ? Décrivez-le : un restaurant partenaire MiamExpress le prépare et vous le livre à Douala ou Yaoundé."),
+    path: '/demandes/nouvelle',
+  });
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -243,7 +249,7 @@ export default function FoodRequestCreate() {
             </button>
 
             <p className="text-xs font-inter text-text-muted text-center">
-              {t("Visible par les restaurants de")} {city || 'votre ville'} {t("pendant 48h.\r\n              Brouillon sauvegardé automatiquement.")}
+              {t("Visible par les restaurants de")} {city || 'votre ville'} {t("pendant 48h. Brouillon sauvegardé automatiquement.")}
             </p>
           </form>
         </div>

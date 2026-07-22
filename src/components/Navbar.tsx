@@ -26,7 +26,6 @@ interface MegaSection {
 }
 
 const mainLinks: (MegaLink | MegaSection)[] = [
-  { name: 'Accueil', path: '/', icon: Home },
   {
     title: 'Explorer',
     links: [
@@ -56,10 +55,14 @@ export default function Navbar() {
   const { user } = useAuth();
   const { t, i18n } = useTranslation();
 
-  const toggleLanguage = () => {
-    const newLang = i18n.language === 'fr' ? 'en' : 'fr';
-    i18n.changeLanguage(newLang);
-    localStorage.setItem('miamexpress_lang', newLang);
+  const currentLang = (i18n.language || 'fr').slice(0, 2);
+  const setLanguage = (lng: 'fr' | 'en') => {
+    if (currentLang === lng) return;
+    // La langue vit dans l'URL (/fr/, /en/) : on navigue vers le même chemin
+    // sous l'autre préfixe. Full reload = état propre + HTML prérendu.
+    localStorage.setItem('miamexpress_lang', lng);
+    const path = window.location.pathname.replace(/^\/(fr|en)(?=\/|$)/, `/${lng}`);
+    window.location.assign(path + window.location.search + window.location.hash);
   };
 
   useEffect(() => {
@@ -103,7 +106,7 @@ export default function Navbar() {
   };
 
   const accountLink = !user
-    ? { to: '/connexion', label: t("Se Connecter") }
+    ? { to: '/connexion', label: t("Connexion") }
     : user.role === 'admin'
       ? { to: '/admin/dashboard', label: t("Back-office") }
       : user.role === 'restaurant'
@@ -131,23 +134,20 @@ export default function Navbar() {
           ? 'bg-white/95 backdrop-blur-[12px] border-b border-border-custom shadow-[0_1px_0_rgba(0,0,0,0.05)]'
           : 'bg-transparent'
           }`}
-        style={{ height: 72 }}
+        style={{ height: 64 }}
       >
-        <div className="max-w-[1280px] mx-auto h-full flex items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-12">
+        <div className="max-w-[1280px] mx-auto h-full flex items-center justify-between px-3 sm:px-6 lg:px-8 xl:px-12">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 shrink-0">
-            <img src="/logo-icon.png" alt="MiamExpress Logo" className="w-10 h-10 object-contain" />
-            <div className="flex items-baseline gap-1.5">
-              <span className={`font-inter font-semibold text-xl tracking-normal ${isSolid ? 'text-green-primary' : 'text-white'}`}>
-                {t("MiamExpress")}
-              </span>
-            </div>
+          <Link to="/" className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <img src="/logo-icon.png" alt="MiamExpress Logo" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
+            <span className={`font-inter font-semibold text-sm sm:text-lg md:text-xl tracking-normal ${isSolid ? 'text-green-primary' : 'text-white'}`}>
+              {t("MiamExpress")}
+            </span>
           </Link>
 
           {/* Desktop Mega Menu */}
           <nav className="hidden lg:flex items-center gap-1">
             {mainLinks.map((item) => {
-                const { t } = useTranslation();
               if ('path' in item) {
                 const link = item as MegaLink;
                 return (
@@ -217,22 +217,40 @@ export default function Navbar() {
 
           {/* Right actions */}
           <div className="flex items-center gap-2">
-            {/* Language Toggle */}
-            <button
-              type="button"
-              onClick={toggleLanguage}
-              className={`min-w-10 min-h-10 inline-flex items-center justify-center rounded-lg text-lg transition-colors ${isSolid ? 'hover:bg-bg-secondary' : 'hover:bg-white/10'
+            {/* Language segmented toggle FR | EN */}
+            <div
+              role="group"
+              aria-label={t("Langue")}
+              className={`inline-flex items-center rounded-lg overflow-hidden border shrink-0 ${isSolid ? 'border-border-custom' : 'border-white/30'
                 }`}
-              title={i18n.language === 'fr' ? 'Switch to English' : 'Passer en Français'}
             >
-              {i18n.language === 'fr' ? '🇫🇷' : '🇬🇧'}
-            </button>
+              {(['fr', 'en'] as const).map((lng) => {
+                const active = currentLang === lng;
+                return (
+                  <button
+                    key={lng}
+                    type="button"
+                    onClick={() => setLanguage(lng)}
+                    aria-pressed={active}
+                    title={lng === 'fr' ? 'Français' : 'English'}
+                    className={`px-1.5 sm:px-2.5 py-1 text-xs font-semibold font-inter uppercase leading-none transition-colors ${active
+                      ? 'bg-green-primary text-white'
+                      : isSolid
+                        ? 'text-text-muted hover:text-text-primary hover:bg-bg-secondary'
+                        : 'text-white/70 hover:text-white hover:bg-white/10'
+                      }`}
+                  >
+                    {lng}
+                  </button>
+                );
+              })}
+            </div>
 
             {/* Recherche globale — barre premium (desktop) */}
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className={`hidden lg:flex items-center gap-2 h-10 w-52 xl:w-64 px-3 rounded-lg text-sm font-inter border transition-colors ${isSolid
+              className={`hidden xl:flex items-center gap-2 h-10 w-56 px-3 rounded-lg text-sm font-inter border transition-colors ${isSolid
                 ? 'bg-bg-secondary text-text-muted border-border-custom hover:bg-white hover:border-border-light'
                 : 'bg-white/10 text-white/85 border-white/25 hover:bg-white/20'
                 }`}
@@ -247,17 +265,17 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className={`lg:hidden min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg transition-colors ${isSolid ? 'text-text-primary hover:bg-bg-secondary' : 'text-white hover:bg-white/10'
+              className={`xl:hidden min-w-9 min-h-9 sm:min-w-10 sm:min-h-10 inline-flex items-center justify-center rounded-lg transition-colors ${isSolid ? 'text-text-primary hover:bg-bg-secondary' : 'text-white hover:bg-white/10'
                 }`}
-              aria-label="Rechercher"
+              aria-label={t("Rechercher un plat ou un restaurant")}
             >
-              <Search className="w-5 h-5" />
+              <Search className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
             {!user && (
               <Link
                 to="/inscription"
-                className={`hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium font-inter transition-all ${isSolid ? 'bg-green-primary text-white hover:bg-green-dark' : 'bg-white text-green-primary hover:bg-green-light'
+                className={`hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium font-inter whitespace-nowrap transition-all ${isSolid ? 'bg-green-primary text-white hover:bg-green-dark' : 'bg-white text-green-primary hover:bg-green-light'
                   }`}
               >
                 {t("S'inscrire")}
@@ -265,7 +283,7 @@ export default function Navbar() {
             )}
             <Link
               to={accountLink.to}
-              className={`hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium font-inter transition-all ${isSolid
+              className={`hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium font-inter whitespace-nowrap transition-all ${isSolid
                 ? 'border border-green-primary text-green-primary hover:bg-green-light'
                 : 'border border-white text-white hover:bg-white/10'
                 }`}
@@ -326,18 +344,18 @@ export default function Navbar() {
             </div>
 
             {/* Mobile cart link */}
-            <Link to="/checkout" className={`lg:hidden relative min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg transition-colors ${isSolid ? 'text-text-primary hover:bg-bg-secondary' : 'text-white hover:bg-white/10'
+            <Link to="/checkout" className={`lg:hidden relative min-w-9 min-h-9 sm:min-w-11 sm:min-h-11 inline-flex items-center justify-center rounded-lg transition-colors ${isSolid ? 'text-text-primary hover:bg-bg-secondary' : 'text-white hover:bg-white/10'
               }`} aria-label="Panier">
-              <ShoppingCart className="w-5 h-5" />
+              <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
               {totalItems > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 bg-green-primary text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{totalItems}</span>
               )}
             </Link>
 
             {/* Mobile menu toggle */}
-            <button onClick={() => setMobileOpen(true)} className={`lg:hidden min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg transition-colors ${isSolid ? 'text-text-primary hover:bg-bg-secondary' : 'text-white hover:bg-white/10'
+            <button onClick={() => setMobileOpen(true)} className={`lg:hidden min-w-9 min-h-9 sm:min-w-11 sm:min-h-11 inline-flex items-center justify-center rounded-lg transition-colors ${isSolid ? 'text-text-primary hover:bg-bg-secondary' : 'text-white hover:bg-white/10'
               }`} aria-label="Menu">
-              <Menu className="w-5 h-5" />
+              <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
@@ -372,7 +390,7 @@ export default function Navbar() {
                         className={`flex items-center gap-3 px-6 py-3.5 text-base font-medium font-inter transition-colors ${isActive(link.path) ? 'text-green-primary bg-green-light' : 'text-text-primary hover:bg-bg-secondary'
                           }`}>
                         {link.icon && <link.icon className="w-5 h-5" />}
-                        {link.name}
+                        {t('nav.' + link.name.toLowerCase(), link.name)}
                       </Link>
                     );
                   }
@@ -380,14 +398,14 @@ export default function Navbar() {
                   return (
                     <div key={section.title} className="mb-1">
                       <p className="px-6 py-2 text-xs font-inter font-semibold text-text-muted uppercase tracking-wider">
-                        {section.title}
+                        {t('nav.' + section.title.toLowerCase(), section.title)}
                       </p>
                       {section.links.map((link) => (
                         <Link key={link.path} to={link.path} onClick={() => setMobileOpen(false)}
                           className={`flex items-center gap-3 px-8 py-3 text-sm font-inter transition-colors ${isActive(link.path) ? 'text-green-primary bg-green-light' : 'text-text-secondary hover:text-text-primary hover:bg-bg-secondary'
                             }`}>
                           {link.icon && <link.icon className="w-4 h-4" />}
-                          {link.name}
+                          {t('nav.' + link.name.toLowerCase(), link.name)}
                         </Link>
                       ))}
                     </div>

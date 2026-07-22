@@ -16,8 +16,7 @@ import {
   CommandItem,
 } from './ui/command';
 import AppImage from './AppImage';
-import { useRestaurants } from '../hooks/useCatalog';
-import { menuItems as mockMenuItems } from '../data/mockData';
+import { useRestaurants, useAllMenuItems } from '../hooks/useCatalog';
 import { buildEnrichedItems, groupDishes, dishSlug, type DishGroup } from '../lib/dishes';
 import { useTranslation } from 'react-i18next';
 
@@ -60,11 +59,12 @@ export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) 
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { restaurants } = useRestaurants();
+  const { items: allMenuItems } = useAllMenuItems();
   const [query, setQuery] = useState('');
 
   const dishGroups = useMemo<DishGroup[]>(
-    () => groupDishes(buildEnrichedItems(mockMenuItems, restaurants)),
-    [restaurants]
+    () => groupDishes(buildEnrichedItems(allMenuItems, restaurants)),
+    [allMenuItems, restaurants]
   );
 
   const trimmed = query.trim();
@@ -254,7 +254,7 @@ export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) 
               {t("naviguer")}
               <kbd className="px-1.5 py-0.5 rounded border border-border-custom bg-white font-sans ml-1">↵</kbd>
               {t("ouvrir")}
-              <kbd className="px-1.5 py-0.5 rounded border border-border-custom bg-white font-sans ml-1">{t("esc")}</kbd>
+              <kbd className="px-1.5 py-0.5 rounded border border-border-custom bg-white font-sans ml-1">{t("échap")}</kbd>
               {t("fermer")}
             </div>
             {hasResults && (

@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured, isSupabaseAuthenticated } from './supabase';
 import { fetchDriverOrders } from './orders';
+import { DRIVER_PAY_CONFIG } from '../data/launchConfig';
 
 export interface DriverFeedback {
   rating: number;
@@ -286,6 +287,127 @@ export async function updatePayoutStatus(id: string, status: PayoutStatus, reaso
       p.id === id ? { ...p, status, processedAt: new Date().toISOString(), processedReason: reason ?? null } : p
     )
   );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Série DRV — Règlement automatique + retrait instantané
+// ─────────────────────────────────────────────────────────────
+
+export interface AutoSettlementInfo {
+  nextSettlementDay: string; // e.g. "Lundi 17 mars 2025"
+  daysUntilSettlement: number;
+  isToday: boolean;
+  minimumFcfa: number;
+  eligible: boolean; // solde >= minimum
+}
+
+/**
+ * Calcule la date du prochain règlement automatique (lundi).
+ */
+export function getAutoSettlementInfo(currentBalance: number, now: Date = new Date()): AutoSettlementInfo {
+  const targetDay = DRIVER_PAY_CONFIG.AUTO_SETTLEMENT_DAY; // 1 = lundi
+  const currentDay = now.getDay(); // 0 = dimanche
+
+  // Jours jusqu'au prochain lundi
+  let daysUntil = (targetDay - currentDay + 7) % 7;
+  if (daysUntil === 0) {
+    // C'est lundi aujourd'hui — le règlement est aujourd'hui
+    daysUntil = 0;
+  }
+
+  const nextDate = new Date(now);
+  nextDate.setDate(now.getDate() + daysUntil);
+
+  const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+  return {
+    nextSettlementDay: `${dayNames[nextDate.getDay()]} ${nextDate.getDate()} ${monthNames[nextDate.getMonth()]} ${nextDate.getFullYear()}`,
+    daysUntilSettlement: daysUntil,
+    isToday: daysUntil === 0,
+    minimumFcfa: DRIVER_PAY_CONFIG.AUTO_SETTLEMENT_MINIMUM_FCFA,
+    eligible: currentBalance >= DRIVER_PAY_CONFIG.AUTO_SETTLEMENT_MINIMUM_FCFA,
+  };
+}
+
+/**
+ * Retrait instantané avec frais (2 % par défaut).
+ * Retourne le payout créé et le montant net après frais.
+ */
+export async function requestInstantCashout(driverId: string, amount: number): Promise<{
+  payout: PayoutRequest;
+  grossAmount: number;
+  fee: number;
+  netAmount: number;
+}> {
+  const fee = Math.round(amount * DRIVER_PAY_CONFIG.INSTANT_CASHOUT_FEE_PERCENT / 100);
+  const netAmount = amount - fee;
+
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+    const { data, error } = await supabase
+      .from('payout_requests')
+      .insert({
+        driver_id: driverId,
+        amount: netAmount,
+        gross_amount: amount,
+        cashout_fee: fee,
+        payout_type: 'instant',
+        status: 'pending',
+      })
+      .select()
+      .single();
+    if (error || !data) throw error ?? new Error('Instant cashout request failed');
+    return {
+      payout: mapPayoutRow(data),
+      grossAmount: amount,
+      fee,
+      netAmount,
+    };
+  }
+
+  const payout: PayoutRequest = {
+    id: crypto.randomUUID(),
+    driverId,
+    amount: netAmount,
+    status: 'pending',
+    requestedAt: new Date().toISOString(),
+  };
+  const payouts = readLocalPayouts();
+  writeLocalPayouts([payout, ...payouts]);
+  return { payout, grossAmount: amount, fee, netAmount };
+}
+
+/**
+ * Vérifie si le règlement automatique doit être déclenché pour un driver.
+ * Appelé côté admin ou par un cron job VPS.
+ * En mode mock, simule un règlement auto si c'est lundi ET solde ≥ minimum.
+ */
+export async function processAutoSettlement(
+  driverId: string,
+  balance: number,
+  now: Date = new Date(),
+): Promise<PayoutRequest | null> {
+  const info = getAutoSettlementInfo(balance, now);
+  if (!info.isToday || !info.eligible) return null;
+
+  // Vérifier qu'aucun règlement auto n'a déjà été fait aujourd'hui
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  const existingPayouts = readLocalPayouts().filter(
+    (p) => p.driverId === driverId && p.requestedAt >= todayStart
+  );
+  if (existingPayouts.length > 0) return null;
+
+  const payout: PayoutRequest = {
+    id: `auto-${crypto.randomUUID()}`,
+    driverId,
+    amount: balance,
+    status: 'pending',
+    requestedAt: now.toISOString(),
+    processedReason: 'Règlement automatique du lundi',
+  };
+  const payouts = readLocalPayouts();
+  writeLocalPayouts([payout, ...payouts]);
+  return payout;
 }
 
 // ─────────────────────────────────────────────────────────────

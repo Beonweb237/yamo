@@ -17,6 +17,7 @@ import { useAuth, type AuthUser, type UserRole } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { fetchMyApplications } from '../lib/applications';
 import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
+import { useSeo } from '../hooks/useSeo';
 import {
   Dialog,
   DialogContent,
@@ -119,6 +120,7 @@ export default function Inscription({ defaultRole = 'client' as UserRole }: { de
   const { signUp, isSupabaseConfigured } = useAuth();
   const navigate = useNavigate();
   const profile = profileConfigs[defaultRole];
+  useSeo({ title: t(profile.title), noindex: true });
 
   // ── Form fields ──
   const [name, setName] = useState('');

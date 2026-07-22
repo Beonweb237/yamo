@@ -16,6 +16,8 @@ import {
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
 import { adminSetPassword, getUserEmail, ADMIN_DEFAULT_PASSWORD } from '../../contexts/AuthContext';
+import { setAdminUserPassword } from '../../lib/admin';
+import { isSupabaseConfigured } from '../../lib/supabase';
 import { useTranslation } from "react-i18next";
 
 export default function AdminRestaurants() {
@@ -31,7 +33,7 @@ export default function AdminRestaurants() {
   const [editRadius, setEditRadius] = useState<number>(5);
   const [savingGps, setSavingGps] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
-  const [passwordTarget, setPasswordTarget] = useState<{ id: string; name: string; phone: string } | null>(null);
+  const [passwordTarget, setPasswordTarget] = useState<{ id: string; name: string; phone: string; ownerId?: string } | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<typeof restaurants[number] | null>(null);
@@ -105,13 +107,28 @@ export default function AdminRestaurants() {
 
   // ── Set / Reset password ───────────────────────────────
 
-  const applyPassword = () => {
+  const applyPassword = async () => {
     if (!passwordTarget) return;
     if (!newPassword || newPassword.length < 4) {
       toast.error('Le mot de passe doit contenir au moins 4 caractères.');
       return;
     }
-    adminSetPassword(passwordTarget.phone, newPassword);
+    // Mode VPS : PATCH /api/admin/users/:id/password sur le compte owner.
+    // Sans compte lié, on refuse (un succès localStorage serait un mensonge).
+    try {
+      if (passwordTarget.ownerId) {
+        const updatedOnServer = await setAdminUserPassword(passwordTarget.ownerId, newPassword);
+        if (!updatedOnServer) adminSetPassword(passwordTarget.phone, newPassword);
+      } else if (isSupabaseConfigured) {
+        toast.error("Ce restaurant n'a pas de compte propriétaire lié — lancez le backfill des comptes avant de définir un mot de passe.");
+        return;
+      } else {
+        adminSetPassword(passwordTarget.phone, newPassword);
+      }
+    } catch {
+      toast.error('La mise à jour du mot de passe a échoué côté serveur. Réessayez.');
+      return;
+    }
     toast.success(`Mot de passe défini pour ${passwordTarget.name}`);
     setPasswordTarget(null);
     setNewPassword('');
@@ -123,7 +140,6 @@ export default function AdminRestaurants() {
       <h1 className="font-poppins font-bold text-text-primary text-2xl mb-6 flex items-center gap-2"><Store className="w-6 h-6 text-green-primary" />{t("Restaurants (")}{restaurants.length})</h1>
       <div className="bg-white rounded-xl border border-border-custom divide-y divide-border-light">
         {restaurants.map((r) => {
-            const { t } = useTranslation();
           const isOpen = overrides[r.id] ?? r.isOpen;
           const isExpanded = expandedId === r.id;
           const hasGps = r.lat != null && r.lng != null;
@@ -166,7 +182,7 @@ export default function AdminRestaurants() {
                   </button>
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); setPasswordTarget({ id: r.id, name: r.name, phone: r.phone }); setNewPassword(''); setShowPassword(false); }}
+                    onClick={(e) => { e.stopPropagation(); setPasswordTarget({ id: r.id, name: r.name, phone: r.phone, ownerId: r.ownerId }); setNewPassword(''); setShowPassword(false); }}
                     className="shrink-0 inline-flex items-center gap-1 text-[10px] font-inter font-semibold px-2 py-1 rounded-full transition-colors bg-bg-secondary text-text-muted hover:bg-gold-light hover:text-amber-700"
                     title="Définir un mot de passe pour ce restaurant"
                   >
@@ -310,13 +326,13 @@ export default function AdminRestaurants() {
                   <span className="text-sm text-amber-700 font-inter">{t("Code OTP")}</span>
                   <span className="text-sm font-mono font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200">12345</span>
                 </div>
-                <p className="text-[11px] text-amber-600 font-inter mt-1">{t("Connexion : email ou téléphone + mot de passe")} {ADMIN_DEFAULT_PASSWORD}</p>
+                <p className="text-[11px] text-amber-600 font-inter mt-1">{t("Connexion : email ou téléphone + mot de passe")} {ADMIN_DEFAULT_PASSWORD} — {t("mot de passe par défaut ; si vous l'avez réinitialisé, c'est le nouveau qui compte.")}</p>
               </div>
 
               {/* Actions */}
               <div className="flex flex-col gap-2">
                 <button
-                  onClick={() => { setPasswordTarget({ id: selectedRestaurant.id, name: selectedRestaurant.name, phone: selectedRestaurant.phone }); setNewPassword(''); setShowPassword(false); }}
+                  onClick={() => { setPasswordTarget({ id: selectedRestaurant.id, name: selectedRestaurant.name, phone: selectedRestaurant.phone, ownerId: selectedRestaurant.ownerId }); setNewPassword(''); setShowPassword(false); }}
                   className="flex items-center justify-center gap-1.5 font-inter font-medium text-sm px-4 h-10 rounded-xl border border-border-custom hover:bg-bg-secondary transition-colors text-text-primary"
                 >
                   <KeyRound className="w-4 h-4" /> {t("Réinitialiser le mot de passe")}

@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /fr/admin
+Disallow: /en/admin
+Disallow: /partenaires/dashboard
+Disallow: /fr/partenaires/dashboard
+Disallow: /en/partenaires/dashboard
+Disallow: /livreurs/dashboard
+Disallow: /fr/livreurs/dashboard
+Disallow: /en/livreurs/dashboard
+Disallow: /checkout
+Disallow: /fr/checkout
+Disallow: /en/checkout
+Disallow: /profil
+Disallow: /fr/profil
+Disallow: /en/profil
+Disallow: /commandes
+Disallow: /fr/commandes
+Disallow: /en/commandes
+
+Sitemap: https://miamexpress.cm/sitemap.xml

@@ -15,6 +15,7 @@ import { partnerReviews, partnerFAQ } from '../data/mockData';
 import ApplicationForm from '../components/ApplicationForm';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { useTranslation } from "react-i18next";
+import { useSeo } from '../hooks/useSeo';
 
 const benefits = [
   {
@@ -103,6 +104,11 @@ function Accordion({ items }: { items: { question: string; answer: string }[] })
 
 export default function Partenaires() {
     const { t } = useTranslation();
+  useSeo({
+    title: t('Devenez restaurant partenaire à Douala et Yaoundé'),
+    description: t('Développez votre restaurant avec MiamExpress : recevez des commandes en ligne à Douala et Yaoundé, gérez votre menu et vos livraisons. Inscription gratuite.'),
+    path: '/partenaires',
+  });
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -175,7 +181,7 @@ export default function Partenaires() {
                     <div className="font-poppins font-bold text-gold-accent text-2xl sm:text-3xl">
                       {stat.num}
                     </div>
-                    <div className="text-white/60 text-xs font-inter mt-1">{stat.label}</div>
+                    <div className="text-white/60 text-xs font-inter mt-1">{t(stat.label)}</div>
                   </div>
                 ))}
               </motion.div>

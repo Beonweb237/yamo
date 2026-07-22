@@ -1,16 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import { Phone, ShieldCheck, User, Store, Bike, Mail, Smartphone, ArrowRight, Eye, EyeOff, Loader2, FlaskConical } from 'lucide-react';
+import { Phone, ShieldCheck, User, Store, Bike, Mail, Smartphone, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import AuthHeader from '../components/AuthHeader';
 import OtpInput from '../components/OtpInput';
 import { useTranslation } from 'react-i18next';
-import { useAuth, LOCAL_SESSION_KEY, LOCAL_REGISTRY_KEY, LOCAL_EMAIL_USERS_KEY, RoleMismatchError, ADMIN_DEFAULT_PASSWORD, type AuthUser, type UserRole } from '../contexts/AuthContext';
-import { getLocalSuspensionInfo } from '../lib/drivers';
+import { useAuth, RoleMismatchError, type AuthUser, type UserRole } from '../contexts/AuthContext';
 import { fetchMyApplications } from '../lib/applications';
-import { demoAccountsForRole } from '../data/demoAccounts';
 import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
+import { useSeo } from '../hooks/useSeo';
 
 const roleRedirects: Record<UserRole, string> = {
   client: '/',
@@ -92,35 +91,30 @@ async function resolveRedirect(user: AuthUser, from?: string): Promise<string> {
   if (!user.isApproved) {
     const apps = await fetchMyApplications(user.id);
     const hasApplication = apps.some((a) => a.type === user.role);
-    if (!hasApplication) return '/candidature';
+    if (hasApplication) {
+      // Déjà candidat — compte en attente de validation.
+      toast.info('Votre compte est en attente de validation par notre équipe. Vous recevrez une notification dès qu\'il sera activé.', { duration: 8000 });
+      return from ?? '/';
+    }
+    // Pas encore candidat — rediriger vers la candidature.
+    toast.info('Votre compte doit être validé avant d\'accéder à votre espace. Veuillez compléter votre candidature.', { duration: 8000 });
+    return '/candidature';
   }
   return roleRedirects[user.role];
 }
 
-// Mock email registry — for dev mode (VITE_FORCE_MOCK_AUTH=true)
-const MOCK_EMAIL_PASSWORDS: Record<string, { phone: string; role: UserRole; approved: boolean }> = {
-  'demo.admin@gmail.com': { phone: '690000001', role: 'admin', approved: true },
-  'ngo.marie@gmail.com': { phone: '690000002', role: 'client', approved: true },
-  'essomba.paul@yahoo.fr': { phone: '690000003', role: 'restaurant', approved: true },
-  'manga.christelle@gmail.com': { phone: '690000004', role: 'restaurant', approved: false },
-  'kamga.paul@gmail.com': { phone: '690000005', role: 'livreur', approved: true },
-  'onana.brice@yahoo.fr': { phone: '690000006', role: 'livreur', approved: false },
-};
 
-const MOCK_PASSWORD = ADMIN_DEFAULT_PASSWORD;
 export default function Login({ defaultRole = 'client' as UserRole }: { defaultRole?: UserRole }) {
   const { t } = useTranslation();
   const { sendOtp, verifyOtp, signInWithPassword, isSupabaseConfigured } = useAuth();
-  // Aides de démo (bannière SMS + comptes de démonstration + identifiants) :
-  // affichées UNIQUEMENT en mode mock (aucun vrai backend). Sur le site réel
-  // (API VPS), on ne montre jamais ces précisions ni d'identifiants de test.
-  const isDemoMode = !isSupabaseConfigured;
+
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = (location.state as { from?: string } | null)?.from ?? '/';
 
   const profile = profileConfigs[defaultRole];
   const crossLinks = getCrossLinks(defaultRole);
+  useSeo({ title: t(profile.title), noindex: true });
 
   // "Simplifié" = phone OTP (default) | "Pro" = email + password
   const [authMode, setAuthMode] = useState<'simple' | 'pro'>('simple');
@@ -133,9 +127,13 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
   const [submitting, setSubmitting] = useState(false);
   const [resendIn, setResendIn] = useState(0);
 
+  // Phone password sub-mode (toggle between OTP and password)
+  const [phonePasswordMode, setPhonePasswordMode] = useState(false);
+
   // --- Email state ---
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordPhone, setPasswordPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailSubmitting, setEmailSubmitting] = useState(false);
@@ -211,6 +209,20 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
     }
   };
 
+  const handlePhonePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+    try {
+      const loggedInUser = await signInWithPassword(normalizeCameroonPhone(phone), passwordPhone);
+      navigate(await resolveRedirect(loggedInUser, redirectTo), { replace: true });
+    } catch {
+      setError('Identifiants invalides. Vérifiez votre téléphone et mot de passe.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setEmailError('');
@@ -223,59 +235,15 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
         return;
       }
 
-      const emailKey = email.trim().toLowerCase();
-      // Si le champ contient un numéro de téléphone, on le nettoie aussi
-      // pour chercher dans le registre des mots de passe (adminSetPassword).
-      const phoneKeyFromEmail = /^\+?\d/.test(emailKey) ? normalizeCameroonPhone(emailKey) : null;
-      const emailUsers = JSON.parse(localStorage.getItem(LOCAL_EMAIL_USERS_KEY) ?? '{}');
-      // Cherche d'abord par email, puis par téléphone si pertinent
-      const registered = emailUsers[emailKey] ?? (phoneKeyFromEmail ? emailUsers[phoneKeyFromEmail] : undefined);
-      let mockUser = MOCK_EMAIL_PASSWORDS[emailKey];
 
-      if (registered) {
-        if (password !== registered.password) {
-          setEmailError('Email ou mot de passe incorrect.');
-          setEmailSubmitting(false);
-          return;
-        }
-        const phoneKey = registered.phone;
-        const registryData: Record<string, any> = JSON.parse(localStorage.getItem(LOCAL_REGISTRY_KEY) ?? '{}');
-        const storedUser = registryData[phoneKey];
-        mockUser = storedUser
-          ? { phone: storedUser.phone, role: storedUser.role, approved: storedUser.isApproved }
-          : { phone: phoneKey, role: 'client', approved: true };
-      } else if (!mockUser || password !== MOCK_PASSWORD) {
-        setEmailError('Email ou mot de passe incorrect.');
-        setEmailSubmitting(false);
-        return;
-      }
-
-      const localUserId = `local-${normalizeCameroonPhone(mockUser.phone)}`;
-      const suspensionInfo = getLocalSuspensionInfo(localUserId);
-      const localUser = {
-        id: localUserId,
-        phone: mockUser.phone,
-        role: mockUser.role,
-        isApproved: mockUser.approved || mockUser.role === 'client' || mockUser.role === 'admin',
-        isSuspended: suspensionInfo.isSuspended,
-        suspensionReason: suspensionInfo.reason ?? null,
-      };
-      localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(localUser));
-      const registry: Record<string, any> = JSON.parse(localStorage.getItem(LOCAL_REGISTRY_KEY) ?? '{}');
-      registry[normalizeCameroonPhone(mockUser.phone)] = localUser;
-      localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(registry));
-      const redirectPath = await resolveRedirect(localUser);
-      navigate(redirectPath, { replace: true });
-      window.location.reload();
     } catch {
-      setEmailError('Identifiants invalides.');
+      setEmailError('Identifiants invalides. Essayez la connexion par téléphone (code OTP) si vous avez oublié votre mot de passe.');
     } finally {
       setEmailSubmitting(false);
     }
   };
 
-  // ── Comptes démo : uniquement ceux du rôle de la page, pas de mélange ──
-  const demoAccounts = demoAccountsForRole(defaultRole);
+
 
   return (
     <div className="pt-[72px] min-h-screen bg-bg-secondary flex items-center justify-center px-4">
@@ -316,66 +284,8 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
             </button>
           </div>
 
-          {/* ── Demo notice ── */}
-          {isDemoMode && (
-            <div className="bg-gold-light text-amber-700 text-xs font-inter rounded-lg px-3 py-2 mb-5">
-              {t("Mode démo : aucun SMS n'est envoyé, saisissez n'importe quel code à l'étape suivante.")}
-            </div>
-          )}
-
-          {/* ── Comptes de démonstration (uniquement le rôle de la page) ── */}
-          {isDemoMode && demoAccounts.length > 0 && (
-            <div className="mb-5 rounded-xl border border-dashed border-green-primary/30 bg-green-light/30 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <FlaskConical className="w-4 h-4 text-green-primary" />
-                <p className="font-inter font-semibold text-green-primary text-sm">
-                  {t("Compte")}{demoAccounts.length > 1 ? 's' : ''} {t("de démonstration")} {roleLabels[defaultRole].toLowerCase()}
-                </p>
-                <span className="text-text-muted text-[10px] font-inter">{t("— cliquez pour remplir")}</span>
-              </div>
-              <div className="space-y-1.5">
-                {demoAccounts.map((demo) => {
-                    const { t } = useTranslation();
-                  const isSelected = authMode === 'simple' ? phone === demo.phone : email === demo.email;
-                  return (
-                    <button
-                      key={demo.phone}
-                      type="button"
-                      onClick={() => {
-                        if (authMode === 'simple') {
-                          setPhone(normalizeCameroonPhone(demo.phone));
-                        } else {
-                          setEmail(demo.email);
-                          setPassword(MOCK_PASSWORD);
-                        }
-                        toast.success(`${demo.emoji} ${demo.label} sélectionné`, { duration: 1500 });
-                      }}
-                      className={`w-full flex items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-all hover:shadow-sm ${isSelected ? 'border-green-primary bg-green-light/50' : 'border-border-custom bg-white hover:border-green-primary/50'}`}
-                    >
-                      <span className="shrink-0 text-sm" aria-hidden>{demo.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-inter text-xs font-semibold text-text-primary">{demo.label}</p>
-                        <p className="font-inter text-[11px] text-text-muted truncate">{demo.phone} · {demo.desc}</p>
-                      </div>
-                      <span className={`shrink-0 text-[10px] font-inter font-semibold px-1.5 py-0.5 rounded-full ${demo.approved ? 'bg-success/10 text-success' : 'bg-amber-100 text-amber-700'}`}>
-                        {demo.approved ? 'Approuvé' : 'En attente'}
-                      </span>
-                      {isSelected && (
-                        <span className="text-green-primary text-[10px] font-inter font-medium shrink-0">{t("✓ Actif")}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-text-muted text-[10px] font-inter mt-2.5 text-center">
-                {t("Mot de passe Email :")} <strong className="text-text-primary">{ADMIN_DEFAULT_PASSWORD}</strong>
-                {authMode === 'simple' && ' · En mode Téléphone, tout code à 5 chiffres est accepté'}
-              </p>
-            </div>
-          )}
-
           {/* ══════════════════════════════════════════
-            PRO MODE — Email + Password
+            Email + Password
             ══════════════════════════════════════════ */}
           {authMode === 'pro' ? (
             <form onSubmit={handleEmailLogin} className="space-y-4">
@@ -424,9 +334,9 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
                 {emailSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("Connexion...")}</> : <>{t("Se connecter")} <ArrowRight className="w-4 h-4" /></>}
               </button>
             </form>
-          ) : step === 'phone' ? (
+          ) : step === 'phone' && !phonePasswordMode ? (
             /* ══════════════════════════════════════════
-               SIMPLIFIÉ — Phone OTP (step 1: enter phone)
+            Phone OTP (step 1: enter phone)
                ══════════════════════════════════════════ */
             <form onSubmit={handlePhoneOtp} className="space-y-4">
               <div>
@@ -452,10 +362,69 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
               >
                 {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("Envoi...")}</> : <>{t("Recevoir le code")} <ArrowRight className="w-4 h-4" /></>}
               </button>
+              {isSupabaseConfigured && (
+                <button
+                  type="button"
+                  onClick={() => { setPhonePasswordMode(true); setError(''); }}
+                  className="w-full text-green-primary font-inter text-sm font-medium hover:text-green-dark transition-colors"
+                >
+                  {t("Utiliser le mot de passe")}
+                </button>
+              )}
+            </form>
+          ) : step === 'phone' && phonePasswordMode ? (
+            /* ══════════════════════════════════════════
+            Phone + Password (alternative au OTP)
+               ══════════════════════════════════════════ */
+            <form onSubmit={handlePhonePasswordLogin} className="space-y-4">
+              <div>
+                <label className="block text-text-secondary font-inter text-sm mb-1.5">{t("Numéro de téléphone")}</label>
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
+                  <Phone className="w-4 h-4 text-text-muted shrink-0" />
+                  <span className="text-text-primary font-inter text-[15px] font-medium shrink-0 select-none">+237</span>
+                  <input
+                    type="tel"
+                    value={displayCameroonPhone(phone)}
+                    onChange={(e) => setPhone(normalizeCameroonPhone(e.target.value))}
+                    placeholder="6XX XX XX XX"
+                    className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-text-secondary font-inter text-sm mb-1.5">{t("Mot de passe")}</label>
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-border-custom px-4 h-12 focus-within:border-green-primary transition-all">
+                  <ShieldCheck className="w-4 h-4 text-text-muted shrink-0" />
+                  <input
+                    type="password"
+                    value={passwordPhone}
+                    onChange={(e) => setPasswordPhone(e.target.value)}
+                    placeholder="••••••••"
+                    className="flex-1 bg-transparent text-text-primary font-inter text-[15px] outline-none placeholder:text-text-muted"
+                    required
+                  />
+                </div>
+              </div>
+              {error && <p className="text-error text-sm font-inter" role="alert">{error}</p>}
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("Connexion...")}</> : <>{t("Se connecter")} <ArrowRight className="w-4 h-4" /></>}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setPhonePasswordMode(false); setError(''); }}
+                className="w-full text-text-secondary font-inter text-sm hover:text-text-primary transition-colors"
+              >
+                {t("Utiliser le code OTP")}
+              </button>
             </form>
           ) : (
             /* ══════════════════════════════════════════
-               SIMPLIFIÉ — Phone OTP (step 2: enter code)
+               Phone OTP (step 2: enter code)
                ══════════════════════════════════════════ */
             <form onSubmit={handleVerify} className="space-y-4">
               <div>
@@ -510,7 +479,7 @@ export default function Login({ defaultRole = 'client' as UserRole }: { defaultR
                   >
                     <link.icon className="w-4 h-4 text-text-muted group-hover:text-green-primary transition-colors shrink-0" />
                     <span className="text-text-secondary font-inter text-sm group-hover:text-text-primary transition-colors">
-                      {link.label}
+                      {t(link.label)}
                     </span>
                     <span className="text-green-primary font-inter text-xs font-medium ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                       {t("Connexion")} <ArrowRight className="w-3 h-3" />

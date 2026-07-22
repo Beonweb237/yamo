@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from './components/ui/sonner'
 import Layout from './components/Layout'
 import BackOfficeLayout from './components/BackOfficeLayout'
+import OrderPingModal from './components/OrderPingModal'
 import Home from './pages/Home'
 import Restaurants from './pages/Restaurants'
 import RestaurantDetail from './pages/RestaurantDetail'
@@ -36,6 +37,7 @@ import AdminPoints from './pages/admin/AdminPoints'
 import AdminTrash from './pages/admin/AdminTrash'
 import AdminQuotas from './pages/admin/AdminQuotas'
 import AdminRoles from './pages/admin/AdminRoles'
+import AdminOperations from './pages/admin/AdminOperations'
 import FoodRequestCreate from './pages/FoodRequestCreate'
 import FoodRequestList from './pages/FoodRequestList'
 import NotFound from './pages/NotFound'
@@ -64,6 +66,7 @@ export default function App() {
   return (
     <>
       <Toaster position="bottom-center" richColors mobileOffset={{ bottom: hasOwnCartBar ? 132 : 72 }} />
+      <OrderPingModal />
       <Routes>
         <Route path="/" element={<Layout><Home /></Layout>} />
         <Route path="/restaurants" element={<Layout><Restaurants /></Layout>} />
@@ -128,10 +131,11 @@ export default function App() {
             </BackOfficeLayout>
           }
         >
-          <Route index element={<Navigate to="/admin/dashboard" replace />} />
+          <Route index element={<Navigate to="/admin/connexion" replace />} />
           <Route path="dashboard" element={<AdminPermissionGate permission="dashboard.view"><AdminDashboard /></AdminPermissionGate>} />
           <Route path="applications" element={<AdminPermissionGate permission="applications.view"><AdminApplications /></AdminPermissionGate>} />
           <Route path="orders" element={<AdminPermissionGate permission="orders.view"><AdminOrders /></AdminPermissionGate>} />
+          <Route path="operations" element={<AdminPermissionGate permission="operations.view"><AdminOperations /></AdminPermissionGate>} />
           <Route path="restaurants" element={<AdminPermissionGate permission="restaurants.view"><AdminRestaurants /></AdminPermissionGate>} />
           <Route path="drivers" element={<AdminPermissionGate permission="couriers.view"><AdminDrivers /></AdminPermissionGate>} />
           <Route path="disputes" element={<AdminPermissionGate permission="orders.disputes.resolve"><AdminDisputes /></AdminPermissionGate>} />

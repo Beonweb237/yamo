@@ -16,7 +16,10 @@ export default function Layout({ children }: { children: ReactNode }) {
   // Onboarding : première visite uniquement, sur l'accueil (jamais sur un lien
   // profond partagé — resto, checkout — où l'overlay casserait le parcours),
   // et jamais pour un utilisateur déjà connecté (compte antérieur au flag).
-  const showOnboarding = onboardingPending && !authLoading && !user && location.pathname === '/';
+  // Jamais pendant le prerender react-snap (UA « ReactSnap ») : l'overlay
+  // forcerait la langue détectée du navigateur de crawl dans le HTML statique.
+  const isPrerender = typeof navigator !== 'undefined' && navigator.userAgent === 'ReactSnap';
+  const showOnboarding = onboardingPending && !authLoading && !user && location.pathname === '/' && !isPrerender;
 
   return (
     <div className="min-h-screen bg-bg-main font-inter">

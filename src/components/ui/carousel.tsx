@@ -198,7 +198,7 @@ function CarouselPrevious({
       {...props}
     >
       <ArrowLeft />
-      <span className="sr-only">{t("Previous slide")}</span>
+      <span className="sr-only">{t("Diapositive précédente")}</span>
     </Button>
   )
 }
@@ -229,7 +229,7 @@ function CarouselNext({
       {...props}
     >
       <ArrowRight />
-      <span className="sr-only">{t("Next slide")}</span>
+      <span className="sr-only">{t("Diapositive suivante")}</span>
     </Button>
   )
 }

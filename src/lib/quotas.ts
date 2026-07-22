@@ -5,17 +5,34 @@
 
 import type { UserRole } from '../contexts/AuthContext';
 
+const USE_VPS = import.meta.env.VITE_USE_VPS_API === 'true';
+
+function authHeader(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem('miamexpress_session');
+    const token = raw ? JSON.parse(raw)?.access_token : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch { return {}; }
+}
+
 /** Clé localStorage pour les quotas configurés */
 export const QUOTA_CONFIG_KEY = 'yamo_quota_config';
 /** Clé localStorage pour stocker si le quota a bloqué une inscription */
 export const QUOTA_BLOCK_KEY = 'yamo_quota_blocked';
 
-/** Quotas par défaut */
+/**
+ * Quotas par défaut — valeurs de PRODUCTION (au-dessus des comptes réels
+ * existants pour ne pas bloquer les inscriptions ; l'admin peut les ajuster).
+ * Les anciennes valeurs basses (30/10/20/5) étaient calibrées pour un
+ * environnement de test à vide et verrouillaient la prod (déjà 62 clients,
+ * 25 restos, 28 livreurs de seed). Le blocage réel n'est actif que si l'admin
+ * enregistre une config (app_settings.quota_config).
+ */
 export const DEFAULT_QUOTAS: Record<UserRole, number> = {
-  client: 30,
-  restaurant: 10,
-  livreur: 20,
-  admin: 5,
+  client: 5000,
+  restaurant: 500,
+  livreur: 500,
+  admin: 20,
 };
 
 /** Types de profils avec label */
@@ -69,6 +86,58 @@ export function getUserCounts(): Record<UserRole, number> {
     }
   } catch { /* ignore */ }
   return counts;
+}
+
+/**
+ * Nombre RÉEL d'utilisateurs par rôle. En mode VPS, compté EN BASE
+ * (`/api/admin/user-counts`) — le mock localStorage était toujours vide en
+ * production, d'où des quotas affichés à 0. En mock, lit le registre local.
+ */
+export async function fetchUserCounts(): Promise<Record<UserRole, number>> {
+  if (USE_VPS) {
+    try {
+      const res = await fetch('/api/admin/user-counts', { headers: authHeader() });
+      if (res.ok) {
+        const j = await res.json();
+        return { client: j.client ?? 0, restaurant: j.restaurant ?? 0, livreur: j.livreur ?? 0, admin: j.admin ?? 0 };
+      }
+    } catch { /* repli sur le registre local */ }
+  }
+  return getUserCounts();
+}
+
+/** Config des quotas — VPS : app_settings.quota_config ; mock : localStorage. */
+export async function fetchQuotaConfig(): Promise<QuotaConfig> {
+  if (USE_VPS) {
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const s = await res.json();
+        const q = s?.quota_config as Partial<QuotaConfig> | undefined;
+        if (q) return {
+          client: q.client ?? DEFAULT_QUOTAS.client,
+          restaurant: q.restaurant ?? DEFAULT_QUOTAS.restaurant,
+          livreur: q.livreur ?? DEFAULT_QUOTAS.livreur,
+          admin: q.admin ?? DEFAULT_QUOTAS.admin,
+        };
+      }
+    } catch { /* repli défaut */ }
+    return { ...DEFAULT_QUOTAS };
+  }
+  return getQuotaConfig();
+}
+
+/** Enregistre la config des quotas — VPS : app_settings (serveur applique au signup). */
+export async function saveQuotaConfig(config: QuotaConfig): Promise<void> {
+  if (USE_VPS) {
+    await fetch('/api/settings/quota_config', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
+      body: JSON.stringify({ value: config }),
+    });
+    return;
+  }
+  setQuotaConfig(config);
 }
 
 /**

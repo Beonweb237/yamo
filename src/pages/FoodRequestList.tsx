@@ -5,6 +5,7 @@ import { fetchMyFoodRequests, acceptBid, cancelFoodRequest, type FoodRequest } f
 import PageHeader from '../components/PageHeader';
 import { UtensilsCrossed, MapPin, Clock, CheckCircle2, XCircle, Timer, MessageCircle, ChevronRight, Plus, Sparkles } from 'lucide-react';
 import { useTranslation } from "react-i18next";
+import { useSeo } from '../hooks/useSeo';
 
 const STATUS_CONFIG: Record<FoodRequest['status'], { label: string; color: string; icon: typeof Timer }> = {
   open: { label: 'En attente', color: 'bg-gold-light text-amber-700 border-gold-accent/30', icon: Timer },
@@ -35,6 +36,7 @@ function expiresIn(date: string) {
 
 export default function FoodRequestList() {
     const { t } = useTranslation();
+  useSeo({ title: t('Mes demandes de plats'), noindex: true });
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -126,7 +128,6 @@ export default function FoodRequestList() {
         ) : (
           <div className="space-y-4">
             {requests.map((req) => {
-                const { t } = useTranslation();
               const statusCfg = STATUS_CONFIG[req.status];
               const StatusIcon = statusCfg.icon;
               const acceptedBid = req.bids.find((b) => b.id === req.acceptedBidId);
@@ -158,7 +159,7 @@ export default function FoodRequestList() {
                     {req.dietaryTags.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mb-3">
                         {req.dietaryTags.map((tag) => (
-                          <span key={tag} className="px-2 py-0.5 bg-bg-secondary text-text-secondary rounded-full text-xs font-inter">{tag}</span>
+                          <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-white text-text-secondary text-xs font-medium px-2.5 py-1 border border-border-custom shadow-sm">{tag}</span>
                         ))}
                       </div>
                     )}

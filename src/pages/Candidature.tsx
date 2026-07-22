@@ -5,9 +5,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { fetchMyApplications, type Application } from '../lib/applications';
 import ApplicationForm from '../components/ApplicationForm';
 import { useTranslation } from "react-i18next";
+import { useSeo } from '../hooks/useSeo';
 
 export default function Candidature() {
     const { t } = useTranslation();
+  useSeo({ title: t('Candidature partenaire'), noindex: true });
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
