@@ -28,6 +28,24 @@ function commissionForSubtotal(subtotal) {
 const SETTLEMENT_KINDS = ['consume', 'release', 'penalty'];
 
 export function registerPointsRoutes(app, { pool, authRequired, adminRequired, adminPermissionRequired, fromSnake }) {
+  // Série PAY : grand livre livreur — ce que la plateforme doit / a payé au livreur.
+  // Alimenté notamment en mode prepaid_restaurant (frais financés par le wallet resto,
+  // crédités au livreur à la livraison). Idempotent par (kind, reference).
+  pool.query(`
+    CREATE TABLE IF NOT EXISTS driver_ledger (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      driver_id text NOT NULL,
+      order_id text,
+      kind text NOT NULL,
+      amount_fcfa integer NOT NULL,
+      reference text NOT NULL,
+      note text,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (kind, reference)
+    );
+    CREATE INDEX IF NOT EXISTS driver_ledger_driver_idx ON driver_ledger(driver_id);
+  `).catch((e) => console.error('driver_ledger init:', e.message));
+
   // Toutes les écritures d'un même resto sont sérialisées par un verrou
   // advisory de transaction : pas de double hold en course, pas de solde négatif.
   async function withRestaurantLock(restaurantId, fn) {
@@ -161,26 +179,38 @@ export function registerPointsRoutes(app, { pool, authRequired, adminRequired, a
           "SELECT * FROM points_ledger WHERE kind = 'hold' AND reference = $1", [orderId]
         );
         if (existing.rows[0]) return { entry: existing.rows[0], created: false };
-        // Commission = 15 % du sous-total EN BASE (source de vérité serveur ;
-        // le client n'envoie jamais le montant à facturer).
-        const ord = await client.query('SELECT subtotal FROM orders WHERE id::text = $1', [String(orderId)]);
+        // Montant réservé = source de vérité SERVEUR (le client n'envoie jamais le
+        // montant). Commission = 15 % du sous-total ; en mode prepaid_restaurant, on
+        // réserve AUSSI les frais de livraison (le resto encaisse tout, la plateforme
+        // recouvre commission + frais sur son porte-monnaie). Mode figé par commande
+        // dans fee_breakdown.payment_mode (défaut cod).
+        const ord = await client.query('SELECT subtotal, delivery_fee, fee_breakdown FROM orders WHERE id::text = $1', [String(orderId)]);
         if (!ord.rows[0]) {
           const err = new Error('Commande introuvable pour la réservation de commission.');
           err.statusCode = 404;
           throw err;
         }
         const commission = commissionForSubtotal(ord.rows[0].subtotal);
+        const mode = ord.rows[0].fee_breakdown?.payment_mode || 'cod';
+        const driverFee = mode === 'prepaid_restaurant' ? Math.max(0, Math.round(ord.rows[0].delivery_fee || 0)) : 0;
+        const reservation = commission + driverFee;
         const { available } = await computeBalance(client, restaurantId);
-        if (available < commission + POINTS_CONFIG.MIN_BALANCE_FLOOR_FCFA) {
+        if (available < reservation + POINTS_CONFIG.MIN_BALANCE_FLOOR_FCFA) {
+          const detail = driverFee > 0
+            ? `${reservation} FCFA (commission ${commission} + frais livreur ${driverFee})`
+            : `${commission} FCFA de commission`;
           const err = new Error(
-            `Solde insuffisant (${available} FCFA) : accepter cette commande réserve ${commission} FCFA de commission. Rechargez votre compte.`
+            `Solde insuffisant (${available} FCFA) : accepter cette commande réserve ${detail}. Rechargez votre compte.`
           );
           err.statusCode = 402;
           throw err;
         }
+        const note = driverFee > 0
+          ? `Réservation commission ${commission} + frais livreur ${driverFee} (${reservation} FCFA) — commande #${String(orderId).slice(0, 8)}`
+          : `Réservation commission (${commission} FCFA) — commande #${String(orderId).slice(0, 8)}`;
         return appendEntry(client, {
-          restaurantId, kind: 'hold', points: -commission,
-          reference: orderId, note: `Réservation commission (${commission} FCFA) — commande #${String(orderId).slice(0, 8)}`,
+          restaurantId, kind: 'hold', points: -reservation,
+          reference: orderId, note,
         });
       });
       res.json(fromSnake(result.entry));
@@ -223,7 +253,24 @@ export function registerPointsRoutes(app, { pool, authRequired, adminRequired, a
               points: holdAmount - Math.min(holdAmount, POINTS_CONFIG.PENALTY_RESTAURANT_FAULT_FCFA),
               note: `Annulation par le restaurant — pénalité de ${Math.min(holdAmount, POINTS_CONFIG.PENALTY_RESTAURANT_FAULT_FCFA)} FCFA conservée`,
             };
-        return appendEntry(client, { restaurantId, reference: orderId, ...spec });
+        const entry = await appendEntry(client, { restaurantId, reference: orderId, ...spec });
+
+        // Mode prepaid_restaurant : à la livraison, les frais (financés par le wallet
+        // resto via le hold) sont crédités au livreur dans son grand livre. Idempotent.
+        if (outcome === 'consume') {
+          const ord = await client.query('SELECT delivery_fee, driver_id, fee_breakdown FROM orders WHERE id::text = $1', [String(orderId)]);
+          const o = ord.rows[0];
+          const mode = o?.fee_breakdown?.payment_mode || 'cod';
+          const driverFee = Math.max(0, Math.round(o?.delivery_fee || 0));
+          if (o && mode === 'prepaid_restaurant' && o.driver_id && driverFee > 0) {
+            await client.query(
+              `INSERT INTO driver_ledger (driver_id, order_id, kind, amount_fcfa, reference, note)
+               VALUES ($1, $2, 'earning', $3, $2, $4) ON CONFLICT (kind, reference) DO NOTHING`,
+              [String(o.driver_id), String(orderId), driverFee, `Frais de livraison (prépayé restaurant) — commande #${String(orderId).slice(0, 8)}`]
+            );
+          }
+        }
+        return entry;
       });
       res.json(fromSnake(result.entry));
     } catch (err) {

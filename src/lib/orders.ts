@@ -7,6 +7,7 @@ import { parseCityFromAddress, parseNeighborhoodFromAddress } from '../data/loca
 // hold/settle est fait côté serveur dans la même transaction que le statut
 // (PTS-08) — les appels ci-dessous ne concernent que le chemin mock.
 import { holdPoints, settleHold, hasActiveHold, convertPointsToRefund } from './points';
+import { getPaymentMode } from './paymentMode';
 // Série LOY — MiamPoints : le client gagne des points à la livraison. Best-effort
 // (un échec de fidélité ne doit jamais bloquer la livraison de la commande).
 import { earnLoyalty, redeemLoyalty, refundLoyalty } from './loyalty';
@@ -501,6 +502,10 @@ export async function createOrder(input: OrderInput): Promise<Order> {
 
     if (addressError || !addressRow) throw addressError ?? new Error('Address creation failed');
 
+    // Snapshot du mode de paiement effectif — fige le comportement de CETTE commande
+    // (checkout/acceptation/livraison/finance) même si le réglage global change ensuite.
+    const paymentMode = await getPaymentMode();
+
     const orderPayload = {
       customer_id: input.customerId,
       restaurant_id: input.restaurantId,
@@ -520,14 +525,18 @@ export async function createOrder(input: OrderInput): Promise<Order> {
       // Série DRV — rémunération livreur
       tip_amount: input.tipAmount ?? 0,
       surge_applied: input.driverEarnings?.surgeActive ?? false,
-      fee_breakdown: input.driverEarnings ? JSON.stringify({
-        basePickup: input.driverEarnings.basePickup,
-        distancePay: input.driverEarnings.distancePay,
-        waitPay: input.driverEarnings.waitPay,
-        surgeMultiplier: input.driverEarnings.surgeMultiplier,
-        surgeBonus: input.driverEarnings.surgeBonus,
-        final: input.driverEarnings.final,
-      }) : null,
+      // fee_breakdown porte le détail rému livreur ET le snapshot du mode de paiement.
+      fee_breakdown: JSON.stringify({
+        ...(input.driverEarnings ? {
+          basePickup: input.driverEarnings.basePickup,
+          distancePay: input.driverEarnings.distancePay,
+          waitPay: input.driverEarnings.waitPay,
+          surgeMultiplier: input.driverEarnings.surgeMultiplier,
+          surgeBonus: input.driverEarnings.surgeBonus,
+          final: input.driverEarnings.final,
+        } : {}),
+        payment_mode: paymentMode,
+      }),
     };
 
     let { data: orderRow, error: orderError } = await supabase

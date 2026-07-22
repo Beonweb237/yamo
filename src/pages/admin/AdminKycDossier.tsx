@@ -151,6 +151,15 @@ export default function AdminKycDossier() {
         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLE[d.kycStatus]}`}>{t(KYC_STATUS_LABELS[d.kycStatus])}</span>
       </div>
 
+      {/* Lien vers la candidature (admission) — les 2 espaces sont complémentaires */}
+      <div className="flex items-center gap-2 mb-4 text-xs">
+        <span className="text-text-muted">{t('Admission :')}</span>
+        <span className={`font-semibold px-2 py-0.5 rounded-full ${d.appStatus === 'approved' ? 'bg-green-light text-green-primary' : d.appStatus === 'rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
+          {t(d.appStatus === 'approved' ? 'Approuvée' : d.appStatus === 'rejected' ? 'Rejetée' : 'En attente')}
+        </span>
+        <Link to="/admin/applications" className="text-green-primary hover:text-green-dark font-medium ml-1">{t('Voir les candidatures')}</Link>
+      </div>
+
       {/* Infos profil + édition */}
       <div className="bg-white rounded-2xl border border-border-custom p-4 sm:p-5 mb-4">
         <div className="flex items-center justify-between mb-3">

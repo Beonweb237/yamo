@@ -1,7 +1,7 @@
 import { usePolling } from '../../hooks/usePolling';
 import { useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { RefreshCw, UserCheck, Check, X, Store, Bike, Search, Clock, ThumbsUp, ThumbsDown, Phone, MapPin, ChevronDown, ChevronUp, Image, Plus } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { RefreshCw, UserCheck, Check, X, Store, Bike, Search, Clock, ThumbsUp, ThumbsDown, Phone, MapPin, Plus, ShieldCheck } from 'lucide-react';
 import { useRestaurants } from '../../hooks/useCatalog';
 import { fetchAllApplications, approveApplication, rejectApplication, type Application, type ApplicationStatus } from '../../lib/applications';
 import { toast } from 'sonner';
@@ -36,7 +36,6 @@ export default function AdminApplications() {
   const [selectedRestaurantByApp, setSelectedRestaurantByApp] = useState<Record<string, string>>({});
   const [tab, setTab] = useState<Tab>('pending');
   const [query, setQuery] = useState('');
-  const [expandedDocs, setExpandedDocs] = useState<Record<string, boolean>>({});
   const [rejectTarget, setRejectTarget] = useState<Application | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const navigate = useNavigate();
@@ -183,19 +182,6 @@ export default function AdminApplications() {
           {visible.map((app) => {
             const cfg = typeConfig[app.type];
             const Icon = cfg.icon;
-            const docsExpanded = expandedDocs[app.id] ?? false;
-
-            const docFields: { label: string; value: string | undefined }[] = [
-              { label: "Pièce d'identité", value: app.idDocument },
-              { label: 'Photo de profil', value: app.profilePhoto },
-              ...(app.type === 'restaurant'
-                ? [{ label: 'Registre de commerce', value: app.businessReg }, { label: 'Photo du restaurant', value: app.restaurantPhoto }]
-                : [
-                  { label: 'Permis de conduire', value: app.licenseDocument },
-                  { label: 'Attestation assurance', value: app.insuranceDocument },
-                  { label: 'Photo du véhicule', value: app.vehiclePhoto },
-                ]),
-            ].filter((f) => f.value);
 
             return (
               <div
@@ -239,41 +225,14 @@ export default function AdminApplications() {
                     </p>
                   )}
 
-                  {docFields.length > 0 ? (
-                    <div className="mb-3">
-                      <button
-                        onClick={() => setExpandedDocs((p) => ({ ...p, [app.id]: !docsExpanded }))}
-                        className="flex items-center gap-1.5 text-text-secondary text-xs font-inter font-medium hover:text-text-primary"
-                      >
-                        {docsExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                        <Image className="w-3.5 h-3.5" />
-                        {docFields.length} {t("document")}{docFields.length > 1 ? 's' : ''}
-                      </button>
-                      {docsExpanded && (
-                        <div className="mt-3 flex flex-wrap gap-3">
-                          {docFields.map((doc) => (
-                            <a
-                              key={doc.label}
-                              href={doc.value}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="group block"
-                              title={doc.label}
-                            >
-                              <img
-                                src={doc.value}
-                                alt={doc.label}
-                                className="w-24 h-24 rounded-xl border border-border-custom object-cover shadow-sm group-hover:shadow-md group-hover:ring-2 group-hover:ring-green-primary/30 transition-all"
-                              />
-                              <span className="text-text-muted text-[10px] font-inter block mt-1 truncate max-w-[96px]">{doc.label}</span>
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-text-muted text-xs font-inter italic mb-2">{t("Aucun document fourni")}</p>
-                  )}
+                  {/* Vérification documentaire centralisée dans le Centre KYC (source unique). */}
+                  <Link
+                    to={`/admin/kyc/${app.id}`}
+                    className="inline-flex items-center gap-1.5 text-green-primary text-xs font-inter font-medium hover:text-green-dark mb-3"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    {t("Vérifier les pièces (KYC)")}
+                  </Link>
 
                   {tab === 'pending' && (
                     <>

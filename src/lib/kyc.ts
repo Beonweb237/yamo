@@ -88,6 +88,7 @@ export interface KycDossier {
   applicationId: string;
   type: ProfileType;
   kycStatus: KycDossierStatus;
+  appStatus: string;            // statut d'admission (pending/approved/rejected)
   expectedDocKeys: string[];
   name: string | null;
   restaurantName: string | null;

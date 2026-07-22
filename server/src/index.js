@@ -16,6 +16,7 @@ import { registerLoyaltyRoutes } from './loyalty-routes.js';
 import { registerTrackingRoutes } from './tracking-routes.js';
 import { registerOperationsRoutes } from './operations-routes.js';
 import { registerKycRoutes } from './kyc-routes.js';
+import { registerFinanceRoutes } from './finance-routes.js';
 import { startSmartDispatch, handleDriverPingResponse } from './smart_dispatch.js';
 import {
   adminPermissionDefinitions,
@@ -547,6 +548,8 @@ registerTrackingRoutes(app, { pool, authRequired, adminRequired, fromSnake });
 registerOperationsRoutes(app, { pool, authRequired, adminPermissionRequired, fromSnake });
 // Série KYC : /api/admin/kyc/* (dossiers de vérification profils) — AVANT /api/:table.
 registerKycRoutes(app, { pool, authRequired, adminPermissionRequired, fromSnake });
+// Série FIN : /api/admin/finance/* (Centre Financier) — AVANT /api/:table.
+registerFinanceRoutes(app, { pool, authRequired, adminPermissionRequired });
 
 // ─── Admin : comptes, clients et validation directe ─────────────
 const ADMIN_CREATABLE_ROLES = new Set(['restaurant', 'livreur']);
@@ -869,6 +872,14 @@ app.post('/api/admin/applications/:id/approve', authRequired, adminPermissionReq
        RETURNING *`,
       [application.id, restaurantId, req.user.sub]
     );
+
+    // Pont candidature → KYC : un profil admis entre dans la file « à vérifier »
+    // (uniquement s'il n'a pas déjà un dossier KYC — ne jamais écraser un verdict).
+    await pool.query(
+      `INSERT INTO kyc_dossiers (application_id, status, reviewed_by, reviewed_at)
+       VALUES ($1::text, 'a_verifier', $2, now()) ON CONFLICT (application_id) DO NOTHING`,
+      [String(application.id), String(req.user.sub)]
+    ).catch((e) => console.warn('KYC dossier a_verifier skipped:', e.message));
 
     io.emit('realtime:users', { eventType: 'UPDATE', new: toPublicUser(approvedUser) });
     io.emit('realtime:applications', { eventType: 'UPDATE', new: fromSnake(approvedApplication) });

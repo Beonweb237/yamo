@@ -5,6 +5,7 @@ import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createOrder, CustomerBlockedError, type PaymentMethod } from '../lib/orders';
 import { validateOrder, initiateMoMoPayment, isVpsApiEnabled, NetworkPaymentError } from '../lib/payments';
+import { getPaymentMode, type PaymentMode } from '../lib/paymentMode';
 import { Skeleton } from '../components/ui/skeleton';
 import { useRestaurant } from '../hooks/useCatalog';
 import { activeCities, getNeighborhoods, getNeighborhoodCoords } from '../data/locations';
@@ -153,6 +154,9 @@ export default function Checkout() {
   const [notes, setNotes] = useState('');
   const [tipAmount, setTipAmount] = useState(0);
   const surgeActive = isSurgeActive();
+  // Série PAY — mode de paiement global effectif (adapte l'instruction affichée).
+  const [orderPaymentMode, setOrderPaymentMode] = useState<PaymentMode>('cod');
+  useEffect(() => { getPaymentMode().then(setOrderPaymentMode).catch(() => {}); }, []);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentPhone, setPaymentPhone] = useState(() => normalizeCameroonPhone(user?.phone ?? ''));
   const [orderForSomeoneElse, setOrderForSomeoneElse] = useState(false);
@@ -798,6 +802,12 @@ export default function Checkout() {
           <h2 className="font-poppins font-semibold text-text-primary text-lg mb-4">
             {t("Mode de paiement")}
           </h2>
+          {orderPaymentMode === 'prepaid_restaurant' && (
+            <div className="mb-4 rounded-xl bg-gold-light/50 border border-gold-accent/40 p-3 text-sm text-[#8A6D14] font-inter">
+              <b>{t("Paiement d'avance au restaurant.")}</b>{' '}
+              {t("Réglez le restaurant avant qu'il ne prépare votre commande ; la livraison est ensuite prise en charge par MiamExpress.")}
+            </div>
+          )}
           <div className="space-y-3">
             {paymentOptions.map((opt) => (
               <div key={opt.value}>

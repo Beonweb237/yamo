@@ -66,12 +66,19 @@ const adminCategories: CategoryGroup[] = [
     ],
   },
   {
+    label: 'Finances',
+    icon: Coins,
+    children: [
+      { name: 'Centre Financier', path: '/admin/finance', icon: Coins, permission: 'finance.dashboard.view' },
+      { name: 'Points', path: '/admin/points', icon: Coins, permission: 'points.manage' },
+    ],
+  },
+  {
     label: 'Configuration',
     icon: Settings,
     children: [
       { name: 'Zones', path: '/admin/zones', icon: MapPin, permission: 'zones.manage' },
       { name: 'Frais livraison', path: '/admin/delivery-fees', icon: DollarSign, permission: 'delivery_fees.manage' },
-      { name: 'Points', path: '/admin/points', icon: Coins, permission: 'points.manage' },
       { name: 'Rôles & accès', path: '/admin/roles', icon: ShieldCheck, permission: 'admin.roles.view' },
       { name: 'Quotas', path: '/admin/quotas', icon: Gauge, permission: 'quotas.manage' },
     ],

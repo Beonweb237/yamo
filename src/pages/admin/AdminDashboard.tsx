@@ -3,6 +3,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { RefreshCw, ShoppingBag, Wallet, Store, TrendingUp, Trophy, ChefHat, Percent, Radio, AlertTriangle } from 'lucide-react';
 import { getDemoTracking, setDemoTracking, getRechargeMomoNumber, setRechargeMomoNumber } from '../../lib/tracking';
+import { getPaymentMode, setPaymentMode, PAYMENT_MODES, type PaymentMode } from '../../lib/paymentMode';
 import { Switch } from '../../components/ui/switch';
 import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
@@ -64,6 +65,23 @@ export default function AdminDashboard() {
       toast.error("Impossible d'enregistrer le numéro.");
     } finally {
       setSavingMomo(false);
+    }
+  };
+
+  // Série PAY — mode de paiement global (cod par défaut). Change tout le parcours.
+  const [payMode, setPayModeState] = useState<PaymentMode>('cod');
+  const [savingMode, setSavingMode] = useState(false);
+  useEffect(() => { getPaymentMode().then(setPayModeState).catch(() => {}); }, []);
+  const changePayMode = async (next: PaymentMode) => {
+    setSavingMode(true);
+    try {
+      await setPaymentMode(next);
+      setPayModeState(next);
+      toast.success(t('Mode de paiement mis à jour'));
+    } catch {
+      toast.error(t('Impossible de changer le mode de paiement.'));
+    } finally {
+      setSavingMode(false);
     }
   };
 
@@ -188,6 +206,33 @@ export default function AdminDashboard() {
           >
             {savingMomo ? 'Enregistrement...' : t("Enregistrer")}
           </button>
+        </div>
+      </div>
+
+      {/* Mode de paiement global (série PAY) */}
+      <div className="bg-white rounded-xl border border-border-custom p-4 mb-6">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-full bg-green-light flex items-center justify-center shrink-0">
+            <Wallet className="w-5 h-5 text-green-primary" />
+          </div>
+          <div>
+            <p className="font-inter font-semibold text-sm text-text-primary">{t("Mode de paiement")}</p>
+            <p className="text-text-muted text-xs font-inter">{t("Pilote tout le parcours : checkout, réservation resto, règlement livreur, finance.")}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {PAYMENT_MODES.map((m) => (
+            <button
+              key={m.value}
+              onClick={() => m.available && !savingMode && changePayMode(m.value)}
+              disabled={!m.available || savingMode}
+              className={`text-left rounded-xl border p-3 transition-colors ${payMode === m.value ? 'border-green-primary border-2 bg-green-light/40' : 'border-border-custom hover:border-text-muted/40'} ${!m.available ? 'opacity-50 cursor-not-allowed' : ''}`}
+              aria-pressed={payMode === m.value}
+            >
+              <span className="block font-inter font-semibold text-sm text-text-primary">{t(m.label)}{!m.available && ` (${t('bientôt')})`}</span>
+              <span className="block text-text-muted text-xs mt-1">{t(m.description)}</span>
+            </button>
+          ))}
         </div>
       </div>
 
