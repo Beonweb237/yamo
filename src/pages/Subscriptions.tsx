@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { HeartPulse, Pause, Play, X, CalendarDays, Loader2 } from 'lucide-react';
+import { HeartPulse, Pause, Play, X, CalendarDays, Loader2, LogIn } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
 import { useSeo } from '../hooks/useSeo';
 import {
   fetchMySubscriptions, pauseSubscription, resumeSubscription, cancelSubscription,
@@ -16,6 +17,7 @@ const STATUS_STYLE: Record<SubscriptionStatus, string> = {
 
 export default function Subscriptions() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   useSeo({ title: t('Mes abonnements'), noindex: true });
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,24 @@ export default function Subscriptions() {
     setLoading(true);
     fetchMySubscriptions().then((s) => { setSubs(s); setError(null); }).catch((e) => setError(e instanceof Error ? e.message : 'Erreur')).finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (user) load(); else setLoading(false); }, [user]);
+
+  // Non connecté : invite claire plutôt que l'erreur « Token requis ».
+  if (!user) return (
+    <div className="pt-[72px] min-h-screen bg-bg-secondary">
+      <div className="max-w-[820px] mx-auto px-4 sm:px-6 py-10">
+        <div className="bg-white rounded-2xl border border-border-custom p-10 text-center">
+          <HeartPulse className="w-10 h-10 text-green-primary mx-auto mb-3" />
+          <p className="font-poppins font-semibold text-text-primary mb-1">{t('Connectez-vous pour voir vos abonnements')}</p>
+          <p className="text-text-muted text-sm mb-4">{t('Vos programmes repas et livraisons apparaîtront ici.')}</p>
+          <div className="flex gap-2 justify-center flex-wrap">
+            <Link to="/connexion" className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-green-primary text-white text-sm font-semibold"><LogIn className="w-4 h-4" />{t('Se connecter')}</Link>
+            <Link to="/programmes" className="inline-flex items-center h-10 px-4 rounded-xl border border-border-custom text-text-secondary text-sm font-medium">{t('Voir les programmes')}</Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const act = async (id: string, fn: (id: string) => Promise<unknown>, msg: string) => {
     setBusy(id);

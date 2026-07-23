@@ -1439,5 +1439,7 @@
   "article(s) indisponible(s), non repris :": "item(s) unavailable, not re-added:",
   "Panier rechargé :": "Cart reloaded:",
   "article(s) de": "item(s) from",
-  "votre commande": "your order"
+  "votre commande": "your order",
+  "Connectez-vous pour voir vos abonnements": "Log in to see your subscriptions",
+  "Vos programmes repas et livraisons apparaîtront ici.": "Your meal programs and deliveries will appear here."
 }
