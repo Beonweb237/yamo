@@ -3,6 +3,7 @@ import { Toaster } from './components/ui/sonner'
 import Layout from './components/Layout'
 import BackOfficeLayout from './components/BackOfficeLayout'
 import OrderPingModal from './components/OrderPingModal'
+import ErrorBoundary from './components/ErrorBoundary'
 import Home from './pages/Home'
 import Restaurants from './pages/Restaurants'
 import RestaurantDetail from './pages/RestaurantDetail'
@@ -83,6 +84,7 @@ export default function App() {
     <>
       <Toaster position="bottom-center" richColors mobileOffset={{ bottom: hasOwnCartBar ? 132 : 72 }} />
       <OrderPingModal />
+      <ErrorBoundary resetKey={pathname}>
       <Routes>
         <Route path="/" element={<Layout><Home /></Layout>} />
         <Route path="/restaurants" element={<Layout><Restaurants /></Layout>} />
@@ -188,6 +190,7 @@ export default function App() {
 
         <Route path="*" element={<Layout><NotFound /></Layout>} />
       </Routes>
+      </ErrorBoundary>
     </>
   )
 }

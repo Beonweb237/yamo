@@ -759,7 +759,7 @@ export default function Restaurants() {
                               <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-xs font-inter">
                                 <span className="inline-flex items-center gap-1 rounded-full bg-white text-amber-700 font-medium px-2.5 py-1 border border-amber-200 shadow-sm">
                                   <Star className="w-3 h-3 fill-gold-accent text-gold-accent" />
-                                  {resto.rating.toFixed(1)}
+                                  {Number(resto.rating ?? 0).toFixed(1)}
                                   {resto.dynamicReviewCount != null && resto.dynamicReviewCount > 0 && (
                                     <span className="text-amber-600/70">({resto.dynamicReviewCount})</span>
                                   )}
