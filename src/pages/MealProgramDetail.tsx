@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useSeo } from '../hooks/useSeo';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchProgram, type MealProgram, type ProgramSchedule } from '../lib/mealPrograms';
+import { fetchProgram, fetchPrograms, type MealProgram, type ProgramSchedule } from '../lib/mealPrograms';
 import { subscribeToProgram } from '../lib/subscriptions';
 import { fetchMenuItems } from '../lib/catalog';
 import { fetchRestaurantRatingSummary, type ReviewSummary } from '../lib/reviews';
@@ -18,6 +18,7 @@ import { DIETARY_TAG_META } from '../lib/dishes';
 import { phoneForWhatsapp, phoneForTel } from '../lib/phone';
 import AppImage from '../components/AppImage';
 import AddressAutocomplete from '../components/AddressAutocomplete';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../components/ui/accordion';
 
 const tagLabel = (id: string) => DIETARY_TAG_META.find((t) => t.id === id)?.label || id;
 
@@ -90,6 +91,8 @@ export default function MealProgramDetail() {
   // Preuve sociale : note réelle du restaurant (masquée si aucun avis).
   const [rating, setRating] = useState<ReviewSummary | null>(null);
   const [savedAddresses] = useState<SavedAddressLite[]>(readSavedAddresses);
+  // Découverte : autres programmes (même resto d'abord), max 4, masqué si vide.
+  const [related, setRelated] = useState<MealProgram[]>([]);
   // CTA sticky mobile : visible seulement quand le formulaire est hors écran.
   const subscribeRef = useRef<HTMLDivElement | null>(null);
   const [formVisible, setFormVisible] = useState(true);
@@ -104,6 +107,7 @@ export default function MealProgramDetail() {
   useSeo({ title: p ? p.name : t('Programme repas'), noindex: false });
 
   useEffect(() => { fetchProgram(id).then(setP).catch(() => setP(null)).finally(() => setLoading(false)); }, [id]);
+  useEffect(() => { window.scrollTo(0, 0); }, [id]);
 
   useEffect(() => {
     if (!p?.restaurantId) return; // pas de programme → section jamais rendue
@@ -121,7 +125,47 @@ export default function MealProgramDetail() {
     fetchRestaurantRatingSummary(p.restaurantId)
       .then((s) => { if (alive && s.reviewCount > 0) setRating(s); })
       .catch(() => { /* note simplement masquée */ });
+    fetchPrograms()
+      .then((list) => {
+        if (!alive) return;
+        const others = list.filter((x) => x.id !== p.id && x.status === 'published');
+        const sameResto = others.filter((x) => x.restaurantId === p.restaurantId);
+        const rest = others.filter((x) => x.restaurantId !== p.restaurantId);
+        setRelated([...sameResto, ...rest].slice(0, 4));
+      })
+      .catch(() => { /* section simplement masquée */ });
     return () => { alive = false; };
+  }, [p]);
+
+  // SEO : meta description riche + JSON-LD Product/Offer (retiré au démontage).
+  useEffect(() => {
+    if (!p) return;
+    const desc = `${p.name} — ${p.mealsCount} repas sur ${p.durationWeeks} semaines par ${p.restaurantName ?? 'un restaurant partenaire'}${p.restaurantCity ? ` à ${p.restaurantCity}` : ''}. ${p.priceFcfa.toLocaleString()} FCFA / cycle, payé repas par repas à la livraison.`;
+    const meta = document.querySelector('meta[name="description"]');
+    const prevDesc = meta?.getAttribute('content') ?? null;
+    meta?.setAttribute('content', desc);
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.setAttribute('data-meal-program', p.id);
+    script.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: p.name,
+      description: p.description || desc,
+      ...(p.photoUrl || p.restaurantImage ? { image: p.photoUrl || p.restaurantImage } : {}),
+      brand: { '@type': 'Organization', name: p.restaurantName ?? 'MiamExpress' },
+      offers: {
+        '@type': 'Offer',
+        price: p.priceFcfa,
+        priceCurrency: 'XAF',
+        availability: 'https://schema.org/InStock',
+      },
+    });
+    document.head.appendChild(script);
+    return () => {
+      script.remove();
+      if (prevDesc !== null) meta?.setAttribute('content', prevDesc);
+    };
   }, [p]);
 
   const subscribe = async () => {
@@ -164,7 +208,12 @@ export default function MealProgramDetail() {
           <div className="p-5">
             <h1 className="font-poppins font-bold text-text-primary text-xl">{p.name}</h1>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-              <p className="text-text-muted text-sm inline-flex items-center gap-1.5"><Store className="w-4 h-4" />{p.restaurantName}{p.restaurantCity ? ` · ${p.restaurantCity}` : ''}</p>
+              <Link
+                to={`/restaurant/${p.restaurantId}`}
+                className="text-text-muted text-sm inline-flex items-center gap-1.5 hover:text-green-primary transition-colors underline-offset-2 hover:underline"
+              >
+                <Store className="w-4 h-4" />{p.restaurantName}{p.restaurantCity ? ` · ${p.restaurantCity}` : ''}
+              </Link>
               {rating && (
                 <span className="inline-flex items-center gap-1 text-sm text-text-primary font-medium">
                   <Star className="w-4 h-4 fill-gold-accent text-gold-accent" />
@@ -334,6 +383,51 @@ export default function MealProgramDetail() {
             {subscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}{t('Souscrire')}
           </button>
         </div>
+
+        {/* FAQ */}
+        <div className="bg-white rounded-2xl border border-border-custom p-5 mt-4">
+          <h2 className="font-poppins font-semibold text-text-primary text-base mb-1">{t('Questions fréquentes')}</h2>
+          <Accordion type="single" collapsible className="w-full">
+            {[
+              { q: t('Comment se passe le paiement ?'), a: t('Vous payez chaque repas à sa réception (espèces ou Mobile Money selon le restaurant). Rien n\'est prélevé à l\'avance.') },
+              { q: t('Puis-je mettre mon abonnement en pause ?'), a: t('Oui, à tout moment depuis « Mes abonnements ». Les livraisons reprennent quand vous relancez le programme.') },
+              { q: t('Quels jours suis-je livré ?'), a: t('Selon le calendrier du programme affiché plus haut. La date de début est celle que vous choisissez à la souscription.') },
+              { q: t('Comment annuler ?'), a: t('Depuis « Mes abonnements », en un clic. Les repas déjà livrés sont dus, rien d\'autre.') },
+            ].map((f, i) => (
+              <AccordionItem key={i} value={`faq-${i}`}>
+                <AccordionTrigger className="text-sm font-inter text-text-primary text-left">{f.q}</AccordionTrigger>
+                <AccordionContent className="text-text-secondary text-sm leading-relaxed">{f.a}</AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
+
+        {/* Autres programmes */}
+        {related.length > 0 && (
+          <div className="mt-4">
+            <h2 className="font-poppins font-semibold text-text-primary text-base mb-3">{t('Autres programmes à découvrir')}</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {related.map((r) => (
+                <Link key={r.id} to={`/programmes/${r.id}`} className="rounded-2xl bg-white border border-border-custom overflow-hidden hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-shadow">
+                  <div className="h-20 bg-bg-secondary">
+                    {(r.photoUrl || r.restaurantImage) ? (
+                      <AppImage src={r.photoUrl || r.restaurantImage || ''} alt={r.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full grid place-items-center bg-gradient-to-br from-green-primary to-green-dark">
+                        <HeartPulse className="w-6 h-6 text-white/70" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-2.5">
+                    <p className="font-inter font-semibold text-text-primary text-xs truncate">{r.name}</p>
+                    <p className="text-text-muted text-[11px] truncate mt-0.5">{r.restaurantName}</p>
+                    <p className="text-green-primary text-[11px] font-medium mt-1">{r.priceFcfa.toLocaleString()} {t('FCFA')} / {t('cycle')}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* CTA sticky mobile — visible quand le formulaire est hors écran */}

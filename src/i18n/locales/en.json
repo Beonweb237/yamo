@@ -1572,5 +1572,17 @@
   "Votre abonnement": "Your subscription",
   "démarre le": "starts on",
   "total du cycle": "cycle total",
-  "réglé repas par repas à la livraison": "paid meal by meal on delivery"
+  "réglé repas par repas à la livraison": "paid meal by meal on delivery",
+  "Paiement confirmé — vous pouvez préparer.": "Payment confirmed — you can start preparing.",
+  "Prépayé : encaissez le client, puis confirmez pour lancer la préparation.": "Prepaid: collect payment from the customer, then confirm to start preparing.",
+  "Questions fréquentes": "Frequently asked questions",
+  "Comment se passe le paiement ?": "How does payment work?",
+  "Vous payez chaque repas à sa réception (espèces ou Mobile Money selon le restaurant). Rien n'est prélevé à l'avance.": "You pay for each meal when it arrives (cash or Mobile Money depending on the restaurant). Nothing is charged in advance.",
+  "Puis-je mettre mon abonnement en pause ?": "Can I pause my subscription?",
+  "Oui, à tout moment depuis « Mes abonnements ». Les livraisons reprennent quand vous relancez le programme.": "Yes, anytime from “My subscriptions”. Deliveries resume when you restart the program.",
+  "Quels jours suis-je livré ?": "Which days am I delivered?",
+  "Selon le calendrier du programme affiché plus haut. La date de début est celle que vous choisissez à la souscription.": "According to the program schedule shown above. The start date is the one you pick when subscribing.",
+  "Comment annuler ?": "How do I cancel?",
+  "Depuis « Mes abonnements », en un clic. Les repas déjà livrés sont dus, rien d'autre.": "From “My subscriptions”, in one click. You only owe for meals already delivered.",
+  "Autres programmes à découvrir": "More programs to discover"
 }

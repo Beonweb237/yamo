@@ -28,7 +28,7 @@
 | PS-02 | Fiche programme LOT 1 (compréhension) | Terminé |
 | PS-03 | Fiche programme LOT 2 (motivation) | Terminé |
 | PS-04 | Fiche programme LOT 3 (conversion) | Terminé |
-| PS-05 | Fiche programme LOT 4 (découverte+SEO) | À faire |
+| PS-05 | Fiche programme LOT 4 (découverte+SEO) | Terminé |
 | PS-06 | CP6 « Pour vous » personnalisé | À faire |
 | PS-07 | CP5 promotions réelles | À faire |
 | PS-08 | CP7 upsell + ETA (+ vérif filtres) | À faire |
@@ -39,6 +39,10 @@
 | PS-13 | CP9 Play Store (préparation) | À faire |
 
 ## Journal d'exécution
+
+- **23/07/2026 — PS-05 Terminé** : fiche programme LOT 4 — resto cliquable → `/restaurant/:id` (vérifié), section « Autres programmes à découvrir » (même resto d'abord, max 4, publiés seulement, masquée si vide), FAQ Accordion shadcn (4 Q/R alignées sur le fonctionnement réel : paiement/pause/jours/annulation), JSON-LD Product+Offer (prix 46000 XAF vérifié dans le DOM) + meta description riche par programme (restaurée au démontage), scroll-to-top sur changement d'id. Gates verts, 360px OK.
+
+- **23/07/2026 — ⚠ Session concurrente détectée** : une autre session Claude travaille dans le même dossier (série PAY : verrou prépayé — `server/src/index.js`, `orders.ts`, `RestaurantDashboard.tsx` + commit `8982846`). Mon `git add -A` de PS-04 avait balayé son travail non commité → commit scindé (`git reset --soft` + restage), son travail rendu à l'état non-commité intact. **Règle depuis : `git add` de fichiers nommés uniquement.** Vigilance PS-07 (touche aussi `server/src/index.js`) : éditer des zones distinctes, ne jamais committer ses fichiers.
 
 - **23/07/2026 — PS-04 Terminé** : fiche programme LOT 3 — récap de souscription live (repas·semaines·calendrier·date·total, formulation honnête « réglé repas par repas ») ; CTA sticky mobile (`sm:hidden`, IntersectionObserver : visible en haut de page, disparaît quand le formulaire est à l'écran — vérifié à 360px) ; adresse via `AddressAutocomplete` (sync valeur externe OK) + chips des adresses sauvegardées (testé avec adresse injectée puis nettoyée) ; boutons WhatsApp (`wa.me/237659684493` + message prérempli) et Appeler depuis `restaurantPhone`, masqués si absent. Gates verts, 360px sans débordement.
 
