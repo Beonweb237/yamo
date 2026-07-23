@@ -1,16 +1,34 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, HeartPulse, CalendarDays, Loader2, Check, Store, Wallet } from 'lucide-react';
+import {
+  ArrowLeft, HeartPulse, CalendarDays, Loader2, Check, Store, Wallet,
+  UtensilsCrossed, CalendarCheck, Bike, PauseCircle,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useSeo } from '../hooks/useSeo';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchProgram, type MealProgram } from '../lib/mealPrograms';
+import { fetchProgram, type MealProgram, type ProgramSchedule } from '../lib/mealPrograms';
 import { subscribeToProgram } from '../lib/subscriptions';
+import { fetchMenuItems } from '../lib/catalog';
+import type { MenuItem } from '../data/mockData';
 import { DIETARY_TAG_META } from '../lib/dishes';
 import AppImage from '../components/AppImage';
 
 const tagLabel = (id: string) => DIETARY_TAG_META.find((t) => t.id === id)?.label || id;
+
+/** Libellé lisible du calendrier de livraison dérivé du schedule du programme. */
+function scheduleLabel(s: ProgramSchedule | undefined, t: (k: string, o?: Record<string, unknown>) => string): string | null {
+  if (!s) return null;
+  const jours = (s.jours ?? []).filter(Boolean);
+  if (jours.length) {
+    const caps = jours.map((j) => j.charAt(0).toUpperCase() + j.slice(1, 3));
+    return t('Livré : {{jours}}', { jours: caps.join(', ') });
+  }
+  if (s.frequence === 'quotidien') return t('Livré tous les jours');
+  if (s.frequence === 'hebdomadaire') return t('Livraison hebdomadaire');
+  return null;
+}
 
 function savedAddress(): string {
   try {
@@ -31,9 +49,27 @@ export default function MealProgramDetail() {
   const [startDate, setStartDate] = useState(() => new Date(Date.now() + 86400000).toISOString().slice(0, 10));
   const [address, setAddress] = useState(savedAddress);
   const [subscribing, setSubscribing] = useState(false);
+  // Exemples de plats RÉELS : menu du resto filtré par les tags du programme.
+  const [sampleItems, setSampleItems] = useState<MenuItem[]>([]);
   useSeo({ title: p ? p.name : t('Programme repas'), noindex: false });
 
   useEffect(() => { fetchProgram(id).then(setP).catch(() => setP(null)).finally(() => setLoading(false)); }, [id]);
+
+  useEffect(() => {
+    if (!p?.restaurantId) return; // pas de programme → section jamais rendue
+    let alive = true;
+    fetchMenuItems(p.restaurantId)
+      .then((items) => {
+        if (!alive) return;
+        const tags = p.dietaryTags ?? [];
+        const matching = tags.length
+          ? items.filter((it) => (it.dietaryTags ?? []).some((tg) => tags.includes(tg)))
+          : items;
+        setSampleItems(matching.slice(0, 6));
+      })
+      .catch(() => { /* section simplement masquée */ });
+    return () => { alive = false; };
+  }, [p]);
 
   const subscribe = async () => {
     if (!user) { navigate('/connexion'); return; }
@@ -75,11 +111,58 @@ export default function MealProgramDetail() {
             </div>
             <div className="flex flex-wrap gap-4 mt-4 text-sm text-text-muted">
               <span className="inline-flex items-center gap-1.5"><CalendarDays className="w-4 h-4" />{p.mealsCount} {t('repas')} · {p.durationWeeks} {t('semaines')}</span>
-              <span className="font-poppins font-bold text-green-primary text-base">{p.priceFcfa.toLocaleString()} {t('FCFA')} <span className="text-text-muted font-normal text-xs">/ {t('cycle')}</span></span>
-              <span className="text-text-muted text-xs self-center">{t('soit ~')}{Math.round(p.priceFcfa / Math.max(1, p.mealsCount)).toLocaleString()} {t('FCFA / repas')}</span>
+              {scheduleLabel(p.schedule, t) && (
+                <span className="inline-flex items-center gap-1.5"><CalendarCheck className="w-4 h-4" />{scheduleLabel(p.schedule, t)}</span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mt-3">
+              <span className="font-poppins font-bold text-green-primary text-lg">{p.priceFcfa.toLocaleString()} {t('FCFA')} <span className="text-text-muted font-normal text-xs">/ {t('cycle')}</span></span>
+              <span className="text-text-muted text-xs">{t('soit ~')}{Math.round(p.priceFcfa / Math.max(1, p.mealsCount)).toLocaleString()} {t('FCFA / repas')}</span>
+              <span className="text-text-muted text-xs">· {t('repas + livraison réglés à la réception')}</span>
             </div>
           </div>
         </div>
+
+        {/* Comment ça marche */}
+        <div className="bg-white rounded-2xl border border-border-custom p-5 mb-4">
+          <h2 className="font-poppins font-semibold text-text-primary text-base mb-4">{t('Comment ça marche')}</h2>
+          <ol className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { icon: CalendarDays, label: t('Choisissez votre date de début') },
+              { icon: UtensilsCrossed, label: t('Le restaurant prépare vos repas') },
+              { icon: Bike, label: t('Livraison selon le calendrier du programme') },
+              { icon: PauseCircle, label: t('Pause ou annulation à tout moment') },
+            ].map((step, i) => (
+              <li key={i} className="flex flex-col items-start gap-2">
+                <span className="w-9 h-9 rounded-xl bg-green-light text-green-primary grid place-items-center shrink-0">
+                  <step.icon className="w-[18px] h-[18px]" />
+                </span>
+                <span className="text-text-secondary text-xs leading-relaxed"><span className="font-semibold text-text-primary">{i + 1}.</span> {step.label}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        {/* Exemples de plats — vrais plats du menu, tagués comme le programme */}
+        {sampleItems.length > 0 && (
+          <div className="bg-white rounded-2xl border border-border-custom p-5 mb-4">
+            <h2 className="font-poppins font-semibold text-text-primary text-base mb-1">{t('Exemples de plats de ce programme')}</h2>
+            <p className="text-text-muted text-xs mb-4">{t('Plats réels du menu de {{name}} correspondant à ce programme.', { name: p.restaurantName ?? t('ce restaurant') })}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {sampleItems.map((it) => (
+                <div key={it.id} className="rounded-xl border border-border-custom overflow-hidden bg-white">
+                  <div className="h-20 sm:h-24 bg-bg-secondary">
+                    <AppImage src={it.image} alt={it.name} fallbackLabel={it.name} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="p-2.5">
+                    <p className="font-inter font-medium text-text-primary text-xs truncate">{it.name}</p>
+                    <p className="text-text-muted text-[11px] mt-0.5">{it.price.toLocaleString()} {t('FCFA')}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Souscrire */}
         <div className="bg-white rounded-2xl border border-border-custom p-5">

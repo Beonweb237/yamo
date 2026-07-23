@@ -1531,5 +1531,17 @@
   "Contenu du hero mis à jour.": "Hero content updated.",
   "Coordonnées support mises à jour.": "Support contact details updated.",
   "Numéro invalide (8 à 15 chiffres attendus).": "Invalid number (8 to 15 digits expected).",
-  "Découvrez les Meilleures Saveurs du Cameroun, Livrées Chez Vous": "Discover Cameroon’s Finest Flavours, Delivered to Your Door"
+  "Découvrez les Meilleures Saveurs du Cameroun, Livrées Chez Vous": "Discover Cameroon’s Finest Flavours, Delivered to Your Door",
+  "Livré : {{jours}}": "Delivered: {{jours}}",
+  "Livré tous les jours": "Delivered every day",
+  "Livraison hebdomadaire": "Weekly delivery",
+  "repas + livraison réglés à la réception": "meal + delivery paid on receipt",
+  "Comment ça marche": "How it works",
+  "Choisissez votre date de début": "Pick your start date",
+  "Le restaurant prépare vos repas": "The restaurant prepares your meals",
+  "Livraison selon le calendrier du programme": "Delivery follows the program schedule",
+  "Pause ou annulation à tout moment": "Pause or cancel anytime",
+  "Exemples de plats de ce programme": "Sample dishes from this program",
+  "Plats réels du menu de {{name}} correspondant à ce programme.": "Real dishes from {{name}}’s menu matching this program.",
+  "ce restaurant": "this restaurant"
 }

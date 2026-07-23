@@ -25,7 +25,7 @@
 | Prompt | Contenu | Statut |
 |---|---|---|
 | PS-01 | Apparence : sections/hero/support + site_config | Terminé |
-| PS-02 | Fiche programme LOT 1 (compréhension) | À faire |
+| PS-02 | Fiche programme LOT 1 (compréhension) | Terminé |
 | PS-03 | Fiche programme LOT 2 (motivation) | À faire |
 | PS-04 | Fiche programme LOT 3 (conversion) | À faire |
 | PS-05 | Fiche programme LOT 4 (découverte+SEO) | À faire |
@@ -39,6 +39,8 @@
 | PS-13 | CP9 Play Store (préparation) | À faire |
 
 ## Journal d'exécution
+
+- **23/07/2026 — PS-02 Terminé** : fiche programme LOT 1 — calendrier dérivé du `schedule` (jours abrégés/quotidien/hebdo), prix décomposé (« repas + livraison réglés à la réception », aligné sur le paiement honnête 6afdfbb), bandeau « Comment ça marche » 4 étapes, section « Exemples de plats » = vrais `menu_items` du resto filtrés par tags (masquée si 0 correspondance — vérifié : Délice Express 0 plat vegan → masquée ; Chez Jeanne 5 plats sans-gluten → affichés). Constat data : 7/12 programmes seedés n'ont AUCUN plat du même resto portant leurs tags → renforce l'intérêt de PS-09 (sample_menu saisi par le resto). Gates verts (tsc/hooks/i18n/build/lint 0 nouveau), QA VPS lecture seule 3012, 360px sans débordement.
 
 - **23/07/2026 — init** : analyse des 6 sources terminée ; état vérifié (16 lots UX, i18n/SEO P1-P8, FOOD, CP1-4 : faits ; `OPTIMISATION_UX_YAMO.md` absent du workspace — recos DOC-UX déjà tracées dans ux-implementation-plan). Tree git quasi propre (4 fichiers non suivis), branche `feat/vps-api`, pas de codex.exe. Fichiers de coordination créés.
 - **23/07/2026 — PS-01 Terminé** : `SiteConfig` étendu (homeSections/heroTitle/heroSubtitle/support) ; AdminAppearance : 3 nouvelles sections (réordonnancement ↑↓ + switches, hero, coordonnées) ; HomePremium piloté par homeSections ; HomeClassic hero éditable ; support.ts → getters avec override (Footer/Orders/Contact). **Persistance VPS réparée** : patchSiteConfig utilisait un contrat inexistant → aligné sur `PATCH /api/settings/site_config {value}` (tracking-routes). **Corrections nécessaires hors périmètre strict (documentées)** : ① restauration du chemin OTP mock dans AuthContext (cassé par le durcissement VPS — le mode VPS reste strict, aucune faille réintroduite) ; ② RoleGate exigeait 6 chiffres pour un OtpInput de 5 (bouton jamais actif) → 5 ; ③ seed admin mock marqué `isSuperAdmin` (accès pages RBAC comme l'admin racine VPS, avec backfill du registre). Vérifs : tsc 0, hooks 0, i18n prioritaires 100%, build EXIT 0, lint = 0 nouvelle erreur (fichiers touchés comparés avant/après), QA navigateur mock 3011 : bascule premium, section désactivée absente, réordonnancement appliqué, hero personnalisé rendu puis reset, 360px sans débordement, pas de nouvelle erreur console. Limitation : screenshots du pane en timeout (connu) → contrôle pixel par DOM/dimensions.
