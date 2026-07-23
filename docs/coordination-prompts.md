@@ -36,9 +36,11 @@
 | PS-10 | Dark mode back-office | Bloqué (reporté — voir journal) |
 | PS-11 | Recette + déploiement VPS | Terminé |
 | PS-12 | CP8 Capacitor | Terminé |
-| PS-13 | CP9 Play Store (préparation) | À faire |
+| PS-13 | CP9 Play Store (préparation) | Terminé (signature/soumission = propriétaire) |
 
 ## Journal d'exécution
+
+- **23/07/2026 — PS-13 Terminé (préparation uniquement)** : `docs/play-store-checklist.md` — compte dev, keystore (procédure, JAMAIS commité), build AAB (`gradlew bundleRelease`, nécessite Android Studio/SDK absent de ce poste — commande documentée, AAB non généré), fiche store FR/EN, politique de confidentialité (page à publier), data safety, IARC, App Links/assetlinks, tracks de test. Signature et soumission = propriétaire (STOP & DEMANDE respecté).
 
 - **23/07/2026 — PS-12 Terminé** : CP8 app mobile client Capacitor. Deps `@capacitor/core+cli+android+app` ; `capacitor.config.ts` (com.miamexpress.client, webDir dist, scheme https) ; `android/` généré et committé (23 Mo d'assets web synchro EXCLUS par .gitignore — régénérés par `cap sync`) ; `src/native/index.ts` (back Android, deep links, stubs push/géoloc — no-op strict web, import différé dans main.tsx) ; `VITE_APP_TARGET=client` dans App.tsx → **vérifié** : build client sans AUCUN marqueur back-office dans le bundle (grep vide sur dist-client), build web normal les contient toujours ; `npx cap sync android` EXIT 0 ; `resources/icon.png` + `docs/mobile-capacitor.md` (lancement local, icônes, App Links). Le build APK/AAB nécessite Android Studio/SDK (absent de ce poste) — documenté.
 
