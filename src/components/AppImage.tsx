@@ -7,6 +7,15 @@ interface AppImageProps extends ImgHTMLAttributes<HTMLImageElement> {
 
 export default function AppImage({ src, alt, fallbackLabel, onError, loading = 'lazy', decoding = 'async', ...props }: AppImageProps) {
   const [resolved, setResolved] = useState(src ?? '');
+  // Resynchronise quand `src` change après le montage (données async, ou passage
+  // mock → réel). Sans ça, l'image restait figée sur la 1re valeur (souvent vide
+  // ou une image de repli) même après l'arrivée de la vraie URL. Pattern « reset
+  // au rendu » recommandé par React (pas d'effet → pas de flash ni de setState-in-effect).
+  const [prevSrc, setPrevSrc] = useState(src);
+  if (src !== prevSrc) {
+    setPrevSrc(src);
+    setResolved(src ?? '');
+  }
 
   const handleError: ReactEventHandler<HTMLImageElement> = (e) => {
     if (resolved !== placeholderFor(fallbackLabel ?? alt ?? 'MiamExpress')) {

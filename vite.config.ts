@@ -26,6 +26,14 @@ export default defineConfig({
         changeOrigin: true,
         secure: true,
       },
+      // Les images sont stockées en chemins relatifs /uploads/... servis par
+      // Nginx en prod. En dev, sans ce proxy, elles renvoient 404 (le serveur
+      // Vite n'a pas ces fichiers) → images cassées. On proxifie vers le VPS.
+      '/uploads': {
+        target: process.env.VITE_DEV_API_PROXY || 'https://miamexpress.cm',
+        changeOrigin: true,
+        secure: true,
+      },
     },
   },
   resolve: {
