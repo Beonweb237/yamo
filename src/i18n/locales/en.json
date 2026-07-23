@@ -1432,5 +1432,12 @@
   "Aucun restaurant disponible pour le moment.": "No restaurant available right now.",
   "Retirer des favoris": "Remove from favorites",
   "Ajouter aux favoris": "Add to favorites",
-  "Livraison gratuite": "Free delivery"
+  "Livraison gratuite": "Free delivery",
+  "Vos commandes récentes": "Your recent orders",
+  "Commander à nouveau": "Order again",
+  "Aucun de ces plats n’est encore disponible chez ce restaurant.": "None of these dishes are available at this restaurant yet.",
+  "article(s) indisponible(s), non repris :": "item(s) unavailable, not re-added:",
+  "Panier rechargé :": "Cart reloaded:",
+  "article(s) de": "item(s) from",
+  "votre commande": "your order"
 }
