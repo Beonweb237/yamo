@@ -1505,5 +1505,8 @@
   "Soumissionner": "Bid",
   "Votre prix (FCFA)": "Your price (FCFA)",
   "Impossible d'accepter cette offre.": "Could not accept this offer.",
-  "Offre acceptée ! Votre commande est en préparation.": "Offer accepted! Your order is being prepared."
+  "Offre acceptée ! Votre commande est en préparation.": "Offer accepted! Your order is being prepared.",
+  "FCFA / repas": "FCFA / meal",
+  "soit ~": "about ~",
+  "Paiement à la livraison : vous réglez chaque repas à sa réception, rien n'est prélevé à l'avance. Repas livrés selon le calendrier ; pause ou annulation possible à tout moment.": "Pay on delivery: you pay for each meal when it arrives — nothing is charged upfront. Meals are delivered on schedule; pause or cancel anytime."
 }

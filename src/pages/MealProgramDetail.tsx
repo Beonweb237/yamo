@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, HeartPulse, CalendarDays, Loader2, Check, Store } from 'lucide-react';
+import { ArrowLeft, HeartPulse, CalendarDays, Loader2, Check, Store, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useSeo } from '../hooks/useSeo';
@@ -76,6 +76,7 @@ export default function MealProgramDetail() {
             <div className="flex flex-wrap gap-4 mt-4 text-sm text-text-muted">
               <span className="inline-flex items-center gap-1.5"><CalendarDays className="w-4 h-4" />{p.mealsCount} {t('repas')} · {p.durationWeeks} {t('semaines')}</span>
               <span className="font-poppins font-bold text-green-primary text-base">{p.priceFcfa.toLocaleString()} {t('FCFA')} <span className="text-text-muted font-normal text-xs">/ {t('cycle')}</span></span>
+              <span className="text-text-muted text-xs self-center">{t('soit ~')}{Math.round(p.priceFcfa / Math.max(1, p.mealsCount)).toLocaleString()} {t('FCFA / repas')}</span>
             </div>
           </div>
         </div>
@@ -93,9 +94,12 @@ export default function MealProgramDetail() {
               <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t('Quartier, point de repère…')} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-sm outline-none border border-transparent focus:border-green-primary/40" />
             </label>
           </div>
-          <p className="text-text-muted text-xs mb-4">{t('Paiement du cycle à la souscription. Les repas sont livrés selon le calendrier. Vous pourrez mettre en pause à tout moment.')}</p>
+          <div className="flex items-start gap-2.5 bg-green-light/60 border border-green-primary/15 rounded-xl p-3 mb-4">
+            <Wallet className="w-4 h-4 text-green-primary shrink-0 mt-0.5" />
+            <p className="text-text-secondary text-xs leading-relaxed">{t('Paiement à la livraison : vous réglez chaque repas à sa réception, rien n\'est prélevé à l\'avance. Repas livrés selon le calendrier ; pause ou annulation possible à tout moment.')}</p>
+          </div>
           <button onClick={subscribe} disabled={subscribing} className="inline-flex items-center justify-center gap-1.5 h-11 px-6 rounded-xl bg-green-primary text-white font-inter font-medium text-sm hover:bg-green-dark transition-colors disabled:opacity-60">
-            {subscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}{t('Souscrire')} · {p.priceFcfa.toLocaleString()} {t('FCFA')}
+            {subscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}{t('Souscrire')}
           </button>
         </div>
       </div>
