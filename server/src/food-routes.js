@@ -6,7 +6,7 @@
 // possède pas users/orders). Spec : app/docs/plan-module-alimentaire.md.
 
 const OBJECTIVES = new Set(['perte_poids', 'maintien', 'prise_masse', 'equilibre']);
-const PROGRAM_STATUS = new Set(['draft', 'published', 'archived']);
+const PROGRAM_STATUS = new Set(['draft', 'pending_review', 'validated', 'rejected', 'published', 'archived']);
 const COMMISSION_RATE = 0.15;
 
 // Dates de livraison d'un abonnement à partir du calendrier du programme.
@@ -124,6 +124,14 @@ export function registerFoodRoutes(app, { pool, authRequired, adminPermissionReq
     -- LOT 5 fiche programme : contenu éditorial saisi par le resto (facultatif).
     ALTER TABLE meal_programs ADD COLUMN IF NOT EXISTS benefits text[];
     ALTER TABLE meal_programs ADD COLUMN IF NOT EXISTS sample_menu jsonb;
+    -- Modération avec ajustements : le resto soumet, l'admin valide (et peut
+    -- ajuster photos/éléments), puis le RESTO publie. Ces colonnes portent l'état
+    -- de revue (le statut lui-même reste dans meal_programs.status).
+    ALTER TABLE meal_programs ADD COLUMN IF NOT EXISTS review_note text;
+    ALTER TABLE meal_programs ADD COLUMN IF NOT EXISTS rejection_reason text;
+    ALTER TABLE meal_programs ADD COLUMN IF NOT EXISTS adjusted_by_admin boolean NOT NULL DEFAULT false;
+    ALTER TABLE meal_programs ADD COLUMN IF NOT EXISTS reviewed_by text;
+    ALTER TABLE meal_programs ADD COLUMN IF NOT EXISTS reviewed_at timestamptz;
     CREATE TABLE IF NOT EXISTS subscriptions (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       customer_id text NOT NULL,
@@ -281,29 +289,105 @@ export function registerFoodRoutes(app, { pool, authRequired, adminPermissionReq
 
   app.put('/api/meal-programs/:id', authRequired, async (req, res) => {
     try {
-      const { rows: [prog] } = await pool.query('SELECT restaurant_id FROM meal_programs WHERE id::text = $1', [String(req.params.id)]);
+      const { rows: [prog] } = await pool.query('SELECT restaurant_id, status FROM meal_programs WHERE id::text = $1', [String(req.params.id)]);
       if (!prog) return res.status(404).json({ error: 'Programme introuvable.' });
       if (!(await canManageRestaurant(req, prog.restaurant_id))) return res.status(403).json({ error: 'Non autorisé.' });
       const c = cleanProgram(req.body || {});
+      // Transition d'état à l'édition :
+      //  - l'ADMIN édite un programme en validation → marque « ajusté par l'admin »
+      //    (l'admin propose des ajustements, le statut reste en validation).
+      //  - le RESTO ré-édite un programme déjà validé/publié/refusé → retour en
+      //    brouillon (toute modif doit repasser par la validation).
+      const isAdmin = req.user.role === 'admin';
+      let nextStatus = prog.status;
+      let adjusted = null; // null → ne pas toucher la colonne
+      if (isAdmin && prog.status === 'pending_review') {
+        adjusted = true;
+      } else if (!isAdmin && ['published', 'validated', 'rejected'].includes(prog.status)) {
+        nextStatus = 'draft';
+        adjusted = false;
+      }
       const { rows } = await pool.query(
-        `UPDATE meal_programs SET name=$2, description=$3, target_audience=$4, dietary_tags=$5, duration_weeks=$6, meals_count=$7, schedule=$8, price_fcfa=$9, photo_url=$10, benefits=$11, sample_menu=$12, updated_at=now()
+        `UPDATE meal_programs SET name=$2, description=$3, target_audience=$4, dietary_tags=$5, duration_weeks=$6, meals_count=$7, schedule=$8, price_fcfa=$9, photo_url=$10, benefits=$11, sample_menu=$12, status=$13, adjusted_by_admin=COALESCE($14, adjusted_by_admin), updated_at=now()
          WHERE id::text = $1 RETURNING *`,
-        [String(req.params.id), c.name, c.description, c.target_audience, c.dietary_tags, c.duration_weeks, c.meals_count, JSON.stringify(c.schedule), c.price_fcfa, c.photo_url, c.benefits, c.sample_menu ? JSON.stringify(c.sample_menu) : null]
+        [String(req.params.id), c.name, c.description, c.target_audience, c.dietary_tags, c.duration_weeks, c.meals_count, JSON.stringify(c.schedule), c.price_fcfa, c.photo_url, c.benefits, c.sample_menu ? JSON.stringify(c.sample_menu) : null, nextStatus, adjusted]
       );
       res.json(fromSnake(rows[0]));
     } catch (err) { console.error('PUT meal-programs/:id:', err.message); res.status(500).json({ error: 'Erreur serveur.' }); }
   });
 
+  // Publier / archiver — réservé au restaurant (et admin). PUBLICATION uniquement
+  // depuis l'état « validé » : c'est le geste du RESTO qui met en ligne (l'admin
+  // ne publie jamais à sa place ; il valide seulement).
   app.post('/api/meal-programs/:id/status', authRequired, async (req, res) => {
     try {
       const status = req.body?.status;
-      if (!PROGRAM_STATUS.has(status)) return res.status(400).json({ error: 'status invalide.' });
-      const { rows: [prog] } = await pool.query('SELECT restaurant_id FROM meal_programs WHERE id::text = $1', [String(req.params.id)]);
+      if (!['published', 'archived'].includes(status)) {
+        return res.status(400).json({ error: 'Statut non permis ici (publier/archiver uniquement).' });
+      }
+      const { rows: [prog] } = await pool.query('SELECT restaurant_id, status FROM meal_programs WHERE id::text = $1', [String(req.params.id)]);
       if (!prog) return res.status(404).json({ error: 'Programme introuvable.' });
       if (!(await canManageRestaurant(req, prog.restaurant_id))) return res.status(403).json({ error: 'Non autorisé.' });
+      if (status === 'published' && prog.status !== 'validated') {
+        return res.status(400).json({ error: 'Le programme doit être validé par l\'administration avant publication.' });
+      }
       const { rows } = await pool.query('UPDATE meal_programs SET status=$2, updated_at=now() WHERE id::text=$1 RETURNING *', [String(req.params.id), status]);
       res.json(fromSnake(rows[0]));
     } catch (err) { console.error('POST meal-programs/status:', err.message); res.status(500).json({ error: 'Erreur serveur.' }); }
+  });
+
+  // Le restaurant SOUMET son programme à validation (brouillon/refusé → en validation).
+  app.post('/api/meal-programs/:id/submit', authRequired, async (req, res) => {
+    try {
+      const { rows: [prog] } = await pool.query('SELECT restaurant_id, status FROM meal_programs WHERE id::text = $1', [String(req.params.id)]);
+      if (!prog) return res.status(404).json({ error: 'Programme introuvable.' });
+      if (!(await canManageRestaurant(req, prog.restaurant_id))) return res.status(403).json({ error: 'Non autorisé.' });
+      if (!['draft', 'rejected'].includes(prog.status)) {
+        return res.status(400).json({ error: 'Seul un brouillon (ou un programme refusé) peut être soumis.' });
+      }
+      const { rows } = await pool.query(
+        "UPDATE meal_programs SET status='pending_review', rejection_reason=NULL, adjusted_by_admin=false, updated_at=now() WHERE id::text=$1 RETURNING *",
+        [String(req.params.id)]
+      );
+      res.json(fromSnake(rows[0]));
+    } catch (err) { console.error('POST meal-programs/submit:', err.message); res.status(500).json({ error: 'Erreur serveur.' }); }
+  });
+
+  // Admin : file des programmes à valider (+ filtre statut).
+  app.get('/api/admin/meal-programs', authRequired, adminPermissionRequired('food.subscriptions.manage'), async (req, res) => {
+    try {
+      const filters = []; const vals = [];
+      if (req.query.status) { vals.push(String(req.query.status)); filters.push(`mp.status = $${vals.length}`); }
+      const where = filters.length ? 'WHERE ' + filters.join(' AND ') : '';
+      const { rows } = await pool.query(
+        `SELECT mp.*, r.name AS restaurant_name, r.city AS restaurant_city
+         FROM meal_programs mp JOIN restaurants r ON r.id::text = mp.restaurant_id::text
+         ${where} ORDER BY (mp.status='pending_review') DESC, mp.updated_at DESC LIMIT 300`, vals
+      );
+      const counts = {};
+      for (const s of rows) counts[s.status] = (counts[s.status] || 0) + 1;
+      res.json({ programs: rows.map(fromSnake), counts });
+    } catch (err) { console.error('GET admin/meal-programs:', err.message); res.status(500).json({ error: 'Erreur serveur.' }); }
+  });
+
+  // Admin : VALIDER ou REFUSER (avec note). Ne publie jamais — passe en « validé »
+  // (le resto publiera) ou « refusé » (retour au resto). Ajustements = via PUT.
+  app.post('/api/admin/meal-programs/:id/review', authRequired, adminPermissionRequired('food.subscriptions.manage'), async (req, res) => {
+    try {
+      const { decision, note } = req.body || {};
+      if (!['validate', 'reject'].includes(decision)) return res.status(400).json({ error: 'decision (validate|reject) requise.' });
+      if (decision === 'reject' && !String(note || '').trim()) return res.status(400).json({ error: 'Motif de refus obligatoire.' });
+      const { rows: [prog] } = await pool.query('SELECT status FROM meal_programs WHERE id::text = $1', [String(req.params.id)]);
+      if (!prog) return res.status(404).json({ error: 'Programme introuvable.' });
+      if (prog.status !== 'pending_review') return res.status(400).json({ error: 'Ce programme n\'est pas en attente de validation.' });
+      const target = decision === 'validate' ? 'validated' : 'rejected';
+      const { rows } = await pool.query(
+        `UPDATE meal_programs SET status=$2, review_note=$3, rejection_reason=$4, reviewed_by=$5, reviewed_at=now(), updated_at=now()
+         WHERE id::text=$1 RETURNING *`,
+        [String(req.params.id), target, txt(note, 1000), decision === 'reject' ? txt(note, 1000) : null, String(req.user.sub)]
+      );
+      res.json(fromSnake(rows[0]));
+    } catch (err) { console.error('POST admin/meal-programs/review:', err.message); res.status(500).json({ error: 'Erreur serveur.' }); }
   });
 
   // ═══════════════ Abonnements (subscriptions) ═══════════════

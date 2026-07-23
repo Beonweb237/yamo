@@ -89,6 +89,7 @@ const adminCategories: CategoryGroup[] = [
     label: 'Alimentaire',
     icon: HeartPulse,
     children: [
+      { name: 'Validation programmes', path: '/admin/programmes-validation', icon: ShieldCheck, permission: 'food.subscriptions.manage' },
       { name: 'Abonnements', path: '/admin/subscriptions', icon: HeartPulse, permission: 'food.subscriptions.view' },
     ],
   },

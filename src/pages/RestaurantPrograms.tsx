@@ -4,8 +4,8 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useSeo } from '../hooks/useSeo';
 import {
-  fetchMyPrograms, createProgram, updateProgram, setProgramStatus,
-  type MealProgram, type MealProgramInput, type SampleMenuEntry,
+  fetchMyPrograms, createProgram, updateProgram, setProgramStatus, submitProgram,
+  type MealProgram, type MealProgramInput, type SampleMenuEntry, type ProgramStatus,
 } from '../lib/mealPrograms';
 import { fetchMenuItems } from '../lib/catalog';
 import type { MenuItem } from '../data/mockData';
@@ -86,6 +86,21 @@ export default function RestaurantPrograms() {
   const changeStatus = async (id: string, status: 'published' | 'archived') => {
     try { await setProgramStatus(id, status); toast.success(status === 'published' ? t('Programme publié') : t('Programme archivé')); load(); }
     catch (e) { toast.error(e instanceof Error ? e.message : t('Action impossible')); }
+  };
+
+  const submit = async (id: string) => {
+    try { await submitProgram(id); toast.success(t('Programme soumis à validation.')); load(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : t('Action impossible')); }
+  };
+
+  // Modération : le resto soumet, l'admin valide (et peut ajuster), le resto publie.
+  const STATUS_META: Record<ProgramStatus, { label: string; cls: string }> = {
+    draft: { label: 'Brouillon', cls: 'bg-bg-secondary text-text-muted' },
+    pending_review: { label: 'En validation', cls: 'bg-amber-50 text-amber-700' },
+    validated: { label: 'Validé — à publier', cls: 'bg-blue-50 text-blue-700' },
+    rejected: { label: 'Refusé', cls: 'bg-error/10 text-error' },
+    published: { label: 'Publié', cls: 'bg-green-light text-green-primary' },
+    archived: { label: 'Archivé', cls: 'bg-bg-secondary text-text-muted' },
   };
 
   const inputCls = 'w-full bg-bg-secondary rounded-lg px-3 h-11 text-sm outline-none border border-transparent focus:border-green-primary/40';
@@ -187,23 +202,47 @@ export default function RestaurantPrograms() {
         </div>
       ) : (
         <div className="space-y-3">
-          {programs.map((p) => (
-            <div key={p.id} className="bg-white rounded-2xl border border-border-custom p-4 flex items-center gap-3">
-              <div className="w-14 h-14 rounded-xl bg-bg-secondary overflow-hidden grid place-items-center shrink-0">{p.photoUrl ? <img src={p.photoUrl} alt="" className="w-full h-full object-cover" /> : <HeartPulse className="w-6 h-6 text-text-muted/40" />}</div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-poppins font-semibold text-text-primary text-sm truncate">{p.name}</p>
-                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${p.status === 'published' ? 'bg-green-light text-green-primary' : p.status === 'archived' ? 'bg-bg-secondary text-text-muted' : 'bg-amber-50 text-amber-700'}`}>{t(p.status === 'published' ? 'Publié' : p.status === 'archived' ? 'Archivé' : 'Brouillon')}</span>
+          {programs.map((p) => {
+            const meta = STATUS_META[p.status] ?? STATUS_META.draft;
+            return (
+              <div key={p.id} className="bg-white rounded-2xl border border-border-custom p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-xl bg-bg-secondary overflow-hidden grid place-items-center shrink-0">{p.photoUrl ? <img src={p.photoUrl} alt="" className="w-full h-full object-cover" /> : <HeartPulse className="w-6 h-6 text-text-muted/40" />}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-poppins font-semibold text-text-primary text-sm truncate">{p.name}</p>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${meta.cls}`}>{t(meta.label)}</span>
+                    </div>
+                    <p className="text-text-muted text-xs">{p.mealsCount} {t('repas')} · {p.durationWeeks} {t('sem.')} · {p.priceFcfa.toLocaleString()} {t('FCFA')}</p>
+                  </div>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button onClick={() => openEdit(p)} className="w-9 h-9 rounded-lg border border-border-custom text-text-secondary grid place-items-center" title={t('Modifier')}><Pencil className="w-4 h-4" /></button>
+                    {(p.status === 'draft' || p.status === 'rejected') && (
+                      <button onClick={() => submit(p.id)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-green-primary text-white text-xs font-semibold" title={t('Soumettre à validation')}><Send className="w-4 h-4" />{t('Soumettre')}</button>
+                    )}
+                    {p.status === 'validated' && (
+                      <button onClick={() => changeStatus(p.id, 'published')} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-green-primary text-white text-xs font-semibold" title={t('Publier')}><Check className="w-4 h-4" />{t('Publier')}</button>
+                    )}
+                    {p.status === 'published' && (
+                      <button onClick={() => changeStatus(p.id, 'archived')} className="w-9 h-9 rounded-lg border border-border-custom text-text-secondary grid place-items-center" title={t('Archiver')}><Archive className="w-4 h-4" /></button>
+                    )}
+                  </div>
                 </div>
-                <p className="text-text-muted text-xs">{p.mealsCount} {t('repas')} · {p.durationWeeks} {t('sem.')} · {p.priceFcfa.toLocaleString()} {t('FCFA')}</p>
+                {p.status === 'pending_review' && (
+                  <p className="mt-2 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">{t('En attente de validation par l\'administration.')}</p>
+                )}
+                {p.status === 'validated' && p.adjustedByAdmin && (
+                  <p className="mt-2 text-xs bg-blue-50 text-blue-700 rounded-lg px-3 py-2">{t('L\'administration a ajusté votre programme.')}{p.reviewNote ? ` — ${p.reviewNote}` : ''} {t('Vérifiez, puis publiez.')}</p>
+                )}
+                {p.status === 'validated' && !p.adjustedByAdmin && (
+                  <p className="mt-2 text-xs text-green-primary bg-green-light rounded-lg px-3 py-2">{t('Validé par l\'administration — vous pouvez publier.')}</p>
+                )}
+                {p.status === 'rejected' && (
+                  <p className="mt-2 text-xs text-error bg-error/10 rounded-lg px-3 py-2">{t('Refusé :')} {p.rejectionReason || t('motif non précisé')}. {t('Modifiez puis soumettez à nouveau.')}</p>
+                )}
               </div>
-              <div className="flex gap-1.5 shrink-0">
-                <button onClick={() => openEdit(p)} className="w-9 h-9 rounded-lg border border-border-custom text-text-secondary grid place-items-center" title={t('Modifier')}><Pencil className="w-4 h-4" /></button>
-                {p.status !== 'published' ? <button onClick={() => changeStatus(p.id, 'published')} className="w-9 h-9 rounded-lg bg-green-primary text-white grid place-items-center" title={t('Publier')}><Send className="w-4 h-4" /></button>
-                  : <button onClick={() => changeStatus(p.id, 'archived')} className="w-9 h-9 rounded-lg border border-border-custom text-text-secondary grid place-items-center" title={t('Archiver')}><Archive className="w-4 h-4" /></button>}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

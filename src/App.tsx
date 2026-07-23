@@ -53,6 +53,7 @@ import Subscriptions from './pages/Subscriptions'
 import RestaurantPrograms from './pages/RestaurantPrograms'
 import RestaurantFoodRequests from './pages/RestaurantFoodRequests'
 import AdminSubscriptions from './pages/admin/AdminSubscriptions'
+import AdminProgramReview from './pages/admin/AdminProgramReview'
 import NotFound from './pages/NotFound'
 
 // LOT-13 (CONF-33) : /explorer est fusionné dans /restaurants (mode plats).
@@ -169,6 +170,7 @@ export default function App() {
           <Route path="kyc/:applicationId" element={<AdminPermissionGate permission="kyc.view"><AdminKycDossier /></AdminPermissionGate>} />
           <Route path="finance" element={<AdminPermissionGate permission="finance.dashboard.view"><AdminFinance /></AdminPermissionGate>} />
           <Route path="subscriptions" element={<AdminPermissionGate permission="food.subscriptions.view"><AdminSubscriptions /></AdminPermissionGate>} />
+          <Route path="programmes-validation" element={<AdminPermissionGate permission="food.subscriptions.manage"><AdminProgramReview /></AdminPermissionGate>} />
           <Route path="restaurants" element={<AdminPermissionGate permission="restaurants.view"><AdminRestaurants /></AdminPermissionGate>} />
           <Route path="drivers" element={<AdminPermissionGate permission="couriers.view"><AdminDrivers /></AdminPermissionGate>} />
           <Route path="disputes" element={<AdminPermissionGate permission="orders.disputes.resolve"><AdminDisputes /></AdminPermissionGate>} />

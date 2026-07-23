@@ -9,7 +9,9 @@ function authHeader(): Record<string, string> {
   } catch { return {}; }
 }
 
-export type ProgramStatus = 'draft' | 'published' | 'archived';
+// Modération : brouillon → (resto soumet) en_validation → (admin) validé/refusé
+// → (resto) publié. L'admin peut ajuster mais ne publie jamais à la place du resto.
+export type ProgramStatus = 'draft' | 'pending_review' | 'validated' | 'rejected' | 'published' | 'archived';
 export interface ProgramSchedule { frequence?: 'quotidien' | 'hebdomadaire'; jours?: string[] }
 
 /** Plat d'exemple choisi par le resto (LOT 5) — id du menu_item si connu. */
@@ -28,6 +30,11 @@ export interface MealProgram {
   priceFcfa: number;
   photoUrl: string | null;
   status: ProgramStatus;
+  /** Modération : note de l'admin, motif de refus, indicateur d'ajustement admin. */
+  reviewNote?: string | null;
+  rejectionReason?: string | null;
+  adjustedByAdmin?: boolean;
+  reviewedAt?: string | null;
   /** LOT 5 : bénéfices saisis par le resto (sinon dérivés des tags côté fiche). */
   benefits?: string[] | null;
   /** LOT 5 : plats d'exemple choisis par le resto (sinon dérivés des tags). */
@@ -69,5 +76,18 @@ export const createProgram = (input: MealProgramInput) =>
   call<MealProgram>('/api/meal-programs', { method: 'POST', body: JSON.stringify(input) });
 export const updateProgram = (id: string, input: MealProgramInput) =>
   call<MealProgram>(`/api/meal-programs/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(input) });
-export const setProgramStatus = (id: string, status: ProgramStatus) =>
+export const setProgramStatus = (id: string, status: 'published' | 'archived') =>
   call<MealProgram>(`/api/meal-programs/${encodeURIComponent(id)}/status`, { method: 'POST', body: JSON.stringify({ status }) });
+
+/** Le restaurant soumet son programme à validation (brouillon/refusé → en validation). */
+export const submitProgram = (id: string) =>
+  call<MealProgram>(`/api/meal-programs/${encodeURIComponent(id)}/submit`, { method: 'POST' });
+
+/** Admin : file des programmes à valider (+ compteurs). */
+export const fetchProgramsForReview = (status?: ProgramStatus) =>
+  call<{ programs: MealProgram[]; counts: Record<string, number> }>(
+    `/api/admin/meal-programs${status ? `?status=${status}` : ''}`);
+
+/** Admin : valider ou refuser (motif obligatoire au refus). Ne publie jamais. */
+export const reviewProgram = (id: string, decision: 'validate' | 'reject', note?: string) =>
+  call<MealProgram>(`/api/admin/meal-programs/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify({ decision, note }) });
