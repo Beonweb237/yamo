@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, HeartPulse, CalendarDays, Loader2, Check, Store, Wallet,
-  UtensilsCrossed, CalendarCheck, Bike, PauseCircle,
+  UtensilsCrossed, CalendarCheck, Bike, PauseCircle, Star, BadgeCheck, ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -11,11 +11,36 @@ import { useAuth } from '../contexts/AuthContext';
 import { fetchProgram, type MealProgram, type ProgramSchedule } from '../lib/mealPrograms';
 import { subscribeToProgram } from '../lib/subscriptions';
 import { fetchMenuItems } from '../lib/catalog';
+import { fetchRestaurantRatingSummary, type ReviewSummary } from '../lib/reviews';
 import type { MenuItem } from '../data/mockData';
 import { DIETARY_TAG_META } from '../lib/dishes';
 import AppImage from '../components/AppImage';
 
 const tagLabel = (id: string) => DIETARY_TAG_META.find((t) => t.id === id)?.label || id;
+
+// Bénéfices DÉRIVÉS des tags réels du programme (aucune promesse inventée) +
+// bénéfices génériques vrais pour tout abonnement (planification, livraison).
+const TAG_BENEFITS: Record<string, string> = {
+  'diabetique': 'Index glycémique maîtrisé',
+  'sans-sucre': 'Sans sucre ajouté',
+  'pauvre-en-sel': 'Peu de sel, adapté à la tension',
+  'sans-gluten': 'Sans gluten, sans mauvaise surprise',
+  'vegan': 'Zéro produit animal',
+  'vegetarien': 'Sans viande, riche en légumes',
+  'riche-en-proteines': 'Riche en protéines',
+  'bio': 'Ingrédients bio sélectionnés',
+  'halal': 'Cuisine halal',
+  'fait-maison': 'Cuisine maison',
+  'traditionnel': 'Recettes camerounaises authentiques',
+  'sans-cube': 'Sans bouillon cube',
+  'allege': 'Recettes allégées',
+  'detox': 'Menus détox légers',
+};
+
+function deriveBenefits(tags: string[]): string[] {
+  const fromTags = tags.map((t) => TAG_BENEFITS[t]).filter(Boolean).slice(0, 2);
+  return [...fromTags, 'Zéro prise de tête : vos repas sont planifiés', 'Livré chaud chez vous'].slice(0, 4);
+}
 
 /** Libellé lisible du calendrier de livraison dérivé du schedule du programme. */
 function scheduleLabel(s: ProgramSchedule | undefined, t: (k: string, o?: Record<string, unknown>) => string): string | null {
@@ -51,6 +76,8 @@ export default function MealProgramDetail() {
   const [subscribing, setSubscribing] = useState(false);
   // Exemples de plats RÉELS : menu du resto filtré par les tags du programme.
   const [sampleItems, setSampleItems] = useState<MenuItem[]>([]);
+  // Preuve sociale : note réelle du restaurant (masquée si aucun avis).
+  const [rating, setRating] = useState<ReviewSummary | null>(null);
   useSeo({ title: p ? p.name : t('Programme repas'), noindex: false });
 
   useEffect(() => { fetchProgram(id).then(setP).catch(() => setP(null)).finally(() => setLoading(false)); }, [id]);
@@ -68,6 +95,9 @@ export default function MealProgramDetail() {
         setSampleItems(matching.slice(0, 6));
       })
       .catch(() => { /* section simplement masquée */ });
+    fetchRestaurantRatingSummary(p.restaurantId)
+      .then((s) => { if (alive && s.reviewCount > 0) setRating(s); })
+      .catch(() => { /* note simplement masquée */ });
     return () => { alive = false; };
   }, [p]);
 
@@ -99,11 +129,30 @@ export default function MealProgramDetail() {
 
         <div className="bg-white rounded-2xl border border-border-custom overflow-hidden mb-4">
           <div className="h-48 bg-bg-secondary">
-            {p.photoUrl ? <AppImage src={p.photoUrl} alt={p.name} className="w-full h-full object-cover" /> : <div className="w-full h-full grid place-items-center"><HeartPulse className="w-12 h-12 text-text-muted/40" /></div>}
+            {(p.photoUrl || p.restaurantImage) ? (
+              // Photo du programme, sinon photo du restaurant — jamais l'icône nue.
+              <AppImage src={p.photoUrl || p.restaurantImage || ''} alt={p.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full grid place-items-center bg-gradient-to-br from-green-primary to-green-dark">
+                <HeartPulse className="w-12 h-12 text-white/70" />
+              </div>
+            )}
           </div>
           <div className="p-5">
             <h1 className="font-poppins font-bold text-text-primary text-xl">{p.name}</h1>
-            <p className="text-text-muted text-sm inline-flex items-center gap-1.5 mt-1"><Store className="w-4 h-4" />{p.restaurantName}{p.restaurantCity ? ` · ${p.restaurantCity}` : ''}</p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+              <p className="text-text-muted text-sm inline-flex items-center gap-1.5"><Store className="w-4 h-4" />{p.restaurantName}{p.restaurantCity ? ` · ${p.restaurantCity}` : ''}</p>
+              {rating && (
+                <span className="inline-flex items-center gap-1 text-sm text-text-primary font-medium">
+                  <Star className="w-4 h-4 fill-gold-accent text-gold-accent" />
+                  {rating.ratingAvg.toFixed(1)}
+                  <span className="text-text-muted font-normal">({rating.reviewCount} {t('avis')})</span>
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1 text-xs text-green-primary font-medium">
+                <BadgeCheck className="w-4 h-4" />{t('Partenaire vérifié')}
+              </span>
+            </div>
             {p.targetAudience && <p className="text-text-secondary text-sm mt-2">{t('Pour')} : {p.targetAudience}</p>}
             {p.description && <p className="text-text-secondary text-sm mt-2 whitespace-pre-line">{p.description}</p>}
             <div className="flex flex-wrap gap-1.5 mt-3">
@@ -119,6 +168,24 @@ export default function MealProgramDetail() {
               <span className="font-poppins font-bold text-green-primary text-lg">{p.priceFcfa.toLocaleString()} {t('FCFA')} <span className="text-text-muted font-normal text-xs">/ {t('cycle')}</span></span>
               <span className="text-text-muted text-xs">{t('soit ~')}{Math.round(p.priceFcfa / Math.max(1, p.mealsCount)).toLocaleString()} {t('FCFA / repas')}</span>
               <span className="text-text-muted text-xs">· {t('repas + livraison réglés à la réception')}</span>
+            </div>
+
+            {/* Bénéfices dérivés des tags réels du programme */}
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 mt-4">
+              {deriveBenefits(p.dietaryTags).map((b) => (
+                <li key={b} className="flex items-center gap-2 text-text-secondary text-sm">
+                  <Check className="w-4 h-4 text-green-primary shrink-0" />{t(b)}
+                </li>
+              ))}
+            </ul>
+
+            {/* Réassurance */}
+            <div className="flex flex-wrap gap-1.5 mt-4">
+              {[t('Annulez à tout moment'), t('Pause possible'), t('Paiement à la livraison'), t('Livraison suivie')].map((chip) => (
+                <span key={chip} className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full bg-bg-secondary text-text-secondary border border-border-custom">
+                  <ShieldCheck className="w-3 h-3 text-green-primary" />{chip}
+                </span>
+              ))}
             </div>
           </div>
         </div>

@@ -26,7 +26,7 @@
 |---|---|---|
 | PS-01 | Apparence : sections/hero/support + site_config | Terminé |
 | PS-02 | Fiche programme LOT 1 (compréhension) | Terminé |
-| PS-03 | Fiche programme LOT 2 (motivation) | À faire |
+| PS-03 | Fiche programme LOT 2 (motivation) | Terminé |
 | PS-04 | Fiche programme LOT 3 (conversion) | À faire |
 | PS-05 | Fiche programme LOT 4 (découverte+SEO) | À faire |
 | PS-06 | CP6 « Pour vous » personnalisé | À faire |
@@ -39,6 +39,8 @@
 | PS-13 | CP9 Play Store (préparation) | À faire |
 
 ## Journal d'exécution
+
+- **23/07/2026 — PS-03 Terminé** : fiche programme LOT 2 — photo fallback (programme → resto → dégradé de marque, jamais d'icône nue ; en prod tous les programmes ont une photo, fallback non exerçable mais typé), note réelle du resto via `fetchRestaurantRatingSummary` (affichée seulement si ≥ 1 avis — vérifié 4.8/4 avis Chez Jeanne), badge « Partenaire vérifié », 4 bénéfices dérivés des tags réels (mapping statique honnête + 2 génériques vrais), chips de réassurance. Gates verts. NB : +16 « orphelines » verify:i18n = clés des bénéfices passées via t(variable), utilisées au runtime.
 
 - **23/07/2026 — PS-02 Terminé** : fiche programme LOT 1 — calendrier dérivé du `schedule` (jours abrégés/quotidien/hebdo), prix décomposé (« repas + livraison réglés à la réception », aligné sur le paiement honnête 6afdfbb), bandeau « Comment ça marche » 4 étapes, section « Exemples de plats » = vrais `menu_items` du resto filtrés par tags (masquée si 0 correspondance — vérifié : Délice Express 0 plat vegan → masquée ; Chez Jeanne 5 plats sans-gluten → affichés). Constat data : 7/12 programmes seedés n'ont AUCUN plat du même resto portant leurs tags → renforce l'intérêt de PS-09 (sample_menu saisi par le resto). Gates verts (tsc/hooks/i18n/build/lint 0 nouveau), QA VPS lecture seule 3012, 360px sans débordement.
 
