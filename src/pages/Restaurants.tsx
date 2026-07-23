@@ -779,10 +779,13 @@ export default function Restaurants() {
                                   <span className="truncate">{resto.neighborhood}, {resto.city} · {stableDistance(resto.id)} {t("km")}</span>
                                 </span>
                                 {/* Gamme de prix en ₣ (contexte FCFA) — la donnée reste
-                                    stockée en « € » côté catalogue, conversion à l'affichage. */}
-                                <span className="shrink-0" title="Gamme de prix" aria-label={`Gamme de prix ${resto.priceRange.length} sur 3`}>
-                                  {resto.priceRange.replace(/€/g, '₣')}
-                                </span>
+                                    stockée en « € » côté catalogue, conversion à l'affichage.
+                                    Tolère un priceRange absent/null (certains restos VPS). */}
+                                {resto.priceRange && (
+                                  <span className="shrink-0" title="Gamme de prix" aria-label={`Gamme de prix ${resto.priceRange.length} sur 3`}>
+                                    {resto.priceRange.replace(/€/g, '₣')}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </Link>
