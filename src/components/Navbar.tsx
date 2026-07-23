@@ -189,7 +189,7 @@ export default function Navbar() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 8 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white rounded-2xl border border-border-custom shadow-xl shadow-black/[0.06] p-2.5 w-[640px] max-w-[calc(100vw-2rem)] z-50 grid grid-cols-3 gap-1"
+                        className="absolute top-full left-0 -translate-x-1/2 mt-2 bg-white rounded-2xl border border-border-custom shadow-xl shadow-black/[0.06] p-2.5 w-[460px] max-w-[calc(100vw-2rem)] z-50 grid grid-cols-2 gap-1"
                         onMouseEnter={() => handleDropdownEnter(section.title)}
                         onMouseLeave={handleDropdownLeave}
                       >
