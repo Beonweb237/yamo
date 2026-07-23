@@ -70,6 +70,10 @@ function ArticleRedirect() {
   return <Navigate to={pathname.replace(/^\/article\//, '/plat/')} replace />
 }
 
+// CP8 : build mobile CLIENT (Capacitor) — constante remplacée au build par
+// Vite ; en build web normal elle vaut false et rien ne change.
+const CLIENT_ONLY_TARGET = import.meta.env.VITE_APP_TARGET === 'client';
+
 export default function App() {
   // mobileOffset : au-dessus de la MobileBottomNav (56px) ; sur les fiches
   // resto/plat, aussi au-dessus de leur barre panier fixe (56 + 64px).
@@ -107,6 +111,11 @@ export default function App() {
         <Route path="/programmes/:id" element={<Layout><MealProgramDetail /></Layout>} />
         <Route path="/abonnements" element={<Layout><Subscriptions /></Layout>} />
 
+        {/* Back-offices — exclus du build mobile CLIENT (CP8) : avec
+            VITE_APP_TARGET=client, Vite remplace la constante au build et
+            élimine ces routes (et leur code) du bundle. Le web reste intact. */}
+        {!CLIENT_ONLY_TARGET && (
+        <>
         {/* Restaurant dashboard (sidebar + nested pages) */}
         <Route
           path="/partenaires/dashboard"
@@ -174,6 +183,8 @@ export default function App() {
           <Route path="promotions" element={<AdminPermissionGate permission="promotions.manage"><AdminPromotions /></AdminPermissionGate>} />
           <Route path="roles" element={<AdminPermissionGate permission="admin.roles.view"><AdminRoles /></AdminPermissionGate>} />
         </Route>
+        </>
+        )}
 
         <Route path="*" element={<Layout><NotFound /></Layout>} />
       </Routes>

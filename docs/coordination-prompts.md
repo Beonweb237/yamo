@@ -35,10 +35,12 @@
 | PS-09 | Fiche programme LOT 5 (data) | Terminé (E2E prod en PS-11) |
 | PS-10 | Dark mode back-office | Bloqué (reporté — voir journal) |
 | PS-11 | Recette + déploiement VPS | Terminé |
-| PS-12 | CP8 Capacitor | À faire |
+| PS-12 | CP8 Capacitor | Terminé |
 | PS-13 | CP9 Play Store (préparation) | À faire |
 
 ## Journal d'exécution
+
+- **23/07/2026 — PS-12 Terminé** : CP8 app mobile client Capacitor. Deps `@capacitor/core+cli+android+app` ; `capacitor.config.ts` (com.miamexpress.client, webDir dist, scheme https) ; `android/` généré et committé (23 Mo d'assets web synchro EXCLUS par .gitignore — régénérés par `cap sync`) ; `src/native/index.ts` (back Android, deep links, stubs push/géoloc — no-op strict web, import différé dans main.tsx) ; `VITE_APP_TARGET=client` dans App.tsx → **vérifié** : build client sans AUCUN marqueur back-office dans le bundle (grep vide sur dist-client), build web normal les contient toujours ; `npx cap sync android` EXIT 0 ; `resources/icon.png` + `docs/mobile-capacitor.md` (lancement local, icônes, App Links). Le build APK/AAB nécessite Android Studio/SDK (absent de ce poste) — documenté.
 
 - **23/07/2026 — PS-11 Terminé (déployé en prod)** : gates complets verts → build + `npx react-snap` (8 pages) → **frontend** déployé par tar/scp avec backup `dist.bak-20260723-080353` et swap atomique (bundle `index-aqohPsBj.js` servi, /fr/ et /en/contact prérendus 200, robots/sitemap 200, canonical OK, 0 erreur console prod). **Serveur** : la session concurrente déployait au même moment (lignée distante ≠ repo) → PAS d'écrasement ; patch CHIRURGICAL sur la copie distante (backups `index.js.bak-promo-*`, `admin-rbac.js.bak-promo-*`) : import+bloc validate+registration promo et permission RBAC fusionnés, `promotions-routes.js` ajouté, node --check distant OK, pm2 restart. Table `promo_codes` héritée possédée par postgres → `ALTER ... OWNER TO miamexpress` (sudo) + migration additive (colonnes type/seuil/ciblage/période conservant le schéma legacy). **E2E prod** : `/api/promotions/active` 200 ; promo test 10% ciblée créée → validate : 5000→remise 500, total 5500 ; code inconnu → 400 « Code promo inconnu » ; promo test supprimée. **LOT 5** : le distant contenait déjà mes changements food-routes (déployés par l'autre session depuis l'arbre partagé) — GET prod expose `benefits`/`sampleMenu` (null → fallback). Fiche programme riche vérifiée EN PROD (FR). Sitemap re-soumis GSC (204). Persistance VPS de l'Apparence désormais fonctionnelle (endpoint générique déjà en place + front réparé PS-01).
 

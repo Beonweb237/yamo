@@ -55,4 +55,7 @@ if (!urlLang) {
   // Pages prérendues (react-snap) : le HTML statique est hydraté ; sinon rendu client classique.
   if (rootEl.hasChildNodes()) hydrateRoot(rootEl, app);
   else createRoot(rootEl).render(app);
+
+  // CP8 — couche native Capacitor (no-op strict sur le web, import différé).
+  import('./native').then((m) => m.initNative()).catch(() => { /* web : rien */ });
 }
