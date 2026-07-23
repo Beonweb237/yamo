@@ -5,9 +5,13 @@ import { useTranslation } from 'react-i18next';
 import { useSeo } from '../hooks/useSeo';
 import {
   fetchMyPrograms, createProgram, updateProgram, setProgramStatus,
-  type MealProgram, type MealProgramInput,
+  type MealProgram, type MealProgramInput, type SampleMenuEntry,
 } from '../lib/mealPrograms';
+import { fetchMenuItems } from '../lib/catalog';
+import type { MenuItem } from '../data/mockData';
+import { useAuth } from '../contexts/AuthContext';
 import { DIETARY_TAG_META } from '../lib/dishes';
+import { fetchRestaurantByOwner } from '../lib/catalog';
 import { processFormImage } from '../lib/media';
 
 const EMPTY: MealProgramInput = { name: '', description: '', targetAudience: '', dietaryTags: [], durationWeeks: 4, mealsCount: 28, schedule: { frequence: 'quotidien' }, priceFcfa: 0, photoUrl: null };
@@ -21,15 +25,39 @@ export default function RestaurantPrograms() {
   const [form, setForm] = useState<MealProgramInput>({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const { user } = useAuth();
+  // LOT 5 : menu du resto pour choisir les plats d'exemple + brouillon bénéfices.
+  const [menu, setMenu] = useState<MenuItem[]>([]);
+  const [benefitsDraft, setBenefitsDraft] = useState('');
 
   const load = () => { setLoading(true); fetchMyPrograms().then(setPrograms).catch(() => {}).finally(() => setLoading(false)); };
   useEffect(() => { load(); }, []);
 
-  const openNew = () => { setForm({ ...EMPTY }); setEditing('new'); };
+  useEffect(() => {
+    if (!user?.id) return;
+    let alive = true;
+    fetchRestaurantByOwner(user.id)
+      .then((r) => (r ? fetchMenuItems(r.id, { includeUnavailable: true }) : []))
+      .then((items) => { if (alive) setMenu(items); })
+      .catch(() => { /* sélection de plats simplement indisponible */ });
+    return () => { alive = false; };
+  }, [user?.id]);
+
+  const openNew = () => { setForm({ ...EMPTY }); setBenefitsDraft(''); setEditing('new'); };
   const openEdit = (p: MealProgram) => {
-    setForm({ name: p.name, description: p.description || '', targetAudience: p.targetAudience || '', dietaryTags: p.dietaryTags, durationWeeks: p.durationWeeks, mealsCount: p.mealsCount, schedule: p.schedule, priceFcfa: p.priceFcfa, photoUrl: p.photoUrl });
+    setForm({ name: p.name, description: p.description || '', targetAudience: p.targetAudience || '', dietaryTags: p.dietaryTags, durationWeeks: p.durationWeeks, mealsCount: p.mealsCount, schedule: p.schedule, priceFcfa: p.priceFcfa, photoUrl: p.photoUrl, benefits: p.benefits ?? [], sampleMenu: p.sampleMenu ?? null });
+    setBenefitsDraft((p.benefits ?? []).join('\n'));
     setEditing(p.id);
   };
+
+  const toggleSampleDish = (m: MenuItem) => setForm((f) => {
+    const cur = f.sampleMenu ?? [];
+    const exists = cur.some((s) => s.id === m.id);
+    if (exists) return { ...f, sampleMenu: cur.filter((s) => s.id !== m.id) };
+    if (cur.length >= 6) { toast.error(t('6 plats d\'exemple maximum.')); return f; }
+    const entry: SampleMenuEntry = { id: m.id, name: m.name, price: m.price };
+    return { ...f, sampleMenu: [...cur, entry] };
+  });
   const toggleTag = (id: string) => setForm((f) => ({ ...f, dietaryTags: (f.dietaryTags || []).includes(id) ? (f.dietaryTags || []).filter((x) => x !== id) : [...(f.dietaryTags || []), id] }));
 
   const onPhoto = async (file?: File) => {
@@ -43,8 +71,12 @@ export default function RestaurantPrograms() {
     if (!form.name?.trim()) { toast.error(t('Nom du programme requis.')); return; }
     setSaving(true);
     try {
-      if (editing === 'new') await createProgram(form);
-      else if (editing) await updateProgram(editing, form);
+      const payload: MealProgramInput = {
+        ...form,
+        benefits: benefitsDraft.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 4),
+      };
+      if (editing === 'new') await createProgram(payload);
+      else if (editing) await updateProgram(editing, payload);
       toast.success(t('Programme enregistré'));
       setEditing(null); load();
     } catch (e) { toast.error(e instanceof Error ? e.message : t('Enregistrement impossible')); }
@@ -104,6 +136,41 @@ export default function RestaurantPrograms() {
                 </label>
               )}
             </div>
+
+            {/* LOT 5 : bénéfices éditoriaux (sinon la fiche dérive des tags) */}
+            <div>
+              <span className="block text-text-muted text-xs mb-1">{t('Bénéfices mis en avant (1 par ligne, 4 max — facultatif)')}</span>
+              <textarea
+                value={benefitsDraft}
+                onChange={(e) => setBenefitsDraft(e.target.value)}
+                placeholder={t('Ex. Index glycémique maîtrisé')}
+                rows={3}
+                className="w-full bg-bg-secondary rounded-lg px-3 py-2 text-sm outline-none resize-none border border-transparent focus:border-green-primary/40"
+              />
+            </div>
+
+            {/* LOT 5 : plats d'exemple choisis dans le menu (facultatif) */}
+            {menu.length > 0 && (
+              <div>
+                <span className="block text-text-muted text-xs mb-1">{t('Plats d\'exemple affichés sur la fiche (6 max — facultatif)')}</span>
+                <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto">
+                  {menu.map((m) => {
+                    const active = (form.sampleMenu ?? []).some((s) => s.id === m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleSampleDish(m)}
+                        aria-pressed={active}
+                        className={`text-xs px-3 h-8 rounded-full border truncate max-w-[220px] ${active ? 'bg-green-primary text-white border-green-primary' : 'bg-white text-text-secondary border-border-custom'}`}
+                      >
+                        {m.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex gap-2 mt-5">
             <button onClick={save} disabled={saving} className="inline-flex items-center gap-1.5 h-10 px-5 rounded-lg bg-green-primary text-white text-sm font-medium disabled:opacity-60">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}{t('Enregistrer')}</button>

@@ -32,13 +32,15 @@
 | PS-06 | CP6 « Pour vous » personnalisé | Terminé |
 | PS-07 | CP5 promotions réelles | Terminé (déploiement serveur en PS-11) |
 | PS-08 | CP7 upsell + ETA (+ vérif filtres) | Terminé |
-| PS-09 | Fiche programme LOT 5 (data) | À faire |
+| PS-09 | Fiche programme LOT 5 (data) | Terminé (E2E prod en PS-11) |
 | PS-10 | Dark mode back-office | À faire |
 | PS-11 | Recette + déploiement VPS | À faire |
 | PS-12 | CP8 Capacitor | À faire |
 | PS-13 | CP9 Play Store (préparation) | À faire |
 
 ## Journal d'exécution
+
+- **23/07/2026 — PS-09 Terminé (code ; E2E prod avec le déploiement PS-11)** : fiche programme LOT 5. Serveur (`food-routes.js`) : colonnes additives idempotentes `benefits text[]` + `sample_menu jsonb`, nettoyées/bornées dans `cleanProgram` (4 puces ×80 car., 6 plats {id,name,price}), INSERT/UPDATE mis à jour, GET rétrocompatible (mp.*). Front : types `mealPrograms.ts` ; formulaire resto (`RestaurantPrograms.tsx`) : textarea bénéfices (1/ligne) + sélection de plats d'exemple depuis le menu réel (`fetchRestaurantByOwner`+`fetchMenuItems`, max 6, chips togglables) ; la fiche préfère `benefits`/`sampleMenu` saisis, sinon fallback dérivé (PS-02/03) — corrige le constat « 7/12 programmes sans plat tagué ». Gates verts. Au passage : traduit 2 clés fraîches de la session concurrente dans Restaurants.tsx (verify:i18n était rouge à cause d'elles).
 
 - **23/07/2026 — PS-08 Terminé** : CP7. ① Upsell « Complétez votre repas » dans le panier fiche resto (2-3 vrais articles du même resto absents du panier, boissons/desserts/accompagnements d'abord sinon moins chers, masqué si rien) — vérifié : propose Beignets/Jus, clic → panier 1→2 lignes ; réutilise `handleAdd` (variantes/conflits gérés). ② ETA sur le suivi (`DeliveryTrackingMap`) : « Arrive dans ~X–Y min » via `estimateDeliveryTime(distanceKm(livreur→client))`, « (estimé) » quand la position n'est pas réelle, « tout proche » sous 2 min — vérifié en mock (« ~20–35 min (estimé) »). ③ Filtres/tri `/restaurants` : DÉJÀ livrés (LOT-13/14 : quickFilters dont « Ouvert maintenant » = `isEffectivelyOpen`, tri, sync URL) — vérifié dans le code, rien réimplémenté. Gates verts (lint : 1 erreur `setRestaurantPrograms` héritée d'une autre session, présente à HEAD).
 

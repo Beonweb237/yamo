@@ -1636,5 +1636,12 @@
   "Ajouter {{name}} au panier": "Add {{name}} to cart",
   "Arrive dans ~{{min}}–{{max}} min": "Arriving in ~{{min}}–{{max}} min",
   "Votre livreur arrive — il est tout proche !": "Your rider is arriving — almost there!",
-  "estimé": "estimated"
+  "estimé": "estimated",
+  "Bénéfices mis en avant (1 par ligne, 4 max — facultatif)": "Highlighted benefits (1 per line, max 4 — optional)",
+  "Ex. Index glycémique maîtrisé": "E.g. Controlled glycemic index",
+  "Plats d'exemple affichés sur la fiche (6 max — facultatif)": "Sample dishes shown on the page (max 6 — optional)",
+  "6 plats d'exemple maximum.": "Maximum 6 sample dishes.",
+  "Envie de manger équilibré chaque jour ?": "Want to eat healthy every day?",
+  "Découvrez nos programmes santé — repas adaptés, livrés régulièrement.": "Discover our health programs — tailored meals, delivered regularly.",
+  "Voir": "View"
 }

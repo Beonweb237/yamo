@@ -60,6 +60,9 @@ export function registerFoodRoutes(app, { pool, authRequired, adminPermissionReq
       updated_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS meal_programs_resto_idx ON meal_programs(restaurant_id);
+    -- LOT 5 fiche programme : contenu éditorial saisi par le resto (facultatif).
+    ALTER TABLE meal_programs ADD COLUMN IF NOT EXISTS benefits text[];
+    ALTER TABLE meal_programs ADD COLUMN IF NOT EXISTS sample_menu jsonb;
     CREATE TABLE IF NOT EXISTS subscriptions (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       customer_id text NOT NULL,
@@ -140,6 +143,20 @@ export function registerFoodRoutes(app, { pool, authRequired, adminPermissionReq
     schedule: b.schedule && typeof b.schedule === 'object' ? b.schedule : {},
     price_fcfa: Math.max(0, Math.round(Number(b.priceFcfa) || 0)),
     photo_url: txt(b.photoUrl, 500),
+    // LOT 5 : bénéfices (max 4 puces) + plats d'exemple choisis par le resto
+    // ({id?, name, price?} — max 6, texte borné, rien d'autre n'est accepté).
+    benefits: Array.isArray(b.benefits)
+      ? b.benefits.filter((x) => typeof x === 'string' && x.trim()).slice(0, 4).map((x) => String(x).trim().slice(0, 80))
+      : [],
+    sample_menu: Array.isArray(b.sampleMenu)
+      ? b.sampleMenu.slice(0, 6)
+        .filter((x) => x && typeof x === 'object' && typeof x.name === 'string' && x.name.trim())
+        .map((x) => ({
+          id: x.id != null ? String(x.id).slice(0, 60) : undefined,
+          name: String(x.name).slice(0, 120),
+          price: Number.isFinite(Number(x.price)) ? Math.max(0, Math.round(Number(x.price))) : undefined,
+        }))
+      : null,
   });
 
   // Liste publique des programmes publiés (+ resto)
@@ -193,9 +210,9 @@ export function registerFoodRoutes(app, { pool, authRequired, adminPermissionReq
       const c = cleanProgram(req.body || {});
       if (!c.name) return res.status(400).json({ error: 'Nom du programme requis.' });
       const { rows } = await pool.query(
-        `INSERT INTO meal_programs (restaurant_id, name, description, target_audience, dietary_tags, duration_weeks, meals_count, schedule, price_fcfa, photo_url, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'draft') RETURNING *`,
-        [String(restaurantId), c.name, c.description, c.target_audience, c.dietary_tags, c.duration_weeks, c.meals_count, JSON.stringify(c.schedule), c.price_fcfa, c.photo_url]
+        `INSERT INTO meal_programs (restaurant_id, name, description, target_audience, dietary_tags, duration_weeks, meals_count, schedule, price_fcfa, photo_url, benefits, sample_menu, status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'draft') RETURNING *`,
+        [String(restaurantId), c.name, c.description, c.target_audience, c.dietary_tags, c.duration_weeks, c.meals_count, JSON.stringify(c.schedule), c.price_fcfa, c.photo_url, c.benefits, c.sample_menu ? JSON.stringify(c.sample_menu) : null]
       );
       res.status(201).json(fromSnake(rows[0]));
     } catch (err) { console.error('POST meal-programs:', err.message); res.status(500).json({ error: 'Erreur serveur (création programme).' }); }
@@ -208,9 +225,9 @@ export function registerFoodRoutes(app, { pool, authRequired, adminPermissionReq
       if (!(await canManageRestaurant(req, prog.restaurant_id))) return res.status(403).json({ error: 'Non autorisé.' });
       const c = cleanProgram(req.body || {});
       const { rows } = await pool.query(
-        `UPDATE meal_programs SET name=$2, description=$3, target_audience=$4, dietary_tags=$5, duration_weeks=$6, meals_count=$7, schedule=$8, price_fcfa=$9, photo_url=$10, updated_at=now()
+        `UPDATE meal_programs SET name=$2, description=$3, target_audience=$4, dietary_tags=$5, duration_weeks=$6, meals_count=$7, schedule=$8, price_fcfa=$9, photo_url=$10, benefits=$11, sample_menu=$12, updated_at=now()
          WHERE id::text = $1 RETURNING *`,
-        [String(req.params.id), c.name, c.description, c.target_audience, c.dietary_tags, c.duration_weeks, c.meals_count, JSON.stringify(c.schedule), c.price_fcfa, c.photo_url]
+        [String(req.params.id), c.name, c.description, c.target_audience, c.dietary_tags, c.duration_weeks, c.meals_count, JSON.stringify(c.schedule), c.price_fcfa, c.photo_url, c.benefits, c.sample_menu ? JSON.stringify(c.sample_menu) : null]
       );
       res.json(fromSnake(rows[0]));
     } catch (err) { console.error('PUT meal-programs/:id:', err.message); res.status(500).json({ error: 'Erreur serveur.' }); }

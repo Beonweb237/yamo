@@ -12,6 +12,9 @@ function authHeader(): Record<string, string> {
 export type ProgramStatus = 'draft' | 'published' | 'archived';
 export interface ProgramSchedule { frequence?: 'quotidien' | 'hebdomadaire'; jours?: string[] }
 
+/** Plat d'exemple choisi par le resto (LOT 5) — id du menu_item si connu. */
+export interface SampleMenuEntry { id?: string; name: string; price?: number }
+
 export interface MealProgram {
   id: string;
   restaurantId: string;
@@ -25,6 +28,10 @@ export interface MealProgram {
   priceFcfa: number;
   photoUrl: string | null;
   status: ProgramStatus;
+  /** LOT 5 : bénéfices saisis par le resto (sinon dérivés des tags côté fiche). */
+  benefits?: string[] | null;
+  /** LOT 5 : plats d'exemple choisis par le resto (sinon dérivés des tags). */
+  sampleMenu?: SampleMenuEntry[] | null;
   restaurantName?: string;
   restaurantCity?: string;
   restaurantImage?: string | null;
@@ -36,6 +43,7 @@ export interface MealProgramInput {
   name: string; description?: string; targetAudience?: string;
   dietaryTags?: string[]; durationWeeks?: number; mealsCount?: number;
   schedule?: ProgramSchedule; priceFcfa?: number; photoUrl?: string | null;
+  benefits?: string[]; sampleMenu?: SampleMenuEntry[] | null;
 }
 
 export class FoodUnavailableError extends Error {

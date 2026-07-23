@@ -115,6 +115,12 @@ export default function MealProgramDetail() {
     fetchMenuItems(p.restaurantId)
       .then((items) => {
         if (!alive) return;
+        // LOT 5 : plats d'exemple choisis par le resto prioritaires ; sinon
+        // dérivés des tags du programme (LOT 1). Toujours de VRAIS plats.
+        const chosen = (p.sampleMenu ?? [])
+          .map((s) => items.find((it) => it.id === s.id))
+          .filter((it): it is MenuItem => Boolean(it));
+        if (chosen.length) { setSampleItems(chosen.slice(0, 6)); return; }
         const tags = p.dietaryTags ?? [];
         const matching = tags.length
           ? items.filter((it) => (it.dietaryTags ?? []).some((tg) => tags.includes(tg)))
@@ -242,9 +248,9 @@ export default function MealProgramDetail() {
               <span className="text-text-muted text-xs">· {t('repas + livraison réglés à la réception')}</span>
             </div>
 
-            {/* Bénéfices dérivés des tags réels du programme */}
+            {/* Bénéfices : saisis par le resto (LOT 5) sinon dérivés des tags */}
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 mt-4">
-              {deriveBenefits(p.dietaryTags).map((b) => (
+              {(p.benefits?.length ? p.benefits : deriveBenefits(p.dietaryTags)).map((b) => (
                 <li key={b} className="flex items-center gap-2 text-text-secondary text-sm">
                   <Check className="w-4 h-4 text-green-primary shrink-0" />{t(b)}
                 </li>
