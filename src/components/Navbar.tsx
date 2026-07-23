@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingCart, User, Menu, X, Minus, Plus,
   ChevronDown, Home, Compass, Store, UtensilsCrossed,
-  Bike, Phone, Star, Search,
+  Bike, Phone, Star, Search, HeartPulse,
 } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -33,6 +33,7 @@ const mainLinks: (MegaLink | MegaSection)[] = [
       { name: 'Restaurants', path: '/restaurants', icon: Store, description: 'Trouvez un restaurant près de chez vous' },
       { name: 'Tous les plats', path: '/restaurants?mode=plats', icon: Compass, description: 'Parcourez tout le catalogue' },
       { name: 'Sur mesure', path: '/demandes/nouvelle', icon: UtensilsCrossed, description: 'Commandez un plat personnalisé' },
+      { name: 'Programmes santé', path: '/programmes', icon: HeartPulse, description: 'Abonnements repas adaptés à votre santé' },
       { name: 'Mes favoris', path: '/favoris', icon: Star, description: 'Vos restaurants et plats préférés' },
       { name: 'Devenir livreur', path: '/livreurs', icon: Bike, description: 'Rejoignez notre flotte' },
     ],
@@ -55,7 +56,7 @@ export default function Navbar() {
   const { items, totalItems, totalPrice, updateQuantity } = useCart();
   const { user } = useAuth();
   const { t, i18n } = useTranslation();
-  const { logoUrl } = useSiteConfig();
+  const { logoUrl, homeTemplate } = useSiteConfig();
   const brandLogo = logoUrl || '/logo-icon.png';
 
   const currentLang = (i18n.language || 'fr').slice(0, 2);
@@ -98,7 +99,10 @@ export default function Navbar() {
 
   // Les entrées du menu peuvent porter une query (ex. /restaurants?mode=plats)
   const isActive = (path: string) => location.pathname === path.split('?')[0];
-  const isSolid = scrolled || !transparentTopRoutes.includes(location.pathname);
+  // Sur l'accueil, le fond transparent suppose le hero sombre du template « classic ».
+  // Le template « premium » a un fond clair → navbar solide pour rester lisible.
+  const isPremiumHome = homeTemplate === 'premium' && location.pathname === '/';
+  const isSolid = scrolled || !transparentTopRoutes.includes(location.pathname) || isPremiumHome;
 
   const handleDropdownEnter = (title: string) => {
     if (dropdownTimer.current) clearTimeout(dropdownTimer.current);
