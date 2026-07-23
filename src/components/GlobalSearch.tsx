@@ -29,7 +29,7 @@ import { useTranslation } from 'react-i18next';
 const MAX_RESULTS = 6;
 
 function normalize(value: string): string {
-  return value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return (value ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
 // Surligne l'occurrence recherchée. La normalisation (minuscule + suppression

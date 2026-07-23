@@ -211,13 +211,12 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
     }
     if (query.trim()) {
       const q = query.toLowerCase();
+      // Champs VPS potentiellement null/undefined (description, ville, quartier…)
+      // → toujours garder (?? '') sinon crash toLowerCase (vu en prod 23/07).
+      const has = (v: string | null | undefined) => (v ?? '').toLowerCase().includes(q);
       result = result.filter(i =>
-        i.name.toLowerCase().includes(q) ||
-        i.description.toLowerCase().includes(q) ||
-        i.category.toLowerCase().includes(q) ||
-        i.restaurantName.toLowerCase().includes(q) ||
-        i.restaurantCity.toLowerCase().includes(q) ||
-        i.restaurantNeighborhood.toLowerCase().includes(q)
+        has(i.name) || has(i.description) || has(i.category) ||
+        has(i.restaurantName) || has(i.restaurantCity) || has(i.restaurantNeighborhood)
       );
     }
     const groups = groupDishes(result);

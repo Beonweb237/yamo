@@ -73,6 +73,26 @@ export function registerPromotionRoutes(app, { pool, authRequired, adminPermissi
     ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
   `).catch((e) => console.error('promo_codes init:', e.message));
 
+  // Compat schéma HÉRITÉ (prod) : la table historique porte des colonnes
+  // NOT NULL (discount_type/discount_value) inconnues du schéma neuf. On les
+  // détecte, on lève le NOT NULL (best-effort) et on les alimente en miroir
+  // dans les INSERT/UPDATE tant qu'elles existent — sinon "null value in
+  // column discount_value" casse la création (bug vu en prod le 23/07).
+  let legacyCols = false;
+  pool.query(`SELECT column_name FROM information_schema.columns
+              WHERE table_name = 'promo_codes' AND column_name IN ('discount_type','discount_value')`)
+    .then(async (r) => {
+      legacyCols = r.rowCount >= 2;
+      if (legacyCols) {
+        await pool.query('ALTER TABLE promo_codes ALTER COLUMN discount_value DROP NOT NULL').catch(() => {});
+        await pool.query('ALTER TABLE promo_codes ALTER COLUMN discount_type DROP NOT NULL').catch(() => {});
+      }
+    })
+    .catch((e) => console.error('promo_codes legacy detect:', e.message));
+
+  // Valeur legacy miroir (lecteurs historiques éventuels).
+  const legacyValue = (v) => (v.type === 'percent' ? v.discount_percent : v.discount_amount) || 0;
+
   const VALID_TYPES = ['percent', 'amount', 'free_delivery'];
 
   function cleanInput(body) {
@@ -136,13 +156,22 @@ export function registerPromotionRoutes(app, { pool, authRequired, adminPermissi
     if (parsed.error) return res.status(400).json({ error: parsed.error });
     const v = parsed.value;
     try {
-      const { rows: [row] } = await pool.query(
-        `INSERT INTO promo_codes (code, title, type, discount_percent, discount_amount, min_subtotal,
-                                  restaurant_ids, starts_at, ends_at, is_active, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now()) RETURNING *`,
-        [v.code, v.title, v.type, v.discount_percent, v.discount_amount, v.min_subtotal,
-          v.restaurant_ids, v.starts_at, v.ends_at, v.is_active]
-      );
+      const { rows: [row] } = legacyCols
+        ? await pool.query(
+          `INSERT INTO promo_codes (code, title, type, discount_percent, discount_amount, min_subtotal,
+                                    restaurant_ids, starts_at, ends_at, is_active, updated_at,
+                                    discount_type, discount_value)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now(), $11, $12) RETURNING *`,
+          [v.code, v.title, v.type, v.discount_percent, v.discount_amount, v.min_subtotal,
+            v.restaurant_ids, v.starts_at, v.ends_at, v.is_active, v.type, legacyValue(v)]
+        )
+        : await pool.query(
+          `INSERT INTO promo_codes (code, title, type, discount_percent, discount_amount, min_subtotal,
+                                    restaurant_ids, starts_at, ends_at, is_active, updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now()) RETURNING *`,
+          [v.code, v.title, v.type, v.discount_percent, v.discount_amount, v.min_subtotal,
+            v.restaurant_ids, v.starts_at, v.ends_at, v.is_active]
+        );
       res.status(201).json(fromSnake(row));
     } catch (err) {
       if (String(err.message).includes('duplicate')) {
@@ -158,13 +187,22 @@ export function registerPromotionRoutes(app, { pool, authRequired, adminPermissi
     if (parsed.error) return res.status(400).json({ error: parsed.error });
     const v = parsed.value;
     try {
-      const { rows: [row] } = await pool.query(
-        `UPDATE promo_codes SET code=$2, title=$3, type=$4, discount_percent=$5, discount_amount=$6,
-                min_subtotal=$7, restaurant_ids=$8, starts_at=$9, ends_at=$10, is_active=$11, updated_at=now()
-         WHERE id::text = $1 RETURNING *`,
-        [String(req.params.id), v.code, v.title, v.type, v.discount_percent, v.discount_amount,
-          v.min_subtotal, v.restaurant_ids, v.starts_at, v.ends_at, v.is_active]
-      );
+      const { rows: [row] } = legacyCols
+        ? await pool.query(
+          `UPDATE promo_codes SET code=$2, title=$3, type=$4, discount_percent=$5, discount_amount=$6,
+                  min_subtotal=$7, restaurant_ids=$8, starts_at=$9, ends_at=$10, is_active=$11, updated_at=now(),
+                  discount_type=$12, discount_value=$13
+           WHERE id::text = $1 RETURNING *`,
+          [String(req.params.id), v.code, v.title, v.type, v.discount_percent, v.discount_amount,
+            v.min_subtotal, v.restaurant_ids, v.starts_at, v.ends_at, v.is_active, v.type, legacyValue(v)]
+        )
+        : await pool.query(
+          `UPDATE promo_codes SET code=$2, title=$3, type=$4, discount_percent=$5, discount_amount=$6,
+                  min_subtotal=$7, restaurant_ids=$8, starts_at=$9, ends_at=$10, is_active=$11, updated_at=now()
+           WHERE id::text = $1 RETURNING *`,
+          [String(req.params.id), v.code, v.title, v.type, v.discount_percent, v.discount_amount,
+            v.min_subtotal, v.restaurant_ids, v.starts_at, v.ends_at, v.is_active]
+        );
       if (!row) return res.status(404).json({ error: 'Promotion introuvable.' });
       res.json(fromSnake(row));
     } catch (err) {

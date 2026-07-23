@@ -167,13 +167,15 @@ export default function Restaurants() {
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
+      // Champs VPS potentiellement null → garde (?? '') sinon crash toLowerCase.
+      const safe = (v: string | null | undefined) => (v ?? '').toLowerCase();
       result = result.filter(
         (r) =>
-          r.name.toLowerCase().includes(q) ||
-          r.category.toLowerCase().includes(q) ||
-          r.city.toLowerCase().includes(q) ||
-          r.neighborhood.toLowerCase().includes(q) ||
-          r.tags.some((t) => t.toLowerCase().includes(q))
+          safe(r.name).includes(q) ||
+          safe(r.category).includes(q) ||
+          safe(r.city).includes(q) ||
+          safe(r.neighborhood).includes(q) ||
+          (r.tags ?? []).some((t) => safe(t).includes(q))
       );
     }
 
