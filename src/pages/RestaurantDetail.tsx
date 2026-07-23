@@ -24,6 +24,7 @@ import {
   Navigation,
   BadgeCheck,
   HeartPulse,
+  Lock,
 } from 'lucide-react';
 import { Skeleton } from '../components/ui/skeleton';
 import {
@@ -216,7 +217,10 @@ export default function RestaurantDetail() {
 
   const handleAdd = (item: MenuItem) => {
     if (restaurant && !restaurantOpen) {
-      toast.error('Ce restaurant est actuellement fermé.');
+      // Fermé : le clic reste possible (bouton non désactivé) pour expliquer
+      // clairement pourquoi la commande est bloquée — message bilingue.
+      const reopen = restaurant.isOpen && parsedHours ? ` ${t('Réouverture à')} ${parsedHours.open}.` : '';
+      toast.error(t('Ce restaurant est fermé — commande impossible pour le moment.') + reopen);
       return;
     }
     if (item.variants?.length || item.supplements?.length) {
@@ -928,12 +932,12 @@ export default function RestaurantDetail() {
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); handleAdd(linkedItem); }}
-                                    disabled={!restaurantOpen || linkedItem.isAvailable === false}
-                                    aria-label={restaurantOpen ? `Ajouter ${linkedItem.name} au panier` : 'Restaurant actuellement fermé'}
-                                    className="w-10 h-10 rounded-full bg-green-primary text-white flex items-center justify-center hover:bg-green-dark hover:scale-110 transition-all shadow-md disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
-                                    title={restaurantOpen ? `Ajouter ${linkedItem.name} au panier` : 'Restaurant actuellement fermé'}
+                                    disabled={linkedItem.isAvailable === false}
+                                    aria-label={restaurantOpen ? `${t('Ajouter au panier')} : ${linkedItem.name}` : t('Restaurant fermé — commande impossible')}
+                                    className={`w-10 h-10 rounded-full text-white flex items-center justify-center transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${restaurantOpen ? 'bg-green-primary hover:bg-green-dark hover:scale-110' : 'bg-text-muted/90'}`}
+                                    title={restaurantOpen ? `${t('Ajouter au panier')} : ${linkedItem.name}` : t('Restaurant fermé — commande impossible')}
                                   >
-                                    <Plus className="w-3.5 h-3.5" />
+                                    {restaurantOpen ? <Plus className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
                                   </button>
                                 </div>
                               </div>
@@ -1518,8 +1522,6 @@ function MenuRow({
   // quantités se règlent ligne par ligne dans le panier.
   const customizable = Boolean(item.variants?.length || item.supplements?.length);
   const itemAvailable = item.isAvailable !== false;
-  const canAdd = itemAvailable && !disabled;
-  const unavailableLabel = itemAvailable ? undefined : 'Plat indisponible';
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1565,12 +1567,18 @@ function MenuRow({
           <button
             type="button"
             onClick={() => onAdd(item)}
-            disabled={!canAdd}
-            aria-label={!itemAvailable ? 'Plat indisponible' : disabled ? 'Restaurant actuellement fermé' : `Ajouter ${item.name} au panier`}
-            title={unavailableLabel ?? (disabled ? 'Restaurant actuellement fermé' : undefined)}
-            className="absolute -bottom-2 -right-2 w-11 h-11 rounded-full bg-green-primary text-white flex items-center justify-center shadow-md hover:bg-green-dark hover:scale-110 transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
+            // Fermé : on NE désactive PAS le bouton (sinon le clic est muet) — le
+            // clic déclenche le message « restaurant fermé ». Seul un plat
+            // réellement indisponible désactive le bouton.
+            disabled={!itemAvailable}
+            aria-label={!itemAvailable ? t('Plat indisponible') : disabled ? t('Restaurant fermé — commande impossible') : `${t('Ajouter au panier')} : ${item.name}`}
+            title={!itemAvailable ? t('Plat indisponible') : disabled ? t('Restaurant fermé — commande impossible') : undefined}
+            className={`absolute -bottom-2 -right-2 w-11 h-11 rounded-full flex items-center justify-center shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed ${disabled && itemAvailable
+              ? 'bg-text-muted/90 text-white' // fermé : verrouillé visuellement, mais cliquable (message)
+              : 'bg-green-primary text-white hover:bg-green-dark hover:scale-110'
+              }`}
           >
-            <Plus className="w-4 h-4" />
+            {disabled && itemAvailable ? <Lock className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           </button>
         ) : customizable ? (
           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white rounded-full shadow-md border border-border-custom px-1 py-0.5">
@@ -1580,10 +1588,10 @@ function MenuRow({
             <button
               type="button"
               onClick={() => onAdd(item)}
-              disabled={!canAdd}
-              aria-label={!itemAvailable ? 'Plat indisponible' : disabled ? 'Restaurant actuellement fermé' : `Ajouter une autre personnalisation de ${item.name}`}
-              title={unavailableLabel ?? (disabled ? 'Restaurant actuellement fermé' : undefined)}
-              className="w-8 h-8 rounded-full bg-green-primary text-white flex items-center justify-center hover:bg-green-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!itemAvailable}
+              aria-label={!itemAvailable ? t('Plat indisponible') : disabled ? t('Restaurant fermé — commande impossible') : `${t('Ajouter au panier')} : ${item.name}`}
+              title={!itemAvailable ? t('Plat indisponible') : disabled ? t('Restaurant fermé — commande impossible') : undefined}
+              className={`w-8 h-8 rounded-full text-white flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${disabled && itemAvailable ? 'bg-text-muted/90' : 'bg-green-primary hover:bg-green-dark'}`}
             >
               <Plus className="w-3 h-3" />
             </button>
@@ -1602,10 +1610,10 @@ function MenuRow({
             <button
               type="button"
               onClick={() => onAdd(item)}
-              disabled={!canAdd}
-              aria-label={!itemAvailable ? 'Plat indisponible' : disabled ? 'Restaurant actuellement fermé' : `Ajouter ${item.name}`}
-              title={unavailableLabel ?? (disabled ? 'Restaurant actuellement fermé' : undefined)}
-              className="w-8 h-8 rounded-full bg-green-primary text-white flex items-center justify-center hover:bg-green-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!itemAvailable}
+              aria-label={!itemAvailable ? t('Plat indisponible') : disabled ? t('Restaurant fermé — commande impossible') : `${t('Ajouter au panier')} : ${item.name}`}
+              title={!itemAvailable ? t('Plat indisponible') : disabled ? t('Restaurant fermé — commande impossible') : undefined}
+              className={`w-8 h-8 rounded-full text-white flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${disabled && itemAvailable ? 'bg-text-muted/90' : 'bg-green-primary hover:bg-green-dark'}`}
             >
               <Plus className="w-3 h-3" />
             </button>

@@ -87,6 +87,11 @@
   "Chargement...": "Loading...",
   "Validation en attente": "Validation pending",
   "Le paiement devrait apparaître sur votre écran.": "The payment should appear on your screen.",
+  "Demande de paiement envoyée. Validez-la sur votre téléphone avec votre code secret.": "Payment request sent. Confirm it on your phone with your secret code.",
+  "Le paiement Mobile Money n'a pas pu être initié. Vous pourrez régler à la livraison.": "The Mobile Money payment could not be initiated. You can pay on delivery.",
+  "Le paiement Mobile Money sera confirmé avec vous par le support. En attendant, la commande est enregistrée.": "The Mobile Money payment will be confirmed with you by our support team. Meanwhile, your order is saved.",
+  "Le paiement n'a pas abouti. Vous pourrez régler à la livraison.": "The payment did not go through. You can pay on delivery.",
+  "Paiement Mobile Money confirmé": "Mobile Money payment confirmed",
   "Je n'ai rien reçu, continuer": "I haven't received anything, continue",
   "Commande confirmée !": "Order confirmed!",
   "Référence :": "Reference :",
@@ -1654,5 +1659,10 @@
   "Ex : 10 000": "e.g. 10,000",
   "Méthode de paiement reçue": "Payment method received",
   "Cash partenaire": "Partner cash",
-  "Recharge…": "Topping up…"
+  "Recharge…": "Topping up…",
+  "Ce restaurant est fermé — commande impossible pour le moment.": "This restaurant is closed — ordering is not available right now.",
+  "Réouverture à": "Reopens at",
+  "Plat indisponible": "Dish unavailable",
+  "Restaurant fermé — commande impossible": "Restaurant closed — ordering unavailable",
+  "Ajouter au panier": "Add to cart"
 }
