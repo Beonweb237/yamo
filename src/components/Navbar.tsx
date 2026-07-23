@@ -11,6 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import GlobalSearch from './GlobalSearch';
 import { useTranslation } from 'react-i18next';
+import { useSiteConfig } from '../hooks/useSiteConfig';
 
 // ── Mega Menu Structure ──
 interface MegaLink {
@@ -54,6 +55,8 @@ export default function Navbar() {
   const { items, totalItems, totalPrice, updateQuantity } = useCart();
   const { user } = useAuth();
   const { t, i18n } = useTranslation();
+  const { logoUrl } = useSiteConfig();
+  const brandLogo = logoUrl || '/logo-icon.png';
 
   const currentLang = (i18n.language || 'fr').slice(0, 2);
   const setLanguage = (lng: 'fr' | 'en') => {
@@ -139,7 +142,7 @@ export default function Navbar() {
         <div className="max-w-[1280px] mx-auto h-full flex items-center justify-between px-3 sm:px-6 lg:px-8 xl:px-12">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <img src="/logo-icon.png" alt="MiamExpress Logo" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
+            <img src={brandLogo} alt="MiamExpress Logo" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
             <span className={`font-inter font-semibold text-sm sm:text-lg md:text-xl tracking-normal ${isSolid ? 'text-green-primary' : 'text-white'}`}>
               {t("MiamExpress")}
             </span>
@@ -372,7 +375,7 @@ export default function Navbar() {
               className="fixed top-0 right-0 bottom-0 w-[320px] max-w-[85vw] bg-white z-50 lg:hidden shadow-xl flex flex-col">
               <div className="flex items-center justify-between p-4 border-b border-border-light">
                 <Link to="/" className="flex items-center gap-2" onClick={() => setMobileOpen(false)}>
-                  <img src="/logo-icon.png" alt="MiamExpress Logo" className="w-8 h-8 object-contain" />
+                  <img src={brandLogo} alt="MiamExpress Logo" className="w-8 h-8 object-contain" />
                   <div className="flex items-baseline gap-1">
                     <span className="font-inter font-semibold text-lg text-green-primary">{t("MiamExpress")}</span>
                   </div>

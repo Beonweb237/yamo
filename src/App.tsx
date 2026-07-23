@@ -42,6 +42,7 @@ import AdminApplicationCreate from './pages/admin/AdminApplicationCreate'
 import AdminKyc from './pages/admin/AdminKyc'
 import AdminKycDossier from './pages/admin/AdminKycDossier'
 import AdminFinance from './pages/admin/AdminFinance'
+import AdminAppearance from './pages/admin/AdminAppearance'
 import FoodRequestCreate from './pages/FoodRequestCreate'
 import FoodRequestList from './pages/FoodRequestList'
 import NotFound from './pages/NotFound'
@@ -156,6 +157,7 @@ export default function App() {
           <Route path="points" element={<AdminPermissionGate permission="points.manage"><AdminPoints /></AdminPermissionGate>} />
           <Route path="trash" element={<AdminPermissionGate permission="trash.manage"><AdminTrash /></AdminPermissionGate>} />
           <Route path="quotas" element={<AdminPermissionGate permission="quotas.manage"><AdminQuotas /></AdminPermissionGate>} />
+          <Route path="apparence" element={<AdminPermissionGate permission="appearance.manage"><AdminAppearance /></AdminPermissionGate>} />
           <Route path="roles" element={<AdminPermissionGate permission="admin.roles.view"><AdminRoles /></AdminPermissionGate>} />
         </Route>
 

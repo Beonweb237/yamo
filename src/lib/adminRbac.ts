@@ -105,6 +105,7 @@ export const ADMIN_ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/operations': 'operations.view',
   '/admin/kyc': 'kyc.view',
   '/admin/finance': 'finance.dashboard.view',
+  '/admin/apparence': 'appearance.manage',
 };
 
 export function hasAdminPermission(user: AuthUser | null | undefined, permission?: string): boolean {

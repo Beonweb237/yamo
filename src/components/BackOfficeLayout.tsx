@@ -4,7 +4,7 @@ import {
   Bike, Home, LayoutDashboard, LogOut, ShoppingBag, Store, Menu, X,
   Package, Utensils, User, Wallet, AlertTriangle, UserCheck, UserCircle, ChevronDown, ChefHat,
   MapPin, DollarSign, Image, Users, MessageSquare, Trash2, Coins, Gauge, ShieldCheck,
-  Layers, Settings, LifeBuoy, UserPlus, RadioTower,
+  Layers, Settings, LifeBuoy, UserPlus, RadioTower, Palette,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { hasAdminPermission, primaryAdminRoleLabel } from '../lib/adminRbac';
@@ -77,6 +77,7 @@ const adminCategories: CategoryGroup[] = [
     label: 'Configuration',
     icon: Settings,
     children: [
+      { name: 'Apparence', path: '/admin/apparence', icon: Palette, permission: 'appearance.manage' },
       { name: 'Zones', path: '/admin/zones', icon: MapPin, permission: 'zones.manage' },
       { name: 'Frais livraison', path: '/admin/delivery-fees', icon: DollarSign, permission: 'delivery_fees.manage' },
       { name: 'Rôles & accès', path: '/admin/roles', icon: ShieldCheck, permission: 'admin.roles.view' },

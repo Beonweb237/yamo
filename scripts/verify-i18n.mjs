@@ -24,7 +24,8 @@ const AS_JSON = argv.includes('--json');
 
 // Pages/composants à fort trafic qui DOIVENT être 100% traduits (gate dur).
 const PRIORITY = [
-  'pages/Home.tsx', 'components/Navbar.tsx', 'components/Footer.tsx',
+  'pages/Home.tsx', 'pages/HomeClassic.tsx', 'pages/HomePremium.tsx',
+  'components/Navbar.tsx', 'components/Footer.tsx',
   'components/MobileBottomNav.tsx', 'pages/Restaurants.tsx', 'pages/Login.tsx',
   'pages/Inscription.tsx', 'pages/Checkout.tsx', 'pages/Orders.tsx', 'pages/Profile.tsx',
 ];

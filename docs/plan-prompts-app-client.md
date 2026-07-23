@@ -13,6 +13,13 @@
 
 ---
 
+## Avancement
+
+- [x] **CP1 — Socle Templates & Apparence** ✅ vérifié (verify:hooks 0, verify:i18n OK, build 0, pixel classic identique, bascule premium OK, mobile 360px OK). Fichiers : `lib/siteConfig.ts`, `hooks/useSiteConfig.ts`, `pages/Home.tsx` (routeur), `pages/HomeClassic.tsx`, `pages/HomePremium.tsx` (placeholder), `pages/admin/AdminAppearance.tsx`, route + `appearance.manage` + sidebar.
+- [x] **CP2 — Apparence : logo + couleurs** ✅ vérifié (couleurs appliquées à chaud puis reset #157F3D, logo navbar dynamique, `BrandTheme` monté, application synchrone au boot = pas de flash). **Reste (CP2-bis, non fait)** : sections Home on/off/ordre, contenu hero éditable, coordonnées support. **Backend (CP10)** : endpoint `/api/settings/site_config` à ajouter côté VPS (front best-effort, mock/localStorage OK).
+- [ ] **CP3 — HomePremium au pixel près** ← PROCHAINE ÉTAPE (la plus grosse : mérite un contexte dédié).
+- [ ] CP4, CP6, CP5, CP7, CP10, CP8, CP9.
+
 ## Règles transverses (rappelées dans chaque prompt)
 
 - Travailler depuis `app/`. **Réel uniquement** : aucune promo/donnée factice (règle CLAUDE.md).

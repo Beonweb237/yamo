@@ -7,6 +7,8 @@ import { SettingsProvider } from './contexts/SettingsContext'
 import './index.css'
 import i18n from './i18n/config'
 import App from './App.tsx'
+import BrandTheme from './components/BrandTheme'
+import { readSiteConfigSync, applyBrandColors } from './lib/siteConfig'
 
 // Utilitaire de seed démo (avis, commandes, clients fictifs) — dev uniquement,
 // éliminé du build de production. Voir src/dev/seedDemoData.ts.
@@ -32,6 +34,9 @@ if (!urlLang) {
   // Mémorise la langue vue pour le prochain accès sans préfixe.
   localStorage.setItem('miamexpress_lang', urlLang);
 
+  // Couleurs de marque appliquées AVANT le rendu (pas de flash).
+  applyBrandColors(readSiteConfigSync().brandColors);
+
   const rootEl = document.getElementById('root')!;
   const app = (
     <StrictMode>
@@ -39,6 +44,7 @@ if (!urlLang) {
         <SettingsProvider>
           <AuthProvider>
             <CartProvider>
+              <BrandTheme />
               <App />
             </CartProvider>
           </AuthProvider>
