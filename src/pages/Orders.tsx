@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Package, Clock, Star, Store, UserRound, XCircle, RotateCcw, Loader2, ShieldCheck, MessageCircle, AlertTriangle } from 'lucide-react';
+import { Package, Clock, Star, Store, UserRound, XCircle, RotateCcw, Loader2, ShieldCheck, MessageCircle, AlertTriangle, Bike } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { fetchMenuItems } from '../lib/catalog';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,6 +17,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
 import { fetchDriverPosition, getDemoTracking } from '../lib/tracking';
 import { getRestaurantCoords, getCustomerCoords, simulateDriverPosition } from '../lib/tracking';
+import { distanceKm, estimateDeliveryTime } from '../lib/distance';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,8 +75,19 @@ function DeliveryTrackingMap({ order }: { order: Order }) {
     { ...driver, label: 'Votre livreur', type: 'driver' },
     { ...customer, label: 'Vous', type: 'customer' },
   ];
+  // ETA (CP7) : temps restant dérivé de la distance livreur → client.
+  // Position réelle → « Arrive dans ~X–Y min » ; sinon clairement « estimé ».
+  const remainingKm = distanceKm(driver, customer);
+  const eta = estimateDeliveryTime(remainingKm);
   return (
     <div className="mb-3">
+      <p className="flex items-center justify-center gap-1.5 text-sm font-inter font-medium text-green-primary mb-2">
+        <Bike className="w-4 h-4" />
+        {eta.min <= 2
+          ? t('Votre livreur arrive — il est tout proche !')
+          : t('Arrive dans ~{{min}}–{{max}} min', { min: eta.min, max: eta.max })}
+        {!useReal && <span className="text-text-muted font-normal text-xs">({t('estimé')})</span>}
+      </p>
       <LazyDeliveryMap height="220px" scrollWheelZoom={false} points={points} estimated={!useReal} />
       {!useReal && (
         <p className="text-[11px] text-text-muted font-inter mt-1 text-center">

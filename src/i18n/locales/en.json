@@ -1631,5 +1631,10 @@
   "Activer {{code}}": "Enable {{code}}",
   "Modifier {{code}}": "Edit {{code}}",
   "Supprimer {{code}}": "Delete {{code}}",
-  "Code promo": "Promo code"
+  "Code promo": "Promo code",
+  "Complétez votre repas": "Complete your meal",
+  "Ajouter {{name}} au panier": "Add {{name}} to cart",
+  "Arrive dans ~{{min}}–{{max}} min": "Arriving in ~{{min}}–{{max}} min",
+  "Votre livreur arrive — il est tout proche !": "Your rider is arriving — almost there!",
+  "estimé": "estimated"
 }

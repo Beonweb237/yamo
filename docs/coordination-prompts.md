@@ -31,7 +31,7 @@
 | PS-05 | Fiche programme LOT 4 (découverte+SEO) | Terminé |
 | PS-06 | CP6 « Pour vous » personnalisé | Terminé |
 | PS-07 | CP5 promotions réelles | Terminé (déploiement serveur en PS-11) |
-| PS-08 | CP7 upsell + ETA (+ vérif filtres) | À faire |
+| PS-08 | CP7 upsell + ETA (+ vérif filtres) | Terminé |
 | PS-09 | Fiche programme LOT 5 (data) | À faire |
 | PS-10 | Dark mode back-office | À faire |
 | PS-11 | Recette + déploiement VPS | À faire |
@@ -39,6 +39,8 @@
 | PS-13 | CP9 Play Store (préparation) | À faire |
 
 ## Journal d'exécution
+
+- **23/07/2026 — PS-08 Terminé** : CP7. ① Upsell « Complétez votre repas » dans le panier fiche resto (2-3 vrais articles du même resto absents du panier, boissons/desserts/accompagnements d'abord sinon moins chers, masqué si rien) — vérifié : propose Beignets/Jus, clic → panier 1→2 lignes ; réutilise `handleAdd` (variantes/conflits gérés). ② ETA sur le suivi (`DeliveryTrackingMap`) : « Arrive dans ~X–Y min » via `estimateDeliveryTime(distanceKm(livreur→client))`, « (estimé) » quand la position n'est pas réelle, « tout proche » sous 2 min — vérifié en mock (« ~20–35 min (estimé) »). ③ Filtres/tri `/restaurants` : DÉJÀ livrés (LOT-13/14 : quickFilters dont « Ouvert maintenant » = `isEffectivelyOpen`, tri, sync URL) — vérifié dans le code, rien réimplémenté. Gates verts (lint : 1 erreur `setRestaurantPrograms` héritée d'une autre session, présente à HEAD).
 
 - **23/07/2026 — PS-07 Terminé (front + serveur local ; déploiement VPS groupé en PS-11)** : CP5 promotions réelles. Serveur : nouveau `promotions-routes.js` (table `promo_codes` enrichie idempotente : type %/montant/livraison offerte, seuil, ciblage resto, période ; `GET /api/promotions/active` public + CRUD `/api/admin/promotions` permission `promotions.manage` ajoutée au catalogue RBAC) ; `/api/orders/validate` refondu sur `evaluatePromoCode` (code saisi mais refusé = 400 motivé ; livraison offerte → fee 0). Front : `lib/promotions.ts` (double chemin, clé mock **`yamo_promotions`** — à ajouter au registre CLAUDE.md), page `/admin/promotions` (CRUD, switch actif, AlertDialog suppression, états loading/error/empty), route + sidebar + adminRbac front, carrousel « Offres à ne pas manquer » sur HomePremium (masqué si aucune offre), Checkout mock applique les mêmes règles (bloquant motivé). **E2E mock vérifié en navigateur** : création TEST10 (-10%) → affichée sur Home → commande 7000 → total 6300 ; code FAUXCODE → « Code promo inconnu », commande bloquée. `node --check` OK sur les 3 fichiers serveur. Zones éditées dans index.js distinctes de la session concurrente (l.500 vs l.1344), ses fichiers non commités.
 

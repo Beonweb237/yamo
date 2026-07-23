@@ -199,6 +199,21 @@ export default function RestaurantDetail() {
   const restaurantOpen = restaurant ? isEffectivelyOpen(restaurant) : true;
   const parsedHours = restaurant ? parseHours(restaurant.hours) : null;
 
+  // Upsell (CP7) : 2-3 VRAIS articles du même resto absents du panier —
+  // boissons/desserts/accompagnements d'abord, sinon les moins chers.
+  const upsellItems = useMemo(() => {
+    if (totalItems === 0 || !restaurant) return [];
+    const inCart = new Set(items.map((l) => l.baseItemId));
+    const candidates = menuItems.filter(
+      (m) => m.restaurantId === restaurant.id && m.isAvailable !== false && !inCart.has(m.id),
+    );
+    if (!candidates.length) return [];
+    const prefCat = /boisson|dessert|jus|accompagnement|entr[ée]e/i;
+    const preferred = candidates.filter((m) => prefCat.test(m.category));
+    const pool = preferred.length >= 2 ? preferred : [...candidates].sort((a, b) => a.price - b.price);
+    return pool.slice(0, 3);
+  }, [items, menuItems, restaurant, totalItems]);
+
   const handleAdd = (item: MenuItem) => {
     if (restaurant && !restaurantOpen) {
       toast.error('Ce restaurant est actuellement fermé.');
@@ -759,7 +774,7 @@ export default function RestaurantDetail() {
                 {/* Cart Sidebar - Desktop */}
                 <div className="hidden lg:block w-[380px] shrink-0">
                   <div className="sticky top-[140px] bg-white rounded-xl border border-border-custom shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-5">
-                    <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} deliveryFee={cartDeliveryFee} minOrder={cartMinOrder} onUpdate={updateQuantity} onCheckout={handleCheckout} />
+                    <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} deliveryFee={cartDeliveryFee} minOrder={cartMinOrder} onUpdate={updateQuantity} onCheckout={handleCheckout} upsellItems={upsellItems} onAddUpsell={handleAdd} />
                   </div>
                 </div>
               </div>
@@ -1330,7 +1345,7 @@ export default function RestaurantDetail() {
                   <ChevronDown className="w-6 h-6 text-text-secondary" />
                 </button>
               </div>
-              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} deliveryFee={cartDeliveryFee} minOrder={cartMinOrder} onUpdate={updateQuantity} onCheckout={handleCheckout} />
+              <CartContent items={items} totalItems={totalItems} totalPrice={totalPrice} deliveryFee={cartDeliveryFee} minOrder={cartMinOrder} onUpdate={updateQuantity} onCheckout={handleCheckout} upsellItems={upsellItems} onAddUpsell={handleAdd} />
             </motion.div>
           </>
         )}
@@ -1604,6 +1619,7 @@ function MenuRow({
 /* Cart Content Component */
 function CartContent({
   items, totalItems, totalPrice, deliveryFee, minOrder = 0, onUpdate, onCheckout,
+  upsellItems = [], onAddUpsell,
 }: {
   items: { item: MenuItem; quantity: number }[];
   totalItems: number;
@@ -1613,6 +1629,9 @@ function CartContent({
   minOrder?: number;
   onUpdate: (id: string, qty: number) => void;
   onCheckout: () => void;
+  /** Upsell (CP7) : vrais articles du même resto absents du panier. */
+  upsellItems?: MenuItem[];
+  onAddUpsell?: (item: MenuItem) => void;
 }) {
   const { t } = useTranslation();
   const surgeActive = isSurgeActive();
@@ -1675,6 +1694,30 @@ function CartContent({
           </div>
         ))}
       </div>
+      {/* Upsell — complétez votre repas (masqué si rien à proposer) */}
+      {upsellItems.length > 0 && onAddUpsell && (
+        <div className="mb-4">
+          <p className="font-inter font-semibold text-text-primary text-xs mb-2">{t('Complétez votre repas')}</p>
+          <div className="space-y-1.5">
+            {upsellItems.map((u) => (
+              <div key={u.id} className="flex items-center gap-2 bg-bg-secondary rounded-lg px-2.5 py-1.5">
+                <div className="flex-1 min-w-0">
+                  <p className="font-inter text-xs text-text-primary truncate">{u.name}</p>
+                  <p className="text-text-muted text-[11px]">{u.price.toLocaleString()} {t('FCFA')}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onAddUpsell(u)}
+                  aria-label={t('Ajouter {{name}} au panier', { name: u.name })}
+                  className="shrink-0 w-8 h-8 rounded-full bg-white border border-green-primary/30 text-green-primary flex items-center justify-center hover:bg-green-light transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="border-t border-border-light pt-4 space-y-2">
         <div className="flex justify-between text-sm font-inter text-text-secondary">
           <span>{t("Sous-total")}</span>
