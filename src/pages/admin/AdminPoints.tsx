@@ -1,7 +1,7 @@
 // Série PTS — back-office des points restaurant : validation des recharges
 // (phase 1 manuelle), soldes/caution, ajustements tracés, ledger consultable.
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { Coins, Check, X, RefreshCw, Search, TrendingUp, AlertCircle, ScrollText, Gift } from 'lucide-react';
+import { Coins, Check, X, RefreshCw, Search, TrendingUp, AlertCircle, ScrollText, Gift, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePolling } from '../../hooks/usePolling';
 import { useRestaurants } from '../../hooks/useCatalog';
@@ -213,6 +213,31 @@ export default function AdminPoints() {
     }
   };
 
+  // ── Recharge d'un restaurant (crédit direct par l'admin, tracé) ──
+  const [rechargeOpen, setRechargeOpen] = useState(false);
+  const [rechargeResto, setRechargeResto] = useState('');
+  const [rechargeAmount, setRechargeAmount] = useState('');
+  const [rechargeMethod, setRechargeMethod] = useState<'momo' | 'cash'>('momo');
+  const [recharging, setRecharging] = useState(false);
+
+  const handleRecharge = async () => {
+    if (!user || !rechargeResto) { toast.error(t('Choisissez un restaurant.')); return; }
+    const amount = parseInt(rechargeAmount, 10);
+    if (!amount || amount <= 0) { toast.error(t('Montant invalide.')); return; }
+    setRecharging(true);
+    try {
+      const label = rechargeMethod === 'momo' ? 'Mobile Money' : 'cash partenaire';
+      await adminAdjust(rechargeResto, amount, user.id, `Recharge ${label} — créditée par l'admin`);
+      toast.success(`Recharge appliquée : +${amount.toLocaleString()} FCFA pour ${nameOf(rechargeResto)}.`);
+      setRechargeOpen(false); setRechargeResto(''); setRechargeAmount(''); setRechargeMethod('momo');
+      load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setRecharging(false);
+    }
+  };
+
   // ── Dotation promotionnelle en masse (lancement) ──
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoPoints, setPromoPoints] = useState('5000');
@@ -278,6 +303,9 @@ export default function AdminPoints() {
         subtitle={`${pending.length} recharge${pending.length !== 1 ? 's' : ''} en attente de validation`}
         action={
           <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => setRechargeOpen(true)} className="flex items-center gap-1.5 text-green-primary text-sm font-inter font-semibold bg-white hover:bg-white/90 rounded-lg px-3 py-2 shadow-sm transition-colors">
+              <Wallet className="w-4 h-4" />{t("Recharger un restaurant")}
+            </button>
             <button onClick={() => setPromoOpen(true)} className="flex items-center gap-1.5 text-white text-sm font-inter bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 backdrop-blur-sm transition-colors">
               <Gift className="w-4 h-4" />{t("Créditer les restaurants")}
             </button>
@@ -546,6 +574,67 @@ export default function AdminPoints() {
       </Dialog>
 
       {/* Dialog ajustement (motif obligatoire) */}
+      {/* Recharger un restaurant — crédit direct (Mobile Money / cash), tracé au ledger. */}
+      <Dialog open={rechargeOpen} onOpenChange={(open) => { if (!open) setRechargeOpen(false); }}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="font-poppins flex items-center gap-2"><Wallet className="w-5 h-5 text-green-primary" />{t("Recharger un restaurant")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="block">
+              <span className="block text-text-muted text-xs font-inter mb-1">{t("Restaurant")}</span>
+              <select
+                value={rechargeResto}
+                onChange={(e) => setRechargeResto(e.target.value)}
+                className="w-full bg-white rounded-lg border border-border-custom px-3 h-11 text-sm font-inter outline-none focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
+              >
+                <option value="">{t("— Choisir un restaurant —")}</option>
+                {[...restaurants].sort((a, b) => a.name.localeCompare(b.name)).map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}{balances[r.id] ? ` · ${balances[r.id].available.toLocaleString()} F` : ''}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="block text-text-muted text-xs font-inter mb-1">{t("Montant à créditer (FCFA)")}</span>
+              <input
+                type="number"
+                min={500}
+                step={500}
+                value={rechargeAmount}
+                onChange={(e) => setRechargeAmount(e.target.value)}
+                placeholder={t("Ex : 10 000")}
+                className="w-full bg-white rounded-lg border border-border-custom px-3 h-11 text-sm font-inter outline-none placeholder:text-text-muted focus:border-green-primary focus:ring-2 focus:ring-green-primary/10 transition-all"
+              />
+            </label>
+            <div>
+              <span className="block text-text-muted text-xs font-inter mb-1">{t("Méthode de paiement reçue")}</span>
+              <div className="grid grid-cols-2 gap-2">
+                {([['momo', 'Mobile Money'], ['cash', 'Cash partenaire']] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setRechargeMethod(val)}
+                    className={`h-10 rounded-lg text-sm font-inter font-medium border transition-colors ${rechargeMethod === val ? 'bg-green-primary text-white border-green-primary' : 'bg-white text-text-secondary border-border-custom hover:border-green-primary/40'}`}
+                  >
+                    {t(label)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <button onClick={() => setRechargeOpen(false)} className="px-4 h-11 rounded-lg text-text-secondary font-inter text-sm hover:bg-bg-secondary transition-colors">{t("Annuler")}</button>
+            <button
+              onClick={handleRecharge}
+              disabled={recharging || !rechargeResto || !(parseInt(rechargeAmount, 10) > 0)}
+              className="px-5 h-11 rounded-lg bg-green-primary text-white font-inter font-medium text-sm hover:bg-green-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+            >
+              <Wallet className="w-4 h-4" />{recharging ? t('Recharge…') : t('Recharger')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!adjustTarget} onOpenChange={(open) => { if (!open) setAdjustTarget(null); }}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
