@@ -32,6 +32,67 @@ function computeDeliveryDates(startDate, schedule, durationWeeks, mealsCount) {
   return dates;
 }
 
+// Génère les commandes des livraisons d'abonnement DUES (jusqu'à current_date +
+// horizonDays). Idempotent (UNIQUE(subscription_id, scheduled_for) + order_id IS
+// NULL) → sûr à rejouer aussi souvent qu'on veut. Réutilisé par l'endpoint admin
+// ET le planificateur interne. Commandes COD normales (livreur rémunéré).
+export async function runSubscriptionGeneration(pool, horizonDays = 1) {
+  const hz = Math.max(0, Math.min(7, parseInt(horizonDays) || 1));
+  const { rows: due } = await pool.query(
+    `SELECT d.id AS delivery_id, d.subscription_id, d.scheduled_for, s.id AS sub_pk, s.customer_id, s.restaurant_id,
+            s.delivery_address_id, s.delivery_address, s.price_fcfa, r.city AS resto_city,
+            (SELECT count(*) FROM subscription_deliveries x WHERE x.subscription_id = s.id::text) AS total
+     FROM subscription_deliveries d
+     JOIN subscriptions s ON s.id::text = d.subscription_id
+     JOIN restaurants r ON r.id::text = s.restaurant_id::text
+     WHERE d.order_id IS NULL AND d.status='scheduled' AND s.status='active'
+       AND d.scheduled_for <= (current_date + ($1::int))`,
+    [hz]
+  );
+  let created = 0;
+  const { rows: [feeRow] } = await pool.query('SELECT compute_delivery_fee(0) AS fee');
+  const deliveryFee = parseInt(feeRow?.fee) || 0;
+  for (const d of due) {
+    const perMeal = Math.max(0, Math.round(Number(d.price_fcfa || 0) / Math.max(1, Number(d.total || 1))));
+    let addressId = d.delivery_address_id;
+    if (!addressId) {
+      try {
+        const { rows: [addr] } = await pool.query(
+          `INSERT INTO addresses (user_id, label, city, full_text) VALUES ($1,'Abonnement',$2,$3) RETURNING id`,
+          [String(d.customer_id), d.resto_city || null, d.delivery_address || 'Adresse abonnement']
+        );
+        addressId = addr.id;
+        await pool.query('UPDATE subscriptions SET delivery_address_id=$2 WHERE id=$1', [d.sub_pk, String(addressId)]);
+      } catch (e) { console.warn('addr abo:', e.message); }
+    }
+    const { rows: [order] } = await pool.query(
+      `INSERT INTO orders (customer_id, restaurant_id, address_id, status, subtotal, delivery_fee, total, payment_method, payment_status, notes, fee_breakdown, created_at, updated_at)
+       VALUES ($1,$2,$3,'pending',$4,$7,$8,'cash','pending',$6,$5,now(),now()) RETURNING id`,
+      [String(d.customer_id), String(d.restaurant_id), addressId || null, perMeal,
+       JSON.stringify({ payment_mode: 'cod', subscription_id: String(d.subscription_id), subscription_meal: true }),
+       d.delivery_address ? `Livraison abonnement — ${d.delivery_address}` : 'Livraison abonnement',
+       deliveryFee, perMeal + deliveryFee]
+    );
+    await pool.query('UPDATE subscription_deliveries SET order_id=$2 WHERE id=$1', [d.delivery_id, String(order.id)]);
+    created++;
+  }
+  await pool.query(`
+    UPDATE subscriptions s SET next_delivery_at = (
+      SELECT min(d.scheduled_for) FROM subscription_deliveries d
+      LEFT JOIN orders o ON o.id::text = d.order_id
+      WHERE d.subscription_id = s.id::text AND (d.order_id IS NULL OR o.status <> 'delivered')
+    ), updated_at = now() WHERE s.status = 'active'`);
+  await pool.query(`
+    UPDATE subscriptions s SET status='completed', updated_at=now()
+    WHERE s.status='active'
+      AND (SELECT count(*) FROM subscription_deliveries d WHERE d.subscription_id = s.id::text) > 0
+      AND NOT EXISTS (
+        SELECT 1 FROM subscription_deliveries d LEFT JOIN orders o ON o.id::text = d.order_id
+        WHERE d.subscription_id = s.id::text AND (d.order_id IS NULL OR o.status <> 'delivered')
+      )`);
+  return { due: due.length, ordersCreated: created };
+}
+
 export function registerFoodRoutes(app, { pool, authRequired, adminPermissionRequired, fromSnake }) {
   pool.query(`
     CREATE TABLE IF NOT EXISTS food_profiles (
@@ -309,69 +370,21 @@ export function registerFoodRoutes(app, { pool, authRequired, adminPermissionReq
   // Génération des commandes pour les livraisons dues (admin/cron). Idempotent.
   app.post('/api/subscriptions/generate', authRequired, adminPermissionRequired('food.subscriptions.manage'), async (req, res) => {
     try {
-      const horizonDays = Math.max(0, Math.min(7, parseInt(req.body?.horizonDays) || 1));
-      const { rows: due } = await pool.query(
-        `SELECT d.id AS delivery_id, d.subscription_id, d.scheduled_for, s.id AS sub_pk, s.customer_id, s.restaurant_id,
-                s.delivery_address_id, s.delivery_address, s.price_fcfa, r.city AS resto_city,
-                (SELECT count(*) FROM subscription_deliveries x WHERE x.subscription_id = s.id::text) AS total
-         FROM subscription_deliveries d
-         JOIN subscriptions s ON s.id::text = d.subscription_id
-         JOIN restaurants r ON r.id::text = s.restaurant_id::text
-         WHERE d.order_id IS NULL AND d.status='scheduled' AND s.status='active'
-           AND d.scheduled_for <= (current_date + ($1::int))`,
-        [horizonDays]
-      );
-      let created = 0;
-      // Frais de livraison standard par repas (barème plateforme) : le livreur est
-      // rémunéré comme pour toute livraison. Le repas d'abonnement est une commande
-      // COD normale (le client règle repas + livraison à la réception).
-      const { rows: [feeRow] } = await pool.query('SELECT compute_delivery_fee(0) AS fee');
-      const deliveryFee = parseInt(feeRow?.fee) || 0;
-      for (const d of due) {
-        const perMeal = Math.max(0, Math.round(Number(d.price_fcfa || 0) / Math.max(1, Number(d.total || 1))));
-        // Adresse : réutilise celle de l'abonnement, sinon en crée une à partir du
-        // texte de livraison (mémorisée sur l'abonnement pour les cycles suivants).
-        let addressId = d.delivery_address_id;
-        if (!addressId) {
-          try {
-            const { rows: [addr] } = await pool.query(
-              `INSERT INTO addresses (user_id, label, city, full_text) VALUES ($1,'Abonnement',$2,$3) RETURNING id`,
-              [String(d.customer_id), d.resto_city || null, d.delivery_address || 'Adresse abonnement']
-            );
-            addressId = addr.id;
-            await pool.query('UPDATE subscriptions SET delivery_address_id=$2 WHERE id=$1', [d.sub_pk, String(addressId)]);
-          } catch (e) { console.warn('addr abo:', e.message); }
-        }
-        const { rows: [order] } = await pool.query(
-          `INSERT INTO orders (customer_id, restaurant_id, address_id, status, subtotal, delivery_fee, total, payment_method, payment_status, notes, fee_breakdown, created_at, updated_at)
-           VALUES ($1,$2,$3,'pending',$4,$7,$8,'cash','pending',$6,$5,now(),now()) RETURNING id`,
-          [String(d.customer_id), String(d.restaurant_id), addressId || null, perMeal,
-           JSON.stringify({ payment_mode: 'cod', subscription_id: String(d.subscription_id), subscription_meal: true }),
-           d.delivery_address ? `Livraison abonnement — ${d.delivery_address}` : 'Livraison abonnement',
-           deliveryFee, perMeal + deliveryFee]
-        );
-        await pool.query('UPDATE subscription_deliveries SET order_id=$2 WHERE id=$1', [d.delivery_id, String(order.id)]);
-        created++;
-      }
-      // Prochaine livraison = plus proche date non encore livrée.
-      await pool.query(`
-        UPDATE subscriptions s SET next_delivery_at = (
-          SELECT min(d.scheduled_for) FROM subscription_deliveries d
-          LEFT JOIN orders o ON o.id::text = d.order_id
-          WHERE d.subscription_id = s.id::text AND (d.order_id IS NULL OR o.status <> 'delivered')
-        ), updated_at = now() WHERE s.status = 'active'`);
-      // Auto-complétion : toutes les livraisons planifiées sont livrées.
-      await pool.query(`
-        UPDATE subscriptions s SET status='completed', updated_at=now()
-        WHERE s.status='active'
-          AND (SELECT count(*) FROM subscription_deliveries d WHERE d.subscription_id = s.id::text) > 0
-          AND NOT EXISTS (
-            SELECT 1 FROM subscription_deliveries d LEFT JOIN orders o ON o.id::text = d.order_id
-            WHERE d.subscription_id = s.id::text AND (d.order_id IS NULL OR o.status <> 'delivered')
-          )`);
-      res.json({ due: due.length, ordersCreated: created });
+      const result = await runSubscriptionGeneration(pool, req.body?.horizonDays);
+      res.json(result);
     } catch (err) { console.error('POST subscriptions/generate:', err.message); res.status(500).json({ error: 'Erreur serveur (génération).' }); }
   });
+
+  // ── Planificateur interne : matérialise les livraisons d'abonnement dues,
+  //    au démarrage (après 30 s) puis toutes les heures. Idempotent → rejouable
+  //    sans risque de doublon. Remplace la dépendance à un clic admin quotidien.
+  //    (API en fork mono-instance ; l'idempotence couvre un éventuel doublon.)
+  const runScheduledGeneration = () =>
+    runSubscriptionGeneration(pool, 1)
+      .then((r) => { if (r.ordersCreated) console.log(`[abo-scheduler] ${r.ordersCreated} commande(s) d'abonnement générée(s) (${r.due} due(s))`); })
+      .catch((e) => console.error('[abo-scheduler]', e.message));
+  setTimeout(runScheduledGeneration, 30000);
+  setInterval(runScheduledGeneration, 60 * 60 * 1000);
 
   // Admin : tous les abonnements
   app.get('/api/admin/subscriptions', authRequired, adminPermissionRequired('food.subscriptions.view'), async (_req, res) => {
