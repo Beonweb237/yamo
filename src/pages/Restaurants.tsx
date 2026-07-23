@@ -14,6 +14,8 @@ import {
   Store,
   UtensilsCrossed,
   BadgeCheck,
+  HeartPulse,
+  ArrowRight,
 } from 'lucide-react';
 import { cuisineCategories } from '../data/mockData';
 import type { Restaurant } from '../data/mockData';
@@ -523,6 +525,31 @@ export default function Restaurants() {
             </div>
           </div>
         </motion.div>
+      </div>
+
+      {/* ── Encart de découverte : programmes santé (produit d'abonnement,
+             intention différente → une entrée, pas un onglet du toggle prix). ── */}
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 mt-5">
+        <Link
+          to="/programmes"
+          className="group flex items-center gap-3 sm:gap-4 rounded-2xl border border-green-primary/20 bg-gradient-to-r from-green-light to-gold-light/40 px-4 sm:px-5 py-3.5 hover:border-green-primary/40 hover:shadow-sm transition-all"
+        >
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white grid place-items-center shrink-0 shadow-sm">
+            <HeartPulse className="w-5 h-5 sm:w-6 sm:h-6 text-green-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-poppins font-semibold text-text-primary text-sm sm:text-base leading-tight">
+              {t("Envie de manger équilibré chaque jour ?")}
+            </p>
+            <p className="text-text-secondary text-xs sm:text-sm mt-0.5 line-clamp-1">
+              {t("Découvrez nos programmes santé — repas adaptés, livrés régulièrement.")}
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1 text-green-primary font-inter font-semibold text-xs sm:text-sm shrink-0">
+            <span className="hidden sm:inline">{t("Voir")}</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </span>
+        </Link>
       </div>
 
       {/* ── Mode Plats : vue unifiée ex-/explorer ── */}
