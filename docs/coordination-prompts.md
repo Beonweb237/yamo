@@ -33,12 +33,16 @@
 | PS-07 | CP5 promotions réelles | Terminé (déploiement serveur en PS-11) |
 | PS-08 | CP7 upsell + ETA (+ vérif filtres) | Terminé |
 | PS-09 | Fiche programme LOT 5 (data) | Terminé (E2E prod en PS-11) |
-| PS-10 | Dark mode back-office | À faire |
-| PS-11 | Recette + déploiement VPS | À faire |
+| PS-10 | Dark mode back-office | Bloqué (reporté — voir journal) |
+| PS-11 | Recette + déploiement VPS | Terminé |
 | PS-12 | CP8 Capacitor | À faire |
 | PS-13 | CP9 Play Store (préparation) | À faire |
 
 ## Journal d'exécution
+
+- **23/07/2026 — PS-11 Terminé (déployé en prod)** : gates complets verts → build + `npx react-snap` (8 pages) → **frontend** déployé par tar/scp avec backup `dist.bak-20260723-080353` et swap atomique (bundle `index-aqohPsBj.js` servi, /fr/ et /en/contact prérendus 200, robots/sitemap 200, canonical OK, 0 erreur console prod). **Serveur** : la session concurrente déployait au même moment (lignée distante ≠ repo) → PAS d'écrasement ; patch CHIRURGICAL sur la copie distante (backups `index.js.bak-promo-*`, `admin-rbac.js.bak-promo-*`) : import+bloc validate+registration promo et permission RBAC fusionnés, `promotions-routes.js` ajouté, node --check distant OK, pm2 restart. Table `promo_codes` héritée possédée par postgres → `ALTER ... OWNER TO miamexpress` (sudo) + migration additive (colonnes type/seuil/ciblage/période conservant le schéma legacy). **E2E prod** : `/api/promotions/active` 200 ; promo test 10% ciblée créée → validate : 5000→remise 500, total 5500 ; code inconnu → 400 « Code promo inconnu » ; promo test supprimée. **LOT 5** : le distant contenait déjà mes changements food-routes (déployés par l'autre session depuis l'arbre partagé) — GET prod expose `benefits`/`sampleMenu` (null → fallback). Fiche programme riche vérifiée EN PROD (FR). Sitemap re-soumis GSC (204). Persistance VPS de l'Apparence désormais fonctionnelle (endpoint générique déjà en place + front réparé PS-01).
+
+- **23/07/2026 — PS-10 Bloqué (reporté, décision documentée)** : dark mode back-office (reliquat CONF-32). Problème : 228+ `bg-white` codés en dur (157 admin, 51 resto, 20 livreur) + tokens `--bg-secondary`/`text-*` en hex non thémés → un dark complet exige soit un refactor de tokens sur ~25 écrans, soit des overrides CSS de classes utilitaires (fragile), avec QA écran par écran. Le critère strict « pas de dark partiel » (CONF-32) rend tout raccourci non livrable, et le propriétaire avait déjà reporté ce chantier « en lot dédié » (mémoire plan-ux-16-lots-termine). Conséquence : aucun impact sur le reste du programme. Options : ① lot dédié ultérieur = conversion `bg-white`→`bg-card` + `.dark` scoped BackOfficeLayout (~1-2 j avec QA) ; ② statu quo. À trancher par le propriétaire.
 
 - **23/07/2026 — PS-09 Terminé (code ; E2E prod avec le déploiement PS-11)** : fiche programme LOT 5. Serveur (`food-routes.js`) : colonnes additives idempotentes `benefits text[]` + `sample_menu jsonb`, nettoyées/bornées dans `cleanProgram` (4 puces ×80 car., 6 plats {id,name,price}), INSERT/UPDATE mis à jour, GET rétrocompatible (mp.*). Front : types `mealPrograms.ts` ; formulaire resto (`RestaurantPrograms.tsx`) : textarea bénéfices (1/ligne) + sélection de plats d'exemple depuis le menu réel (`fetchRestaurantByOwner`+`fetchMenuItems`, max 6, chips togglables) ; la fiche préfère `benefits`/`sampleMenu` saisis, sinon fallback dérivé (PS-02/03) — corrige le constat « 7/12 programmes sans plat tagué ». Gates verts. Au passage : traduit 2 clés fraîches de la session concurrente dans Restaurants.tsx (verify:i18n était rouge à cause d'elles).
 
