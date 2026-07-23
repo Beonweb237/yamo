@@ -355,13 +355,22 @@ app.get('/api/food-requests', async (req, res) => {
 
 app.get('/api/food-requests/available', authRequired, async (req, res) => {
   try {
-    const city = req.query.city;
+    // Restaurant courant dérivé du propriétaire → sa ville par défaut, et sert à
+    // savoir s'il a déjà soumissionné (has_bid) pour désactiver le bouton côté UI.
+    const { rows: [resto] } = await pool.query('SELECT id, city FROM restaurants WHERE owner_id = $1 LIMIT 1', [req.user.sub]);
+    const city = req.query.city || resto?.city;
     if (!city) return res.status(400).json({ error: 'Ville requise' });
+    const restoId = resto?.id || null;
     const { rows } = await pool.query(
-      `SELECT fr.*, u.full_name AS customer_name, u.phone AS customer_phone, (SELECT count(*) FROM food_bids WHERE request_id = fr.id) AS bid_count FROM food_requests fr JOIN users u ON fr.customer_id = u.id WHERE fr.city = $1 AND fr.status = 'open' AND fr.expires_at > now() ORDER BY fr.created_at DESC`,
-      [city]
+      `SELECT fr.*, u.full_name AS customer_name, u.phone AS customer_phone,
+              (SELECT count(*) FROM food_bids WHERE request_id = fr.id) AS bid_count,
+              ($2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM food_bids b WHERE b.request_id = fr.id AND b.restaurant_id = $2)) AS has_bid
+       FROM food_requests fr JOIN users u ON fr.customer_id = u.id
+       WHERE fr.city = $1 AND fr.status = 'open' AND fr.expires_at > now()
+       ORDER BY fr.created_at DESC`,
+      [city, restoId]
     );
-    res.json({ data: rows.map(fromSnake), count: rows.length });
+    res.json({ data: rows.map(fromSnake), count: rows.length, city });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -414,9 +423,44 @@ app.patch('/api/food-requests/:id/accept/:bidId', authRequired, async (req, res)
     await pool.query("UPDATE food_bids SET status = 'rejected' WHERE request_id = $1 AND id != $2 AND status = 'pending'", [req.params.id, req.params.bidId]);
     const { rows: [updatedRequest] } = await pool.query("UPDATE food_requests SET status = 'accepted', accepted_bid_id = $2, updated_at = now() WHERE id = $1 RETURNING *", [req.params.id, req.params.bidId]);
     const { rows: [bid] } = await pool.query('SELECT fb.*, r.name AS restaurant_name FROM food_bids fb JOIN restaurants r ON fb.restaurant_id = r.id WHERE fb.id = $1', [req.params.bidId]);
+
+    // Attribution → crée une VRAIE commande (paiement à la livraison) qui entre
+    // dans le cycle normal : confirmation resto, matching livreur, suivi. Le
+    // prix de l'offre acceptée devient le sous-total ; les frais de livraison
+    // suivent le barème standard. Liée à la demande via fee_breakdown. Best-effort :
+    // l'attribution reste valide même si la commande échoue (loggé), l'admin peut
+    // rattraper. Idempotent : on ne recrée pas si une commande existe déjà.
+    let orderId = null;
+    try {
+      const { rows: [existing] } = await pool.query(
+        "SELECT id FROM orders WHERE (fee_breakdown->>'food_request_id') = $1 LIMIT 1", [String(fr.id)]
+      );
+      if (existing) {
+        orderId = existing.id;
+      } else {
+        const { rows: [cust] } = await pool.query('SELECT phone FROM users WHERE id = $1', [fr.customer_id]);
+        const { rows: [feeRow] } = await pool.query('SELECT compute_delivery_fee(0) AS fee');
+        const deliveryFee = parseInt(feeRow?.fee) || 0;
+        const subtotal = parseInt(bid.price) || 0;
+        const { rows: [addr] } = await pool.query(
+          `INSERT INTO addresses (user_id, label, city, full_text) VALUES ($1,'Demande sur mesure',$2,$3) RETURNING id`,
+          [fr.customer_id, fr.city, fr.delivery_address || 'Adresse à préciser avec le client']
+        );
+        const notes = `Demande sur mesure : ${fr.title}. ${fr.description}${fr.preparation_notes ? ' — ' + fr.preparation_notes : ''}`.slice(0, 1000);
+        const { rows: [order] } = await pool.query(
+          `INSERT INTO orders (customer_id, restaurant_id, address_id, status, subtotal, delivery_fee, total, payment_method, payment_status, notes, contact_phone, fee_breakdown, created_at, updated_at)
+           VALUES ($1,$2,$3,'pending',$4,$5,$6,'cash','pending',$7,$8,$9,now(),now()) RETURNING id`,
+          [fr.customer_id, bid.restaurant_id, addr.id, subtotal, deliveryFee, subtotal + deliveryFee, notes, cust?.phone || null,
+           JSON.stringify({ payment_mode: 'cod', custom_request: true, food_request_id: String(fr.id), bid_id: String(bid.id) })]
+        );
+        orderId = order.id;
+        io.emit('realtime:orders', { eventType: 'INSERT', new: { id: orderId, restaurant_id: bid.restaurant_id, customer_id: fr.customer_id, status: 'pending' } });
+      }
+    } catch (e) { console.error('accept→order creation:', e.message); }
+
     io.emit('realtime:food_requests', { eventType: 'UPDATE', new: fromSnake(updatedRequest) });
-    io.emit(`user:${fr.customer_id}`, { type: 'bid_accepted', requestId: fr.id, restaurantName: bid.restaurant_name });
-    res.json({ ...fromSnake(updatedRequest), acceptedBid: fromSnake(bid) });
+    io.emit(`user:${fr.customer_id}`, { type: 'bid_accepted', requestId: fr.id, restaurantName: bid.restaurant_name, orderId });
+    res.json({ ...fromSnake(updatedRequest), acceptedBid: fromSnake(bid), orderId });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchMyFoodRequests, acceptBid, cancelFoodRequest, type FoodRequest } from '../lib/foodRequests';
 import PageHeader from '../components/PageHeader';
+import { toast } from 'sonner';
 import { UtensilsCrossed, MapPin, Clock, CheckCircle2, XCircle, Timer, MessageCircle, ChevronRight, Plus, Sparkles } from 'lucide-react';
 import { useTranslation } from "react-i18next";
 import { useSeo } from '../hooks/useSeo';
@@ -64,9 +65,14 @@ export default function FoodRequestList() {
   const handleAcceptBid = async (requestId: string, bidId: string) => {
     setAccepting(bidId);
     try {
-      await acceptBid(requestId, bidId);
-      await load();
+      const { orderId } = await acceptBid(requestId, bidId);
       setSelectedRequest(null);
+      // L'attribution crée une vraie commande : on emmène le client vers son suivi.
+      toast.success(t('Offre acceptée ! Votre commande est en préparation.'));
+      if (orderId) { navigate('/commandes'); return; }
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('Impossible d\'accepter cette offre.'));
     } finally {
       setAccepting(null);
     }

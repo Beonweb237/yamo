@@ -49,6 +49,7 @@ import MealPrograms from './pages/MealPrograms'
 import MealProgramDetail from './pages/MealProgramDetail'
 import Subscriptions from './pages/Subscriptions'
 import RestaurantPrograms from './pages/RestaurantPrograms'
+import RestaurantFoodRequests from './pages/RestaurantFoodRequests'
 import AdminSubscriptions from './pages/admin/AdminSubscriptions'
 import NotFound from './pages/NotFound'
 
@@ -117,6 +118,7 @@ export default function App() {
           <Route index element={<RestaurantDashboard />} />
           <Route path="menu" element={<RestaurantDashboard tab="menu" />} />
           <Route path="programmes" element={<RestaurantPrograms />} />
+          <Route path="demandes" element={<RestaurantFoodRequests />} />
           <Route path="livreurs" element={<RestaurantDashboard tab="drivers" />} />
           <Route path="profile" element={<RestaurantDashboard tab="profile" />} />
           <Route path="finances" element={<RestaurantDashboard tab="finances" />} />

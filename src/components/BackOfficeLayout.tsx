@@ -4,7 +4,7 @@ import {
   Bike, Home, LayoutDashboard, LogOut, ShoppingBag, Store, Menu, X,
   Package, Utensils, User, Wallet, AlertTriangle, UserCheck, UserCircle, ChevronDown, ChefHat,
   MapPin, DollarSign, Image, Users, MessageSquare, Trash2, Coins, Gauge, ShieldCheck,
-  Layers, Settings, LifeBuoy, UserPlus, RadioTower, Palette, HeartPulse,
+  Layers, Settings, LifeBuoy, UserPlus, RadioTower, Palette, HeartPulse, UtensilsCrossed,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { hasAdminPermission, primaryAdminRoleLabel } from '../lib/adminRbac';
@@ -104,6 +104,7 @@ const adminCategories: CategoryGroup[] = [
 const restaurantSidebar: SidebarLink[] = [
   { name: 'Commandes', path: '/partenaires/dashboard', icon: Package },
   { name: 'Menu', path: '/partenaires/dashboard/menu', icon: Utensils },
+  { name: 'Demandes', path: '/partenaires/dashboard/demandes', icon: UtensilsCrossed },
   { name: 'Programmes', path: '/partenaires/dashboard/programmes', icon: HeartPulse },
   { name: 'Livreurs', path: '/partenaires/dashboard/livreurs', icon: Bike },
   { name: 'Finances', path: '/partenaires/dashboard/finances', icon: Wallet },

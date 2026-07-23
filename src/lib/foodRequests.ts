@@ -59,6 +59,11 @@ export interface FoodRequest extends FoodRequestInput {
   acceptedBidId: string | null;
   createdAt: string;
   expiresAt: string;
+  /** Vue resto (/available) : nombre d'offres reçues + le resto courant a-t-il déjà soumissionné. */
+  bidCount?: number;
+  hasBid?: boolean;
+  customerName?: string;
+  customerPhone?: string;
 }
 
 const STORAGE_KEY = 'miam_food_requests';
@@ -121,13 +126,15 @@ export async function fetchMyFoodRequests(customerId: string): Promise<FoodReque
   return requests.filter((r) => r.customerId === customerId).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-/** Demandes ouvertes d'une ville donnée — ce que verrait un restaurant. */
-export async function fetchOpenFoodRequests(city: string): Promise<FoodRequest[]> {
+/** Demandes ouvertes d'une ville — ce que voit un restaurant. En mode VPS, la
+ *  ville est dérivée du restaurant du propriétaire quand `city` est omis. */
+export async function fetchOpenFoodRequests(city?: string): Promise<FoodRequest[]> {
   if (USE_VPS) {
-    try { return listOf<FoodRequest>(await vps(`/api/food-requests/available?city=${encodeURIComponent(city)}`)); } catch { return []; }
+    const qs = city ? `?city=${encodeURIComponent(city)}` : '';
+    try { return listOf<FoodRequest>(await vps(`/api/food-requests/available${qs}`)); } catch { return []; }
   }
   const requests = withExpiryApplied(readAll()); writeAll(requests);
-  return requests.filter((r) => r.status === 'open' && r.city === city).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return requests.filter((r) => r.status === 'open' && (!city || r.city === city)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function submitBid(requestId: string, bid: Omit<FoodRequestBid, 'id' | 'status' | 'createdAt'>): Promise<void> {
@@ -142,17 +149,20 @@ export async function submitBid(requestId: string, bid: Omit<FoodRequestBid, 'id
   writeAll(requests);
 }
 
-export async function acceptBid(requestId: string, bidId: string): Promise<void> {
+/** Accepte une offre → l'attribution crée une vraie commande côté serveur.
+ *  Renvoie l'id de la commande créée (pour rediriger vers le suivi). */
+export async function acceptBid(requestId: string, bidId: string): Promise<{ orderId?: string }> {
   if (USE_VPS) {
-    await vps(`/api/food-requests/${encodeURIComponent(requestId)}/accept/${encodeURIComponent(bidId)}`, { method: 'PATCH' });
-    return;
+    const res = await vps<{ orderId?: string }>(`/api/food-requests/${encodeURIComponent(requestId)}/accept/${encodeURIComponent(bidId)}`, { method: 'PATCH' });
+    return { orderId: res?.orderId };
   }
   const requests = readAll();
   const target = requests.find((r) => r.id === requestId);
-  if (!target) return;
+  if (!target) return {};
   target.bids = target.bids.map((b) => ({ ...b, status: b.id === bidId ? 'accepted' : b.status === 'pending' ? 'rejected' : b.status }));
   target.acceptedBidId = bidId; target.status = 'accepted';
   writeAll(requests);
+  return {};
 }
 
 export async function cancelFoodRequest(requestId: string): Promise<void> {
