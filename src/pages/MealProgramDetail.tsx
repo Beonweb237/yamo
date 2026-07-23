@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, HeartPulse, CalendarDays, Loader2, Check, Store, Wallet,
   UtensilsCrossed, CalendarCheck, Bike, PauseCircle, Star, BadgeCheck, ShieldCheck,
+  MapPin, Phone, MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +15,9 @@ import { fetchMenuItems } from '../lib/catalog';
 import { fetchRestaurantRatingSummary, type ReviewSummary } from '../lib/reviews';
 import type { MenuItem } from '../data/mockData';
 import { DIETARY_TAG_META } from '../lib/dishes';
+import { phoneForWhatsapp, phoneForTel } from '../lib/phone';
 import AppImage from '../components/AppImage';
+import AddressAutocomplete from '../components/AddressAutocomplete';
 
 const tagLabel = (id: string) => DIETARY_TAG_META.find((t) => t.id === id)?.label || id;
 
@@ -55,13 +58,21 @@ function scheduleLabel(s: ProgramSchedule | undefined, t: (k: string, o?: Record
   return null;
 }
 
-function savedAddress(): string {
+interface SavedAddressLite { id?: string; label?: string; fullText?: string; full_text?: string }
+
+function readSavedAddresses(): SavedAddressLite[] {
   try {
     const raw = localStorage.getItem('yamo_saved_addresses');
     const arr = raw ? JSON.parse(raw) : [];
-    const a = Array.isArray(arr) ? arr[0] : null;
-    return a ? (a.fullText || a.full_text || a.label || '') : '';
-  } catch { return ''; }
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+
+const addressText = (a: SavedAddressLite) => a.fullText || a.full_text || a.label || '';
+
+function savedAddress(): string {
+  const a = readSavedAddresses()[0];
+  return a ? addressText(a) : '';
 }
 
 export default function MealProgramDetail() {
@@ -78,6 +89,18 @@ export default function MealProgramDetail() {
   const [sampleItems, setSampleItems] = useState<MenuItem[]>([]);
   // Preuve sociale : note réelle du restaurant (masquée si aucun avis).
   const [rating, setRating] = useState<ReviewSummary | null>(null);
+  const [savedAddresses] = useState<SavedAddressLite[]>(readSavedAddresses);
+  // CTA sticky mobile : visible seulement quand le formulaire est hors écran.
+  const subscribeRef = useRef<HTMLDivElement | null>(null);
+  const [formVisible, setFormVisible] = useState(true);
+
+  useEffect(() => {
+    const el = subscribeRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const obs = new IntersectionObserver(([entry]) => setFormVisible(entry.isIntersecting), { threshold: 0.1 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [p]);
   useSeo({ title: p ? p.name : t('Programme repas'), noindex: false });
 
   useEffect(() => { fetchProgram(id).then(setP).catch(() => setP(null)).finally(() => setLoading(false)); }, [id]);
@@ -231,19 +254,78 @@ export default function MealProgramDetail() {
           </div>
         )}
 
+        {/* Contacter le restaurant */}
+        {p.restaurantPhone && (
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <span className="text-text-muted text-xs">{t('Une question sur ce programme ?')}</span>
+            <a
+              href={`https://wa.me/${phoneForWhatsapp(p.restaurantPhone)}?text=${encodeURIComponent(t('Bonjour, j\'ai une question sur le programme « {{name}} » sur MiamExpress.', { name: p.name }))}`}
+              target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-green-primary/30 text-green-primary font-inter text-xs font-medium hover:bg-green-light transition-colors"
+            >
+              <MessageCircle className="w-4 h-4" />{t('WhatsApp du restaurant')}
+            </a>
+            <a
+              href={`tel:${phoneForTel(p.restaurantPhone)}`}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border-custom text-text-secondary font-inter text-xs font-medium hover:bg-bg-secondary transition-colors"
+            >
+              <Phone className="w-4 h-4" />{t('Appeler')}
+            </a>
+          </div>
+        )}
+
         {/* Souscrire */}
-        <div className="bg-white rounded-2xl border border-border-custom p-5">
+        <div ref={subscribeRef} className="bg-white rounded-2xl border border-border-custom p-5">
           <h2 className="font-poppins font-semibold text-text-primary text-base mb-3">{t('Souscrire à ce programme')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             <label className="block">
               <span className="block text-text-muted text-xs mb-1">{t('Date de début')}</span>
               <input type="date" value={startDate} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-sm outline-none border border-transparent focus:border-green-primary/40" />
             </label>
-            <label className="block">
+            <div>
               <span className="block text-text-muted text-xs mb-1">{t('Adresse de livraison')}</span>
-              <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t('Quartier, point de repère…')} className="w-full bg-bg-secondary rounded-lg px-3 h-11 text-sm outline-none border border-transparent focus:border-green-primary/40" />
-            </label>
+              {savedAddresses.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {savedAddresses.slice(0, 3).map((a, i) => {
+                    const txt = addressText(a);
+                    if (!txt) return null;
+                    const active = txt === address;
+                    return (
+                      <button
+                        key={a.id ?? i}
+                        type="button"
+                        onClick={() => setAddress(txt)}
+                        aria-pressed={active}
+                        className={`inline-flex items-center gap-1 max-w-full px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${active
+                          ? 'bg-green-light text-green-primary border-green-primary/30'
+                          : 'bg-bg-secondary text-text-secondary border-border-custom hover:border-text-muted'}`}
+                      >
+                        <MapPin className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{a.label || txt}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <AddressAutocomplete
+                value={address}
+                onChange={(v) => setAddress(v)}
+                placeholder={t('Quartier, point de repère…')}
+              />
+            </div>
           </div>
+
+          {/* Récapitulatif de souscription */}
+          <div className="bg-bg-secondary rounded-xl p-3.5 mb-4">
+            <p className="font-inter font-semibold text-text-primary text-xs mb-1.5">{t('Votre abonnement')}</p>
+            <p className="text-text-secondary text-xs leading-relaxed">
+              {p.mealsCount} {t('repas')} · {p.durationWeeks} {t('semaines')}
+              {scheduleLabel(p.schedule, t) ? <> · {scheduleLabel(p.schedule, t)}</> : null}
+              {' '}· {t('démarre le')} <strong className="text-text-primary">{new Date(`${startDate}T00:00:00`).toLocaleDateString()}</strong>
+              {' '}· {t('total du cycle')} <strong className="text-green-primary">{p.priceFcfa.toLocaleString()} {t('FCFA')}</strong> <span className="text-text-muted">({t('réglé repas par repas à la livraison')})</span>
+            </p>
+          </div>
+
           <div className="flex items-start gap-2.5 bg-green-light/60 border border-green-primary/15 rounded-xl p-3 mb-4">
             <Wallet className="w-4 h-4 text-green-primary shrink-0 mt-0.5" />
             <p className="text-text-secondary text-xs leading-relaxed">{t('Paiement à la livraison : vous réglez chaque repas à sa réception, rien n\'est prélevé à l\'avance. Repas livrés selon le calendrier ; pause ou annulation possible à tout moment.')}</p>
@@ -253,6 +335,19 @@ export default function MealProgramDetail() {
           </button>
         </div>
       </div>
+
+      {/* CTA sticky mobile — visible quand le formulaire est hors écran */}
+      {!formVisible && (
+        <div className="fixed bottom-0 inset-x-0 z-40 sm:hidden bg-white border-t border-border-custom px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
+          <button
+            type="button"
+            onClick={() => subscribeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="w-full h-11 rounded-xl bg-green-primary text-white font-inter font-semibold text-sm hover:bg-green-dark transition-colors"
+          >
+            {t('Souscrire')} · {p.priceFcfa.toLocaleString()} {t('FCFA')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -27,7 +27,7 @@
 | PS-01 | Apparence : sections/hero/support + site_config | Terminé |
 | PS-02 | Fiche programme LOT 1 (compréhension) | Terminé |
 | PS-03 | Fiche programme LOT 2 (motivation) | Terminé |
-| PS-04 | Fiche programme LOT 3 (conversion) | À faire |
+| PS-04 | Fiche programme LOT 3 (conversion) | Terminé |
 | PS-05 | Fiche programme LOT 4 (découverte+SEO) | À faire |
 | PS-06 | CP6 « Pour vous » personnalisé | À faire |
 | PS-07 | CP5 promotions réelles | À faire |
@@ -39,6 +39,8 @@
 | PS-13 | CP9 Play Store (préparation) | À faire |
 
 ## Journal d'exécution
+
+- **23/07/2026 — PS-04 Terminé** : fiche programme LOT 3 — récap de souscription live (repas·semaines·calendrier·date·total, formulation honnête « réglé repas par repas ») ; CTA sticky mobile (`sm:hidden`, IntersectionObserver : visible en haut de page, disparaît quand le formulaire est à l'écran — vérifié à 360px) ; adresse via `AddressAutocomplete` (sync valeur externe OK) + chips des adresses sauvegardées (testé avec adresse injectée puis nettoyée) ; boutons WhatsApp (`wa.me/237659684493` + message prérempli) et Appeler depuis `restaurantPhone`, masqués si absent. Gates verts, 360px sans débordement.
 
 - **23/07/2026 — PS-03 Terminé** : fiche programme LOT 2 — photo fallback (programme → resto → dégradé de marque, jamais d'icône nue ; en prod tous les programmes ont une photo, fallback non exerçable mais typé), note réelle du resto via `fetchRestaurantRatingSummary` (affichée seulement si ≥ 1 avis — vérifié 4.8/4 avis Chez Jeanne), badge « Partenaire vérifié », 4 bénéfices dérivés des tags réels (mapping statique honnête + 2 génériques vrais), chips de réassurance. Gates verts. NB : +16 « orphelines » verify:i18n = clés des bénéfices passées via t(variable), utilisées au runtime.
 

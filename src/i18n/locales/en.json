@@ -1564,5 +1564,13 @@
   "Annulez à tout moment": "Cancel anytime",
   "Pause possible": "Pause available",
   "Paiement à la livraison": "Pay on delivery",
-  "Livraison suivie": "Tracked delivery"
+  "Livraison suivie": "Tracked delivery",
+  "Une question sur ce programme ?": "A question about this program?",
+  "Bonjour, j'ai une question sur le programme « {{name}} » sur MiamExpress.": "Hello, I have a question about the “{{name}}” program on MiamExpress.",
+  "WhatsApp du restaurant": "Restaurant WhatsApp",
+  "Appeler": "Call",
+  "Votre abonnement": "Your subscription",
+  "démarre le": "starts on",
+  "total du cycle": "cycle total",
+  "réglé repas par repas à la livraison": "paid meal by meal on delivery"
 }
