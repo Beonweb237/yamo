@@ -189,7 +189,7 @@ export default function Navbar() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 8 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute top-full left-0 mt-1 bg-white rounded-xl border border-border-custom shadow-lg shadow-black/5 py-2 min-w-[280px] z-50"
+                        className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white rounded-2xl border border-border-custom shadow-xl shadow-black/[0.06] p-2.5 w-[640px] max-w-[calc(100vw-2rem)] z-50 grid grid-cols-3 gap-1"
                         onMouseEnter={() => handleDropdownEnter(section.title)}
                         onMouseLeave={handleDropdownLeave}
                       >
@@ -197,19 +197,19 @@ export default function Navbar() {
                           <Link
                             key={link.path}
                             to={link.path}
-                            className={`flex items-start gap-3 px-4 py-3 hover:bg-bg-secondary transition-colors ${isActive(link.path) ? 'bg-green-light/50' : ''
+                            className={`group/mega flex items-start gap-3 rounded-xl p-3 transition-colors ${isActive(link.path) ? 'bg-green-light/60' : 'hover:bg-bg-secondary'
                               }`}
                           >
                             {link.icon && (
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${isActive(link.path) ? 'bg-green-primary text-white' : 'bg-bg-secondary text-text-muted'
+                              <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isActive(link.path) ? 'bg-green-primary text-white' : 'bg-bg-secondary text-text-muted group-hover/mega:bg-green-primary group-hover/mega:text-white'
                                 }`}>
                                 <link.icon className="w-4 h-4" />
                               </div>
                             )}
-                            <div>
+                            <div className="min-w-0">
                               <p className="font-inter font-medium text-sm text-text-primary">{t('nav.' + link.name.toLowerCase(), link.name)}</p>
                               {link.description && (
-                                <p className="text-text-muted text-xs font-inter mt-0.5">{t('nav.' + link.name.toLowerCase() + '_desc', link.description)}</p>
+                                <p className="text-text-muted text-xs font-inter mt-0.5 leading-snug">{t('nav.' + link.name.toLowerCase() + '_desc', link.description)}</p>
                               )}
                             </div>
                           </Link>
