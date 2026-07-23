@@ -23,6 +23,7 @@ import {
   MessageSquare,
   Navigation,
   BadgeCheck,
+  HeartPulse,
 } from 'lucide-react';
 import { Skeleton } from '../components/ui/skeleton';
 import {
@@ -37,6 +38,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useRestaurant, useMenuItems, useRestaurants } from '../hooks/useCatalog';
 import { useFavorites } from '../hooks/useFavorites';
 import { useSeo } from '../hooks/useSeo';
+import { fetchPrograms, type MealProgram } from '../lib/mealPrograms';
 import { fetchRestaurantRatingSummary, fetchRestaurantReviews, type Review, type ReviewSummary } from '../lib/reviews';
 import { isEffectivelyOpen, parseHours } from '../lib/hours';
 import { restaurantMenuCategories } from '../data/mockData';
@@ -86,6 +88,19 @@ export default function RestaurantDetail() {
     path: slug ? `/restaurant/${slug}` : undefined,
   });
   const { items: menuItems } = useMenuItems(restaurant?.id);
+
+  // Programmes santé publiés de ce restaurant (accessibles depuis son profil).
+  // Mode VPS uniquement ; en mock, fetchPrograms() throw → section masquée.
+  const [restaurantPrograms, setRestaurantPrograms] = useState<MealProgram[]>([]);
+  useEffect(() => {
+    const rid = restaurant?.id;
+    if (!rid) { setRestaurantPrograms([]); return; }
+    let alive = true;
+    fetchPrograms()
+      .then((list) => { if (alive) setRestaurantPrograms(list.filter((p) => String(p.restaurantId) === String(rid))); })
+      .catch(() => { /* mock / module indisponible : section masquée */ });
+    return () => { alive = false; };
+  }, [restaurant?.id]);
   const [activeTab, setActiveTab] = useState('Populaires');
   const { favorites, toggleFavorite } = useFavorites();
   const isFav = restaurant ? favorites.has(restaurant.id) : false;
@@ -600,6 +615,32 @@ export default function RestaurantDetail() {
             {restaurant.description}
           </p>
         </motion.div>
+
+        {/* Programmes santé publiés par ce restaurant (module alimentaire, mode VPS) */}
+        {restaurantPrograms.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-green-primary/25 bg-green-light/40 p-4 sm:p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <HeartPulse className="w-5 h-5 text-green-primary shrink-0" />
+                <h2 className="font-poppins font-semibold text-text-primary text-base sm:text-lg truncate">{t('Programmes santé')}</h2>
+              </div>
+              <Link to="/programmes" className="text-green-primary font-inter text-xs font-medium hover:underline shrink-0">{t('Voir tout')}</Link>
+            </div>
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:overflow-visible">
+              {restaurantPrograms.map((p) => (
+                <Link key={p.id} to={`/programmes/${p.id}`} className="shrink-0 w-[240px] sm:w-auto bg-white rounded-xl border border-border-custom p-3.5 hover:shadow-md hover:border-green-primary/40 transition-all">
+                  <p className="font-inter font-semibold text-text-primary text-sm truncate">{p.name}</p>
+                  {p.targetAudience && <p className="text-text-muted font-inter text-[11px] mt-0.5 truncate">{t('Pour :')} {p.targetAudience}</p>}
+                  <div className="flex items-center gap-1.5 mt-2 text-[11px] text-text-secondary font-inter">
+                    <span>{p.mealsCount} {t('repas')}</span><span>·</span><span>{p.durationWeeks} {t('sem.')}</span>
+                  </div>
+                  <p className="text-green-primary font-inter text-sm font-semibold mt-1.5">{p.priceFcfa.toLocaleString()} FCFA <span className="text-text-muted font-normal text-[11px]">/ {t('cycle')}</span></p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── Barre d'onglets : sections de page (Menu / À propos / Carte / Avis) ── */}
         <div id="restaurant-tabs" className="sticky top-[72px] z-30 bg-bg-secondary border-b border-border-custom mb-6 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:-mx-12 xl:px-12">
           {/* Pastilles arrondies — style maison (identique aux catégories du
