@@ -4,8 +4,9 @@ import { toast } from 'sonner';
 import {
   SlidersHorizontal, Star, ArrowUpDown, X, Leaf, Beef, Wheat,
   Coffee, Apple, Clock, Store, Flame, ImageOff, MapPin, Heart,
-  Send, UserRound, Plus, Minus, Check, Navigation, Loader2,
+  Send, UserRound, Plus, Minus, Check, Navigation, Loader2, ChevronDown, ChevronUp,
 } from 'lucide-react';
+import { useIsMobile } from '../hooks/use-mobile';
 import type { Restaurant } from '../data/mockData';
 import { useAllMenuItems } from '../hooks/useCatalog';
 import { useFavoriteDishes } from '../hooks/useFavoriteDishes';
@@ -91,6 +92,11 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
 
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
   const [activeDietary, setActiveDietary] = useState<string[]>([]);
+  // Mobile : on masque les régimes au-delà des 8 premiers derrière « Voir plus »
+  // (moins de scroll avant les résultats) — mais les filtres ACTIFS restent
+  // toujours visibles. Desktop : tout affiché (il y a la place).
+  const isMobile = useIsMobile();
+  const [showAllDietary, setShowAllDietary] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>('popular');
   const { items: allMenuItems, loading: menuLoading } = useAllMenuItems();
   const allItems = useMemo(() => buildEnrichedItems(allMenuItems, restaurants), [allMenuItems, restaurants]);
@@ -447,7 +453,19 @@ export default function DishResults({ restaurants, query, city, neighborhood, ha
           {quickFilters.map(f => (<button key={f.id} onClick={() => setQuickFilter(f.id)} className={`shrink-0 h-9 px-4 rounded-full text-sm font-inter font-semibold transition-colors flex items-center gap-1.5 ${quickFilter === f.id ? 'bg-green-primary text-white shadow-sm' : 'bg-white border border-border-custom text-text-secondary hover:text-text-primary'}`}>{f.icon && <f.icon className="w-3.5 h-3.5" />}{f.label} ({f.count})</button>))}
         </div>
         <div className="flex gap-2 flex-wrap">
-          {DIETARY_FILTERS.map(f => { const Icon = f.icon; const active = activeDietary.includes(f.id); return (<button key={f.id} onClick={() => toggleDietary(f.id)} className={`shrink-0 h-9 px-3 rounded-full text-xs font-inter font-semibold border transition-colors flex items-center gap-1.5 ${active ? 'bg-green-primary text-white border-green-primary' : 'bg-white border-border-custom text-text-secondary hover:text-text-primary'}`}><Icon className="w-3.5 h-3.5" />{f.label}</button>); })}
+          {(() => {
+            // Repli mobile : 8 premiers + tous les régimes actifs (jamais cachés).
+            const collapsed = isMobile && !showAllDietary;
+            const shown = collapsed
+              ? DIETARY_FILTERS.filter((f, i) => i < 8 || activeDietary.includes(f.id))
+              : DIETARY_FILTERS;
+            const hidden = DIETARY_FILTERS.length - shown.length;
+            return (<>
+              {shown.map(f => { const Icon = f.icon; const active = activeDietary.includes(f.id); return (<button key={f.id} onClick={() => toggleDietary(f.id)} className={`shrink-0 h-9 px-3 rounded-full text-xs font-inter font-semibold border transition-colors flex items-center gap-1.5 ${active ? 'bg-green-primary text-white border-green-primary' : 'bg-white border-border-custom text-text-secondary hover:text-text-primary'}`}><Icon className="w-3.5 h-3.5" />{f.label}</button>); })}
+              {collapsed && hidden > 0 && (<button onClick={() => setShowAllDietary(true)} className="shrink-0 h-9 px-3 rounded-full text-xs font-inter font-semibold border border-green-primary/30 bg-green-light/50 text-green-primary flex items-center gap-1"><ChevronDown className="w-3.5 h-3.5" />{t("Voir plus")} ({hidden})</button>)}
+              {isMobile && showAllDietary && (<button onClick={() => setShowAllDietary(false)} className="shrink-0 h-9 px-3 rounded-full text-xs font-inter font-semibold border border-border-custom bg-white text-text-secondary flex items-center gap-1"><ChevronUp className="w-3.5 h-3.5" />{t("Voir moins")}</button>)}
+            </>);
+          })()}
           {activeDietary.length > 0 && (<button onClick={() => setActiveDietary([])} className="shrink-0 h-9 px-3 rounded-full text-xs font-inter font-medium text-error border border-error/30 hover:bg-error/5 flex items-center gap-1"><X className="w-3 h-3" />{t("Effacer")}</button>)}
         </div>
         <div className="flex items-center justify-between">
