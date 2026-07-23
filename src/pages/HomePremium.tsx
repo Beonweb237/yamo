@@ -14,6 +14,7 @@ import GlobalSearch from '../components/GlobalSearch';
 import { useSeo } from '../hooks/useSeo';
 import { useSiteConfig } from '../hooks/useSiteConfig';
 import { effectiveHomeSections, type HomeSectionId } from '../lib/siteConfig';
+import { fetchActivePromotions, promoBenefitLabel, type Promotion } from '../lib/promotions';
 
 // Template « Premium » de l'accueil (maquette validée, identité MiamExpress vert/or).
 // En-tête personnalisé + recherche + catégories + restaurants populaires — données RÉELLES.
@@ -41,6 +42,16 @@ export default function HomePremium() {
   // Historique réel du client (pour « Vos commandes récentes »). Masqué si aucune commande.
   // Historique complet conservé pour la personnalisation « Pour vous » (CP6).
   const [pastOrders, setPastOrders] = useState<Order[]>([]);
+  // Promotions RÉELLES (CP5) — section masquée si aucune offre active.
+  const [promos, setPromos] = useState<Promotion[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    fetchActivePromotions()
+      .then((list) => { if (alive) setPromos(list); })
+      .catch(() => { /* silencieux : carrousel simplement masqué */ });
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
     if (!user?.id) { return; }
@@ -275,6 +286,36 @@ export default function HomePremium() {
           </section>
     );
 
-    return null; // 'promos' : branché en CP5 (PS-07)
+    // 'promos' — offres réelles uniquement (CP5), section masquée sinon.
+    if (id === 'promos') return promos.length > 0 && (
+        <section key={id} className="mb-7">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-poppins font-semibold text-text-primary text-lg">{t('Offres à ne pas manquer')}</h2>
+          </div>
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 lg:grid lg:grid-cols-3 lg:overflow-visible">
+            {promos.slice(0, 6).map((promo) => (
+              <div key={promo.id} className="w-[260px] lg:w-auto shrink-0 rounded-2xl overflow-hidden bg-gradient-to-br from-green-primary to-green-dark text-white p-4 relative">
+                <span className="inline-block bg-gold-accent text-text-primary text-[11px] font-poppins font-bold px-2.5 py-0.5 rounded-full">
+                  {t(promoBenefitLabel(promo))}
+                </span>
+                <p className="font-poppins font-semibold text-base mt-2 leading-snug">
+                  {promo.title || t('Offre spéciale MiamExpress')}
+                </p>
+                <p className="text-white/85 font-inter text-xs mt-1.5">
+                  {t('Code promo')} : <span className="font-mono font-bold tracking-wider">{promo.code}</span>
+                  {promo.minSubtotal ? <> · {t('dès')} {promo.minSubtotal.toLocaleString()} {t('FCFA')}</> : null}
+                </p>
+                {promo.endsAt && (
+                  <p className="text-white/60 font-inter text-[11px] mt-1">
+                    {t('Valable jusqu\'au {{date}}', { date: new Date(promo.endsAt).toLocaleDateString() })}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+    );
+
+    return null;
   }
 }

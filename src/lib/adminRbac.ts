@@ -106,6 +106,7 @@ export const ADMIN_ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/kyc': 'kyc.view',
   '/admin/finance': 'finance.dashboard.view',
   '/admin/apparence': 'appearance.manage',
+  '/admin/promotions': 'promotions.manage',
   '/admin/subscriptions': 'food.subscriptions.view',
 };
 

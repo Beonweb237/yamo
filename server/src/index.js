@@ -18,6 +18,7 @@ import { registerOperationsRoutes } from './operations-routes.js';
 import { registerKycRoutes } from './kyc-routes.js';
 import { registerFinanceRoutes } from './finance-routes.js';
 import { registerFoodRoutes } from './food-routes.js';
+import { registerPromotionRoutes, evaluatePromoCode } from './promotions-routes.js';
 import { startSmartDispatch, handleDriverPingResponse } from './smart_dispatch.js';
 import {
   adminPermissionDefinitions,
@@ -536,26 +537,30 @@ app.post('/api/orders/validate', async (req, res) => {
       subtotal += parseInt(item.price) * qty;
     }
 
-    // Code promo : table promo_codes si présente — un code inconnu/inactif
-    // n'est pas bloquant, la remise est simplement nulle.
+    const baseDeliveryFee = parseInt(restaurant.delivery_fee) || 0;
+
+    // Code promo (série PROMO — CP5) : règles centralisées dans
+    // promotions-routes.js (période, seuil, ciblage resto, type). Un code
+    // saisi mais refusé est BLOQUANT avec un motif clair (transparence),
+    // un panier sans code passe sans remise.
     let discount = 0;
     let appliedPromo = null;
+    let freeDelivery = false;
     if (promoCode) {
       try {
-        const { rows: [promo] } = await pool.query(
-          'SELECT * FROM promo_codes WHERE code = $1 LIMIT 1',
-          [String(promoCode).toUpperCase()]
-        );
-        if (promo && promo.is_active !== false) {
-          const pct = parseFloat(promo.discount_percent ?? promo.percent ?? 0) || 0;
-          const flat = parseInt(promo.discount_amount ?? promo.amount ?? 0) || 0;
-          discount = Math.min(subtotal, flat + Math.round(subtotal * pct / 100));
-          if (discount > 0) appliedPromo = promo.code;
+        const evalRes = await evaluatePromoCode(pool, promoCode, {
+          restaurantId, subtotal, deliveryFee: baseDeliveryFee,
+        });
+        if (evalRes.promoError) {
+          return res.status(400).json({ error: evalRes.promoError });
         }
+        discount = evalRes.discount;
+        freeDelivery = evalRes.freeDelivery;
+        if (discount > 0 || freeDelivery) appliedPromo = evalRes.promo?.code ?? null;
       } catch { /* table absente ou schéma différent — remise nulle */ }
     }
 
-    const deliveryFee = parseInt(restaurant.delivery_fee) || 0;
+    const deliveryFee = freeDelivery ? 0 : baseDeliveryFee;
     const minOrder = parseInt(restaurant.min_order) || 0;
     const minOrderMet = subtotal >= minOrder;
     if (!minOrderMet) {
@@ -569,6 +574,7 @@ app.post('/api/orders/validate', async (req, res) => {
       subtotal,
       discount,
       promoCode: appliedPromo,
+      freeDelivery,
       deliveryFee,
       total: subtotal - discount + deliveryFee,
       currency: 'XAF',
@@ -597,6 +603,8 @@ registerKycRoutes(app, { pool, authRequired, adminPermissionRequired, fromSnake 
 registerFinanceRoutes(app, { pool, authRequired, adminPermissionRequired });
 // Série FOOD : /api/food-profile + programmes/abonnements — AVANT /api/:table.
 registerFoodRoutes(app, { pool, authRequired, adminPermissionRequired, fromSnake });
+// Série PROMO : promotions & codes promo (CP5) — CRUD admin + lecture publique.
+registerPromotionRoutes(app, { pool, authRequired, adminPermissionRequired, fromSnake });
 
 // ─── Admin : comptes, clients et validation directe ─────────────
 const ADMIN_CREATABLE_ROLES = new Set(['restaurant', 'livreur']);

@@ -5,6 +5,7 @@ import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createOrder, CustomerBlockedError, type PaymentMethod } from '../lib/orders';
 import { validateOrder, initiateMoMoPayment, isVpsApiEnabled, NetworkPaymentError } from '../lib/payments';
+import { evaluatePromoLocal } from '../lib/promotions';
 import { getPaymentMode, type PaymentMode } from '../lib/paymentMode';
 import { Skeleton } from '../components/ui/skeleton';
 import { useRestaurant } from '../hooks/useCatalog';
@@ -348,6 +349,17 @@ export default function Checkout() {
           }
           return;
         }
+      } else if (promoCode.trim()) {
+        // Mode mock (dev) : mêmes règles promo que le serveur, sur le
+        // registre local — un code refusé bloque avec un motif clair.
+        const promoEval = evaluatePromoLocal(promoCode, { restaurantId, subtotal: totalPrice });
+        if (promoEval.promoError) {
+          setError(promoEval.promoError);
+          return;
+        }
+        if (promoEval.freeDelivery) serverDeliveryFee = 0;
+        serverTotal = totalPrice - promoEval.discount + serverDeliveryFee;
+        setAppliedDiscount(promoEval.discount);
       }
 
       const order = await createOrder({

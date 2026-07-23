@@ -62,6 +62,7 @@ const PERMISSIONS = [
   ['finance.payouts.update', 'finance', 'Traiter les paiements sortants', true],
   ['finance.export', 'finance', 'Exporter les donnees financieres', true],
   ['points.manage', 'points', 'Gerer cautions, points et recharges restaurants', true],
+  ['promotions.manage', 'promotions', 'Gerer les promotions et codes promo', true],
   ['zones.manage', 'zones', 'Gerer villes, quartiers et zones desactivees', true],
   ['delivery_fees.manage', 'delivery_fees', 'Gerer les frais de livraison', true],
   ['media.manage', 'media', 'Gerer la mediatheque', true],
