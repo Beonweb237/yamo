@@ -177,9 +177,24 @@ export function registerPointsRoutes(app, { pool, authRequired, adminRequired, a
   }
 
   // Le resto n'agit que sur son propre compte ; l'admin sur tous.
-  function assertOwnRestaurant(req, res, restaurantId) {
+  // IMPORTANT : le JWT signé au login ne porte PAS de claim restaurantId
+  // (seulement sub/phone/role) → la propriété se résout EN BASE via
+  // restaurants.owner_id (même règle que canManageRestaurant de food-routes).
+  // L'ancien test sur req.user.restaurantId refusait TOUS les restaurateurs
+  // (403 « Accès refusé » vu en prod le 23/07).
+  async function userOwnsRestaurant(req, restaurantId) {
     if (req.user.role === 'admin') return true;
-    if (req.user.role === 'restaurant' && String(req.user.restaurantId ?? '') === String(restaurantId)) return true;
+    if (req.user.role !== 'restaurant') return false;
+    if (String(req.user.restaurantId ?? '') === String(restaurantId)) return true; // compat token enrichi
+    const { rows } = await pool.query(
+      'SELECT 1 FROM restaurants WHERE id::text = $1 AND owner_id::text = $2',
+      [String(restaurantId), String(req.user.sub)]
+    );
+    return rows.length > 0;
+  }
+
+  async function assertOwnRestaurant(req, res, restaurantId) {
+    if (await userOwnsRestaurant(req, restaurantId)) return true;
     res.status(403).json({ error: 'Accès refusé à ce compte de points.' });
     return false;
   }
@@ -199,7 +214,7 @@ export function registerPointsRoutes(app, { pool, authRequired, adminRequired, a
 
   app.get('/api/points/ledger/:restaurantId', authRequired, async (req, res) => {
     try {
-      if (!assertOwnRestaurant(req, res, req.params.restaurantId)) return;
+      if (!(await assertOwnRestaurant(req, res, req.params.restaurantId))) return;
       const limit = Math.min(200, parseInt(req.query.limit) || 50);
       const offset = Math.max(0, parseInt(req.query.offset) || 0);
       const { rows } = await pool.query(
@@ -253,7 +268,7 @@ export function registerPointsRoutes(app, { pool, authRequired, adminRequired, a
   app.post('/api/points/hold', authRequired, async (req, res) => {
     const { restaurantId, orderId } = req.body || {};
     if (!restaurantId || !orderId) return res.status(400).json({ error: 'restaurantId et orderId requis.' });
-    if (!assertOwnRestaurant(req, res, restaurantId)) return;
+    if (!(await assertOwnRestaurant(req, res, restaurantId))) return;
     try {
       const result = await withRestaurantLock(restaurantId, async (client) => {
         const existing = await client.query(
@@ -307,7 +322,7 @@ export function registerPointsRoutes(app, { pool, authRequired, adminRequired, a
     if (!restaurantId || !orderId || !['consume', 'release', 'penalty'].includes(outcome)) {
       return res.status(400).json({ error: 'restaurantId, orderId et outcome (consume|release|penalty) requis.' });
     }
-    if (!assertOwnRestaurant(req, res, restaurantId)) return;
+    if (!(await assertOwnRestaurant(req, res, restaurantId))) return;
     try {
       const result = await withRestaurantLock(restaurantId, async (client) => {
         const hold = await client.query(
@@ -405,7 +420,7 @@ export function registerPointsRoutes(app, { pool, authRequired, adminRequired, a
     if (!Number.isInteger(points) || points < POINTS_CONFIG.MIN_RECHARGE_FCFA) {
       return res.status(400).json({ error: `La recharge minimale est de ${POINTS_CONFIG.MIN_RECHARGE_FCFA} FCFA.` });
     }
-    if (!assertOwnRestaurant(req, res, restaurantId)) return;
+    if (!(await assertOwnRestaurant(req, res, restaurantId))) return;
     try {
       const paymentRef = 'PTS-' + Math.random().toString(36).slice(2, 8).toUpperCase();
       // `points` = montant en FCFA (unité de compte = 1 FCFA) → amount_fcfa identique.
@@ -427,9 +442,16 @@ export function registerPointsRoutes(app, { pool, authRequired, adminRequired, a
       const values = [];
       if (req.query.status) { values.push(req.query.status); filters.push(`status = $${values.length}`); }
       // Un resto ne voit que ses demandes ; l'admin peut filtrer librement.
+      // Le JWT ne portant pas de restaurantId, on résout les restos du
+      // propriétaire EN BASE ('' casté en uuid = le 500 vu en prod le 23/07).
       if (req.user.role !== 'admin') {
-        values.push(String(req.user.restaurantId ?? ''));
-        filters.push(`restaurant_id = $${values.length}`);
+        const { rows: owned } = await pool.query(
+          'SELECT id::text AS id FROM restaurants WHERE owner_id::text = $1',
+          [String(req.user.sub)]
+        );
+        if (!owned.length) return res.json([]);
+        values.push(owned.map((r) => r.id));
+        filters.push(`restaurant_id::text = ANY($${values.length})`);
       } else if (req.query.restaurantId) {
         values.push(req.query.restaurantId);
         filters.push(`restaurant_id = $${values.length}`);
@@ -489,7 +511,7 @@ export function registerPointsRoutes(app, { pool, authRequired, adminRequired, a
   app.post('/api/points/welcome-bonus', authRequired, async (req, res) => {
     const { restaurantId } = req.body || {};
     if (!restaurantId) return res.status(400).json({ error: 'restaurantId requis.' });
-    if (!assertOwnRestaurant(req, res, restaurantId)) return;
+    if (!(await assertOwnRestaurant(req, res, restaurantId))) return;
     if (POINTS_CONFIG.WELCOME_BONUS_FCFA <= 0) return res.json(null);
     try {
       const result = await withRestaurantLock(restaurantId, (client) =>
