@@ -21,7 +21,7 @@ import { usePolling } from '../hooks/usePolling';
 import { useRestaurants } from '../hooks/useCatalog';
 import { restaurantMenuCategories, dishCatalog } from '../data/mockData';
 import type { MenuItem, Restaurant } from '../data/mockData';
-import { confirmOrderWithPreparation, fetchOrdersByRestaurant, getOrderPreparationMessage, updateOrderStatus, cancelOrder, getDriverPhone, getDriverName, confirmGuaranteeReceived, rejectGuaranteeDeclaration, type Order, type OrderStatus } from '../lib/orders';
+import { confirmOrderWithPreparation, fetchOrdersByRestaurant, getOrderPreparationMessage, updateOrderStatus, cancelOrder, getDriverPhone, getDriverName, confirmGuaranteeReceived, rejectGuaranteeDeclaration, markOrderPaid, type Order, type OrderStatus } from '../lib/orders';
 import { getPreferredDrivers, addPreferredDriver, removePreferredDriver, fetchDriversStats, getOwnDriverIds, addOwnDriver, removeOwnDriver, type DriverStats } from '../lib/drivers';
 import { processFormImage } from '../lib/media';
 import { parseHours, formatHours, isWithinHours } from '../lib/hours';
@@ -589,6 +589,10 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                       const prepMessage = getOrderPreparationMessage(order);
                       const selectedPrepTime = prepTimes[order.id] ?? defaultPrepTime;
                       const isProcessing = processingOrderId === order.id;
+                      // Série PAY — verrou prépayé : commande prépayée non encore
+                      // encaissée → la préparation est bloquée tant que le resto n'a
+                      // pas confirmé « paiement reçu » (indépendant de la garantie PTS).
+                      const prepaidUnpaid = order.paymentMode === 'prepaid_restaurant' && order.paymentStatus !== 'paid' && !order.guarantee;
                       return (
                         <div key={order.id} className={`bg-white rounded-2xl border border-border-custom shadow-sm hover:shadow-md transition-shadow border-l-4 ${urgencyColor} p-5`}>
                           <div className="flex items-center justify-between mb-3">
@@ -774,7 +778,21 @@ export default function RestaurantDashboard({ tab: initialTab }: { tab?: Tab }) 
                                         </div>
                                       </div>
                                     )}
-                                    {next && !(order.status === 'confirmed' && order.guarantee && order.guarantee.status !== 'confirmed') ? (
+                                    {/* Série PAY — prépayé : encaisser le client avant de préparer. */}
+                                    {order.status === 'confirmed' && prepaidUnpaid && (
+                                      <div className="flex-1 bg-gold-light border border-gold-accent/40 rounded-lg px-3 py-2.5">
+                                        <p className="text-amber-700 text-xs font-inter font-semibold mb-2">
+                                          {t("Prépayé : encaissez le client, puis confirmez pour lancer la préparation.")}
+                                        </p>
+                                        <button
+                                          onClick={async () => { try { await markOrderPaid(order.id); toast.success(t('Paiement confirmé — vous pouvez préparer.')); await loadOrders(); } catch { toast.error(t('Action impossible')); } }}
+                                          className="w-full bg-green-primary hover:bg-green-dark text-white font-inter font-semibold text-xs h-10 rounded-lg transition-colors"
+                                        >
+                                          {t("Paiement reçu")}
+                                        </button>
+                                      </div>
+                                    )}
+                                    {next && !(order.status === 'confirmed' && order.guarantee && order.guarantee.status !== 'confirmed') && !(order.status === 'confirmed' && prepaidUnpaid) ? (
                                       <button
                                         onClick={() => handleAdvance(order)}
                                         disabled={isProcessing}

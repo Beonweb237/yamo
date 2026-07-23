@@ -1344,10 +1344,23 @@ app.patch('/api/:table/:id', authRequired, async (req, res) => {
     }
     // Commission (série PTS) : on retient le statut AVANT l'update pour ne
     // déclencher la réservation qu'à la vraie transition pending→confirmed.
-    let prevOrderStatus = null;
+    // On lit aussi mode de paiement + statut de paiement pour le verrou prépayé.
+    let prevOrderStatus = null; let prevOrder = null;
     if (table === 'orders' && data.status !== undefined) {
-      const { rows: [o0] } = await pool.query('SELECT status FROM orders WHERE id::text = $1', [String(id)]);
+      const { rows: [o0] } = await pool.query('SELECT status, payment_status, fee_breakdown FROM orders WHERE id::text = $1', [String(id)]);
+      prevOrder = o0 || null;
       prevOrderStatus = o0?.status || null;
+    }
+    // Série PAY — VERROU PRÉPAYÉ : en mode prépayé, le restaurant ne peut pas
+    // lancer la préparation tant que le paiement n'est pas confirmé (payment_status
+    // = 'paid'). Le parcours diffère réellement du COD. Le resto marque « paiement
+    // reçu » (PATCH payment_status) une fois l'argent encaissé.
+    if (table === 'orders' && data.status === 'preparing' && prevOrder) {
+      const payMode = prevOrder.fee_breakdown?.payment_mode || 'cod';
+      const isPrepaid = payMode === 'prepaid_restaurant' || payMode === 'prepaid_platform';
+      if (isPrepaid && prevOrder.payment_status !== 'paid') {
+        return res.status(402).json({ error: 'Paiement non confirmé : marquez le paiement reçu avant de lancer la préparation.' });
+      }
     }
     // updated_at est géré par le serveur (now() ci-dessous) : on l'ignore s'il
     // arrive dans le corps, sinon UPDATE ... SET updated_at=$n, updated_at=now()

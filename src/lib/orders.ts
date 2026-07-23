@@ -7,7 +7,7 @@ import { parseCityFromAddress, parseNeighborhoodFromAddress } from '../data/loca
 // hold/settle est fait côté serveur dans la même transaction que le statut
 // (PTS-08) — les appels ci-dessous ne concernent que le chemin mock.
 import { holdPoints, settleHold, hasActiveHold, convertPointsToRefund } from './points';
-import { getPaymentMode } from './paymentMode';
+import { getPaymentMode, type PaymentMode } from './paymentMode';
 // Série LOY — MiamPoints : le client gagne des points à la livraison. Best-effort
 // (un échec de fidélité ne doit jamais bloquer la livraison de la commande).
 import { earnLoyalty, redeemLoyalty, refundLoyalty } from './loyalty';
@@ -322,6 +322,13 @@ export interface Order extends Omit<OrderInput, 'items'> {
    */
   deliveryMode?: 'platform' | 'restaurant' | null;
   contactPhone?: string;
+  /** Statut de paiement de la commande ('pending' | 'paid' | …). */
+  paymentStatus?: string | null;
+  /**
+   * Série PAY — mode de paiement figé sur la commande (fee_breakdown.payment_mode).
+   * En mode prépayé, la préparation est verrouillée tant que paymentStatus ≠ 'paid'.
+   */
+  paymentMode?: PaymentMode | null;
   recipient?: {
     name: string;
     phone: string;
@@ -707,6 +714,8 @@ function mapOrderRow(row: Record<string, unknown>): Order {
     },
     status: row.status as OrderStatus,
     contactPhone: (row.contact_phone as string | null) ?? undefined,
+    paymentStatus: (row.payment_status as string | null) ?? null,
+    paymentMode: ((row.fee_breakdown as { payment_mode?: PaymentMode } | null)?.payment_mode) ?? null,
     recipient: recipientFromColumns ?? parseLegacyRecipientFromNotes(notes),
     createdAt: row.created_at as string,
     updatedAt: (row.updated_at as string | null) ?? null,
@@ -827,6 +836,21 @@ export async function updateOrderStatus(
   );
   writeLocalOrders(updated);
   if (status === 'delivered') await earnLoyaltyForOrder(orderId);
+}
+
+/**
+ * Série PAY — le restaurant confirme avoir reçu le paiement (mode prépayé).
+ * Passe payment_status à 'paid', ce qui débloque la préparation (le serveur
+ * refuse la transition vers 'preparing' tant que le paiement n'est pas confirmé).
+ */
+export async function markOrderPaid(orderId: string): Promise<void> {
+  if (isSupabaseConfigured && supabase && (await isSupabaseAuthenticated())) {
+    const { error } = await supabase.from('orders').update({ payment_status: 'paid' }).eq('id', orderId);
+    if (error) throw error;
+    return;
+  }
+  const updated = readLocalOrders().map((o) => o.id === orderId ? { ...o, paymentStatus: 'paid' } : o);
+  writeLocalOrders(updated);
 }
 
 /**
