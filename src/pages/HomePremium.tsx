@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, Bell, Search, SlidersHorizontal, ChevronRight, Star, Clock, Heart } from 'lucide-react';
+import { MapPin, Bell, Search, SlidersHorizontal, ChevronRight, Star, Clock, Heart, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cuisineCategories } from '../data/mockData';
 import { activeCities } from '../data/locations';
 import { useRestaurants } from '../hooks/useCatalog';
 import { useFavorites } from '../hooks/useFavorites';
+import { useReorder } from '../hooks/useReorder';
+import { fetchOrders, type Order } from '../lib/orders';
 import { useAuth } from '../contexts/AuthContext';
 import AppImage from '../components/AppImage';
 import GlobalSearch from '../components/GlobalSearch';
@@ -21,7 +23,9 @@ export default function HomePremium() {
   const { restaurants, loading } = useRestaurants();
   const { favorites, toggleFavorite } = useFavorites();
   const { user } = useAuth();
+  const { reorder, reordering } = useReorder();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
 
   useSeo({
     title: t('Livraison de repas à Douala et Yaoundé'),
@@ -30,6 +34,20 @@ export default function HomePremium() {
   });
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
+
+  // Historique réel du client (pour « Vos commandes récentes »). Masqué si aucune commande.
+  useEffect(() => {
+    if (!user?.id) { setRecentOrders([]); return; }
+    let alive = true;
+    fetchOrders(user.id)
+      .then((list) => {
+        if (!alive) return;
+        const sorted = [...list].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setRecentOrders(sorted.slice(0, 4));
+      })
+      .catch(() => { /* silencieux : section simplement masquée */ });
+    return () => { alive = false; };
+  }, [user?.id]);
 
   const firstName = (user?.name || (typeof localStorage !== 'undefined' ? localStorage.getItem('yamo_profile_name') : '') || '').trim().split(' ')[0];
   const city = activeCities[0]?.name ?? 'Douala';
@@ -179,6 +197,44 @@ export default function HomePremium() {
             </div>
           )}
         </section>
+
+        {/* Vos commandes récentes — reorder 1-clic (masqué si aucune commande réelle) */}
+        {recentOrders.length > 0 && (
+          <section className="mt-7">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-poppins font-semibold text-text-primary text-lg">{t('Vos commandes récentes')}</h2>
+              <Link to="/commandes" className="text-gold-accent font-inter text-xs font-medium hover:underline">{t('Voir tout')}</Link>
+            </div>
+            <div className="space-y-2">
+              {recentOrders.map((order) => {
+                const resto = restaurants.find((r) => r.id === order.restaurantId);
+                const summary = order.items.map((i) => i.name).join(', ');
+                return (
+                  <div key={order.id} className="flex items-center gap-3 bg-white border border-border-custom rounded-2xl p-3">
+                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-bg-secondary shrink-0">
+                      <AppImage src={resto?.image || ''} alt={order.restaurantName} fallbackLabel={order.restaurantName} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-inter font-semibold text-text-primary text-sm truncate">{order.restaurantName}</p>
+                      <p className="text-text-muted font-inter text-[11px] truncate">{summary}</p>
+                      <p className="text-text-muted font-inter text-[11px] mt-0.5">{new Date(order.createdAt).toLocaleDateString()} · {order.total.toLocaleString()} FCFA</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void reorder(order)}
+                      disabled={reordering}
+                      aria-label={t('Commander à nouveau')}
+                      className="shrink-0 inline-flex items-center gap-1.5 max-w-[100px] px-3 py-2 rounded-xl border border-green-primary text-green-primary font-inter text-[11px] font-medium hover:bg-green-light transition-colors disabled:opacity-60"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                      <span className="leading-tight text-left">{t('Commander à nouveau')}</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

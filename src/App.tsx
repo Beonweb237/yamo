@@ -45,6 +45,11 @@ import AdminFinance from './pages/admin/AdminFinance'
 import AdminAppearance from './pages/admin/AdminAppearance'
 import FoodRequestCreate from './pages/FoodRequestCreate'
 import FoodRequestList from './pages/FoodRequestList'
+import MealPrograms from './pages/MealPrograms'
+import MealProgramDetail from './pages/MealProgramDetail'
+import Subscriptions from './pages/Subscriptions'
+import RestaurantPrograms from './pages/RestaurantPrograms'
+import AdminSubscriptions from './pages/admin/AdminSubscriptions'
 import NotFound from './pages/NotFound'
 
 // LOT-13 (CONF-33) : /explorer est fusionné dans /restaurants (mode plats).
@@ -96,6 +101,9 @@ export default function App() {
         <Route path="/article/:slug" element={<ArticleRedirect />} />
         <Route path="/demandes/nouvelle" element={<Layout><FoodRequestCreate /></Layout>} />
         <Route path="/demandes/mes-demandes" element={<Layout><FoodRequestList /></Layout>} />
+        <Route path="/programmes" element={<Layout><MealPrograms /></Layout>} />
+        <Route path="/programmes/:id" element={<Layout><MealProgramDetail /></Layout>} />
+        <Route path="/abonnements" element={<Layout><Subscriptions /></Layout>} />
 
         {/* Restaurant dashboard (sidebar + nested pages) */}
         <Route
@@ -108,6 +116,7 @@ export default function App() {
         >
           <Route index element={<RestaurantDashboard />} />
           <Route path="menu" element={<RestaurantDashboard tab="menu" />} />
+          <Route path="programmes" element={<RestaurantPrograms />} />
           <Route path="livreurs" element={<RestaurantDashboard tab="drivers" />} />
           <Route path="profile" element={<RestaurantDashboard tab="profile" />} />
           <Route path="finances" element={<RestaurantDashboard tab="finances" />} />
@@ -145,6 +154,7 @@ export default function App() {
           <Route path="kyc" element={<AdminPermissionGate permission="kyc.view"><AdminKyc /></AdminPermissionGate>} />
           <Route path="kyc/:applicationId" element={<AdminPermissionGate permission="kyc.view"><AdminKycDossier /></AdminPermissionGate>} />
           <Route path="finance" element={<AdminPermissionGate permission="finance.dashboard.view"><AdminFinance /></AdminPermissionGate>} />
+          <Route path="subscriptions" element={<AdminPermissionGate permission="food.subscriptions.view"><AdminSubscriptions /></AdminPermissionGate>} />
           <Route path="restaurants" element={<AdminPermissionGate permission="restaurants.view"><AdminRestaurants /></AdminPermissionGate>} />
           <Route path="drivers" element={<AdminPermissionGate permission="couriers.view"><AdminDrivers /></AdminPermissionGate>} />
           <Route path="disputes" element={<AdminPermissionGate permission="orders.disputes.resolve"><AdminDisputes /></AdminPermissionGate>} />

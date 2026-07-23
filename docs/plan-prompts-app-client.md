@@ -17,8 +17,11 @@
 
 - [x] **CP1 — Socle Templates & Apparence** ✅ vérifié (verify:hooks 0, verify:i18n OK, build 0, pixel classic identique, bascule premium OK, mobile 360px OK). Fichiers : `lib/siteConfig.ts`, `hooks/useSiteConfig.ts`, `pages/Home.tsx` (routeur), `pages/HomeClassic.tsx`, `pages/HomePremium.tsx` (placeholder), `pages/admin/AdminAppearance.tsx`, route + `appearance.manage` + sidebar.
 - [x] **CP2 — Apparence : logo + couleurs** ✅ vérifié (couleurs appliquées à chaud puis reset #157F3D, logo navbar dynamique, `BrandTheme` monté, application synchrone au boot = pas de flash). **Reste (CP2-bis, non fait)** : sections Home on/off/ordre, contenu hero éditable, coordonnées support. **Backend (CP10)** : endpoint `/api/settings/site_config` à ajouter côté VPS (front best-effort, mock/localStorage OK).
-- [ ] **CP3 — HomePremium au pixel près** ← PROCHAINE ÉTAPE (la plus grosse : mérite un contexte dédié).
-- [ ] CP4, CP6, CP5, CP7, CP10, CP8, CP9.
+- [x] **CP3 — HomePremium au pixel près** ✅ commité `a7cc3a3` (capture conforme à la maquette : en-tête perso, recherche, catégories, « Populaires » cartes réelles ; promos CP5 / reorder CP4 masqués). Navbar forcé solide sur premium.
+- [ ] **CP4 — « Commander à nouveau »** ← PROCHAINE ÉTAPE.
+- [ ] CP6, CP5, CP7, CP10, CP8, CP9.
+
+> ⚠️ Concurrence : Codex tourne en parallèle (module « alimentaire » : MealPrograms/Subscriptions/food-routes) et **ré-entrelace** Navbar/BackOfficeLayout/adminRbac/App.tsx/en.json. Tué 2× cette session. Ses fichiers restent **non commités** (préservés). Vérifier `tasklist|grep codex` avant tout build/commit. **Recommandation : ne pas faire tourner Codex pendant l'exécution de ce plan** (isolation impossible sinon).
 
 ## Règles transverses (rappelées dans chaque prompt)
 

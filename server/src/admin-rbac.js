@@ -49,6 +49,9 @@ const PERMISSIONS = [
   ['operations.handle', 'operations', 'Tracer la prise en charge d\'une anomalie', true],
   ['kyc.view', 'kyc', 'Consulter les dossiers KYC (verification profils)', false],
   ['kyc.review', 'kyc', 'Valider/refuser les pieces et statuer un dossier KYC', true],
+  ['food.programs.manage', 'food', 'Gerer les programmes alimentaires (creation/moderation)', true],
+  ['food.subscriptions.view', 'food', 'Consulter les abonnements alimentaires', false],
+  ['food.subscriptions.manage', 'food', 'Gerer/generer les livraisons d\'abonnement', true],
   ['reviews.view', 'reviews', 'Voir les avis et resumes', false],
   ['reviews.moderate', 'reviews', 'Moderation des avis', true],
   ['reviews.reply', 'reviews', 'Repondre ou moderer une reponse avis', true],
@@ -92,6 +95,7 @@ const ROLE_PERMISSIONS = {
     'orders.cancel', 'orders.disputes.resolve', 'operations.view', 'operations.handle',
     'reviews.view', 'reviews.moderate', 'dishes.manage', 'media.manage', 'audit.view',
     'kyc.view', 'kyc.review',
+    'food.programs.manage', 'food.subscriptions.view', 'food.subscriptions.manage',
   ],
   restaurant_manager: [
     'dashboard.view', 'applications.view', 'applications.approve', 'applications.reject',
@@ -100,6 +104,7 @@ const ROLE_PERMISSIONS = {
     'restaurants.reject', 'restaurants.suspend', 'restaurants.reactivate',
     'orders.view', 'reviews.view', 'dishes.manage', 'media.manage', 'audit.view',
     'kyc.view', 'kyc.review',
+    'food.programs.manage', 'food.subscriptions.view',
   ],
   courier_manager: [
     'dashboard.view', 'applications.view', 'applications.approve', 'applications.reject',

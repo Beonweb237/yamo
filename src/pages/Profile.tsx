@@ -12,6 +12,7 @@ import { LOYALTY_CONFIG } from '../data/launchConfig';
 import { toast } from 'sonner';
 import LazyDeliveryMap, { type MapPoint } from '../components/LazyDeliveryMap';
 import AddressAutocomplete from '../components/AddressAutocomplete';
+import FoodProfileSection from '../components/FoodProfileSection';
 import { trashItem } from '../lib/trash';
 import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
 import {
@@ -780,6 +781,8 @@ export default function Profile() {
 
         {activeTab === 'preferences' && (
           <div className="space-y-4">
+            {/* Profil alimentaire (série FOOD) */}
+            <FoodProfileSection />
             {/* Data Saver */}
             <div className="bg-white rounded-2xl border border-border-custom p-5 sm:p-6 shadow-sm">
               <div className="flex items-center justify-between gap-4">

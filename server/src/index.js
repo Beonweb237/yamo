@@ -17,6 +17,7 @@ import { registerTrackingRoutes } from './tracking-routes.js';
 import { registerOperationsRoutes } from './operations-routes.js';
 import { registerKycRoutes } from './kyc-routes.js';
 import { registerFinanceRoutes } from './finance-routes.js';
+import { registerFoodRoutes } from './food-routes.js';
 import { startSmartDispatch, handleDriverPingResponse } from './smart_dispatch.js';
 import {
   adminPermissionDefinitions,
@@ -550,6 +551,8 @@ registerOperationsRoutes(app, { pool, authRequired, adminPermissionRequired, fro
 registerKycRoutes(app, { pool, authRequired, adminPermissionRequired, fromSnake });
 // Série FIN : /api/admin/finance/* (Centre Financier) — AVANT /api/:table.
 registerFinanceRoutes(app, { pool, authRequired, adminPermissionRequired });
+// Série FOOD : /api/food-profile + programmes/abonnements — AVANT /api/:table.
+registerFoodRoutes(app, { pool, authRequired, adminPermissionRequired, fromSnake });
 
 // ─── Admin : comptes, clients et validation directe ─────────────
 const ADMIN_CREATABLE_ROLES = new Set(['restaurant', 'livreur']);
