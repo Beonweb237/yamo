@@ -27,6 +27,87 @@ function commissionForSubtotal(subtotal) {
 
 const SETTLEMENT_KINDS = ['consume', 'release', 'penalty'];
 
+// ─── Application de la commission sur les transitions de statut ───
+// Réutilisables hors des routes /api/points (appelées par le handler générique
+// de mise à jour des commandes) pour que TOUTES les commandes — normales,
+// sur mesure, abonnement — prélèvent la commission de façon uniforme.
+// « Suivi souple » : la réservation à l'acceptation est NON bloquante (le solde
+// peut passer négatif = dette tracée), on ne gèle jamais un restaurant. Le
+// passage au blocage dur (refus si solde insuffisant) se fera plus tard.
+async function withLock(pool, restaurantId, fn) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [String(restaurantId)]);
+    const r = await fn(client);
+    await client.query('COMMIT');
+    return r;
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+async function appendLedger(client, e) {
+  await client.query(
+    `INSERT INTO points_ledger (restaurant_id, kind, points, reference, note, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (kind, reference) DO NOTHING`,
+    [String(e.restaurantId), e.kind, e.points, String(e.reference), e.note ?? null, e.createdBy ?? 'system']
+  );
+}
+
+/** Réservation NON bloquante de la commission à l'acceptation (pending→confirmed).
+ *  Idempotent par (kind='hold', reference=orderId). N'échoue jamais sur solde. */
+export async function holdOrderCommissionSoft(pool, order) {
+  const restaurantId = order?.restaurant_id, orderId = order?.id;
+  if (!restaurantId || !orderId) return;
+  const commission = commissionForSubtotal(order.subtotal);
+  const mode = order.fee_breakdown?.payment_mode || 'cod';
+  const driverFee = mode === 'prepaid_restaurant' ? Math.max(0, Math.round(order.delivery_fee || 0)) : 0;
+  const reservation = commission + driverFee;
+  if (reservation <= 0) return;
+  await withLock(pool, restaurantId, async (client) => {
+    const ex = await client.query("SELECT 1 FROM points_ledger WHERE kind='hold' AND reference=$1", [String(orderId)]);
+    if (ex.rows[0]) return;
+    const note = driverFee > 0
+      ? `Réservation commission ${commission} + frais livreur ${driverFee} (${reservation} FCFA) — commande #${String(orderId).slice(0, 8)}`
+      : `Réservation commission (${commission} FCFA) — commande #${String(orderId).slice(0, 8)}`;
+    await appendLedger(client, { restaurantId, kind: 'hold', points: -reservation, reference: orderId, note });
+  });
+}
+
+/** Règlement du hold à la livraison (consume) ou annulation (release/penalty).
+ *  Idempotent ; no-op si aucun hold. En prepaid_restaurant, crédite le livreur. */
+export async function settleOrderCommission(pool, order, outcome) {
+  const restaurantId = order?.restaurant_id, orderId = order?.id;
+  if (!restaurantId || !orderId || !SETTLEMENT_KINDS.includes(outcome)) return;
+  await withLock(pool, restaurantId, async (client) => {
+    const hold = await client.query("SELECT points FROM points_ledger WHERE kind='hold' AND reference=$1 AND restaurant_id=$2", [String(orderId), String(restaurantId)]);
+    if (!hold.rows[0]) return;
+    const settled = await client.query('SELECT 1 FROM points_ledger WHERE kind = ANY($1) AND reference=$2', [SETTLEMENT_KINDS, String(orderId)]);
+    if (settled.rows[0]) return;
+    const holdAmount = -hold.rows[0].points;
+    const spec = outcome === 'consume'
+      ? { kind: 'consume', points: 0, note: `Commande #${String(orderId).slice(0, 8)} livrée — ${holdAmount} FCFA consommés` }
+      : outcome === 'release'
+        ? { kind: 'release', points: holdAmount, note: `Commande #${String(orderId).slice(0, 8)} annulée — réservation restituée` }
+        : { kind: 'penalty', points: holdAmount - Math.min(holdAmount, POINTS_CONFIG.PENALTY_RESTAURANT_FAULT_FCFA), note: `Annulation restaurant — pénalité ${Math.min(holdAmount, POINTS_CONFIG.PENALTY_RESTAURANT_FAULT_FCFA)} FCFA conservée` };
+    await appendLedger(client, { restaurantId, reference: orderId, ...spec });
+    if (outcome === 'consume') {
+      const mode = order.fee_breakdown?.payment_mode || 'cod';
+      const driverFee = Math.max(0, Math.round(order.delivery_fee || 0));
+      if (mode === 'prepaid_restaurant' && order.driver_id && driverFee > 0) {
+        await client.query(
+          `INSERT INTO driver_ledger (driver_id, order_id, kind, amount_fcfa, reference, note)
+           VALUES ($1,$2,'earning',$3,$2,$4) ON CONFLICT (kind, reference) DO NOTHING`,
+          [String(order.driver_id), String(orderId), driverFee, `Frais de livraison (prépayé restaurant) — commande #${String(orderId).slice(0, 8)}`]
+        );
+      }
+    }
+  });
+}
+
 export function registerPointsRoutes(app, { pool, authRequired, adminRequired, adminPermissionRequired, fromSnake }) {
   // Série PAY : grand livre livreur — ce que la plateforme doit / a payé au livreur.
   // Alimenté notamment en mode prepaid_restaurant (frais financés par le wallet resto,

@@ -11,7 +11,7 @@ import { Server } from 'socket.io';
 import dotenv from 'dotenv';
 import { initiatePayment, getSaleStatus } from './chariow.js';
 import { registerReviewRoutes } from './reviews-routes.js';
-import { registerPointsRoutes } from './points-routes.js';
+import { registerPointsRoutes, holdOrderCommissionSoft, settleOrderCommission } from './points-routes.js';
 import { registerLoyaltyRoutes } from './loyalty-routes.js';
 import { registerTrackingRoutes } from './tracking-routes.js';
 import { registerOperationsRoutes } from './operations-routes.js';
@@ -1342,6 +1342,13 @@ app.patch('/api/:table/:id', authRequired, async (req, res) => {
       const okCancel = own && data.status === 'cancelled' && ['pending', 'confirmed'].includes(ord.status);
       if (!okCancel) return res.status(403).json({ error: 'Action non autorisee sur cette commande.' });
     }
+    // Commission (série PTS) : on retient le statut AVANT l'update pour ne
+    // déclencher la réservation qu'à la vraie transition pending→confirmed.
+    let prevOrderStatus = null;
+    if (table === 'orders' && data.status !== undefined) {
+      const { rows: [o0] } = await pool.query('SELECT status FROM orders WHERE id::text = $1', [String(id)]);
+      prevOrderStatus = o0?.status || null;
+    }
     // updated_at est géré par le serveur (now() ci-dessous) : on l'ignore s'il
     // arrive dans le corps, sinon UPDATE ... SET updated_at=$n, updated_at=now()
     // => "multiple assignments to same column updated_at" (500). Ce bug bloquait
@@ -1360,6 +1367,21 @@ app.patch('/api/:table/:id', authRequired, async (req, res) => {
       values
     );
     if (!row) return res.status(404).json({ error: 'Non trouvé' });
+    // Commission (série PTS) — appliquée uniformément à TOUTES les commandes
+    // (normales, sur mesure, abonnement) sur la transition de statut. « Suivi
+    // souple » : non bloquant, best-effort — un échec ne casse jamais la
+    // transition. Réservation à l'acceptation, règlement à la livraison/annulation.
+    if (table === 'orders' && data.status !== undefined && prevOrderStatus !== row.status) {
+      try {
+        if (row.status === 'confirmed' && prevOrderStatus === 'pending') {
+          await holdOrderCommissionSoft(pool, row);
+        } else if (row.status === 'delivered') {
+          await settleOrderCommission(pool, row, 'consume');
+        } else if (row.status === 'cancelled') {
+          await settleOrderCommission(pool, row, 'release');
+        }
+      } catch (e) { console.error('commission on transition:', e.message); }
+    }
     const clean = SENSITIVE_TABLES.has(table) ? stripSecretFields(fromSnake(row)) : fromSnake(row);
     io.emit(`realtime:${table}`, { eventType: 'UPDATE', new: clean });
     if (isAdmin && (SENSITIVE_TABLES.has(table) || ADMIN_TABLE_PERMISSIONS.update?.[table])) {
