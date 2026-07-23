@@ -29,7 +29,7 @@
 | PS-03 | Fiche programme LOT 2 (motivation) | Terminé |
 | PS-04 | Fiche programme LOT 3 (conversion) | Terminé |
 | PS-05 | Fiche programme LOT 4 (découverte+SEO) | Terminé |
-| PS-06 | CP6 « Pour vous » personnalisé | À faire |
+| PS-06 | CP6 « Pour vous » personnalisé | Terminé |
 | PS-07 | CP5 promotions réelles | À faire |
 | PS-08 | CP7 upsell + ETA (+ vérif filtres) | À faire |
 | PS-09 | Fiche programme LOT 5 (data) | À faire |
@@ -39,6 +39,8 @@
 | PS-13 | CP9 Play Store (préparation) | À faire |
 
 ## Journal d'exécution
+
+- **23/07/2026 — PS-06 Terminé** : CP6 — « Pour vous » réellement personnalisé sur HomePremium : score = note pondérée + favori (+100) + resto déjà commandé (+40) + cuisine de l'historique (+20) ; titre « Basé sur vos goûts » uniquement avec signal réel (favori ou commande), sinon « Populaires » = rendu strictement identique à avant (vérifié : visiteur sans signal → même ordre ; favori posé sur le 4ᵉ resto → passe 1ᵉʳ + titre changé, en direct). Aucune requête réseau ajoutée (réutilise le fetchOrders existant, historique complet conservé en état). Gates verts (1 erreur lint `navigate` non utilisé = héritée, présente à HEAD).
 
 - **23/07/2026 — PS-05 Terminé** : fiche programme LOT 4 — resto cliquable → `/restaurant/:id` (vérifié), section « Autres programmes à découvrir » (même resto d'abord, max 4, publiés seulement, masquée si vide), FAQ Accordion shadcn (4 Q/R alignées sur le fonctionnement réel : paiement/pause/jours/annulation), JSON-LD Product+Offer (prix 46000 XAF vérifié dans le DOM) + meta description riche par programme (restaurée au démontage), scroll-to-top sur changement d'id. Gates verts, 360px OK.
 

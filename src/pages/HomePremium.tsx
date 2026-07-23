@@ -39,13 +39,17 @@ export default function HomePremium() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   // Historique réel du client (pour « Vos commandes récentes »). Masqué si aucune commande.
+  // Historique complet conservé pour la personnalisation « Pour vous » (CP6).
+  const [pastOrders, setPastOrders] = useState<Order[]>([]);
+
   useEffect(() => {
-    if (!user?.id) { setRecentOrders([]); return; }
+    if (!user?.id) { return; }
     let alive = true;
     fetchOrders(user.id)
       .then((list) => {
         if (!alive) return;
         const sorted = [...list].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setPastOrders(sorted);
         setRecentOrders(sorted.slice(0, 4));
       })
       .catch(() => { /* silencieux : section simplement masquée */ });
@@ -55,12 +59,34 @@ export default function HomePremium() {
   const firstName = (user?.name || (typeof localStorage !== 'undefined' ? localStorage.getItem('yamo_profile_name') : '') || '').trim().split(' ')[0];
   const city = activeCities[0]?.name ?? 'Douala';
 
-  const topRestaurants = useMemo(
-    () => [...restaurants]
-      .sort((a, b) => (b.ratingWeighted ?? b.rating) - (a.ratingWeighted ?? a.rating) || b.reviewCount - a.reviewCount)
-      .slice(0, 8),
-    [restaurants],
-  );
+  // « Pour vous » (CP6) : classement personnalisé UNIQUEMENT sur des signaux
+  // réels — favoris, restos déjà commandés, cuisines de l'historique. Sans
+  // signal, on retombe exactement sur le classement « Populaires » actuel.
+  const orderedRestoIds = useMemo(() => new Set(pastOrders.map((o) => o.restaurantId)), [pastOrders]);
+  const orderedCuisines = useMemo(() => {
+    const byId = new Map(restaurants.map((r) => [r.id, r]));
+    const cuisines = new Set<string>();
+    for (const o of pastOrders) {
+      const r = byId.get(o.restaurantId);
+      r?.tags.forEach((tg) => cuisines.add(tg));
+    }
+    return cuisines;
+  }, [pastOrders, restaurants]);
+  const hasTasteSignal = favorites.size > 0 || pastOrders.length > 0;
+
+  const topRestaurants = useMemo(() => {
+    const base = (r: (typeof restaurants)[number]) => (r.ratingWeighted ?? r.rating);
+    const score = (r: (typeof restaurants)[number]) => {
+      let s = base(r);
+      if (favorites.has(r.id)) s += 100;
+      if (orderedRestoIds.has(r.id)) s += 40;
+      if (r.tags.some((tg) => orderedCuisines.has(tg))) s += 20;
+      return s;
+    };
+    return [...restaurants]
+      .sort((a, b) => score(b) - score(a) || b.reviewCount - a.reviewCount)
+      .slice(0, 8);
+  }, [restaurants, favorites, orderedRestoIds, orderedCuisines]);
 
   return (
     <div className="pt-[72px] bg-bg-secondary min-h-[100dvh]">
@@ -148,7 +174,8 @@ export default function HomePremium() {
     if (id === 'popular') return (
         <section key={id} className="mb-7">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-poppins font-semibold text-text-primary text-lg">{t('Populaires')}</h2>
+            {/* Libellé honnête : « Basé sur vos goûts » seulement avec un signal réel */}
+            <h2 className="font-poppins font-semibold text-text-primary text-lg">{hasTasteSignal ? t('Basé sur vos goûts') : t('Populaires')}</h2>
             <Link to="/restaurants" className="text-gold-accent font-inter text-xs font-medium hover:underline">{t('Voir tout')}</Link>
           </div>
 
