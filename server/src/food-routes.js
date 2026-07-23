@@ -305,6 +305,11 @@ export function registerFoodRoutes(app, { pool, authRequired, adminPermissionReq
         [horizonDays]
       );
       let created = 0;
+      // Frais de livraison standard par repas (barème plateforme) : le livreur est
+      // rémunéré comme pour toute livraison. Le repas d'abonnement est une commande
+      // COD normale (le client règle repas + livraison à la réception).
+      const { rows: [feeRow] } = await pool.query('SELECT compute_delivery_fee(0) AS fee');
+      const deliveryFee = parseInt(feeRow?.fee) || 0;
       for (const d of due) {
         const perMeal = Math.max(0, Math.round(Number(d.price_fcfa || 0) / Math.max(1, Number(d.total || 1))));
         // Adresse : réutilise celle de l'abonnement, sinon en crée une à partir du
@@ -322,10 +327,11 @@ export function registerFoodRoutes(app, { pool, authRequired, adminPermissionReq
         }
         const { rows: [order] } = await pool.query(
           `INSERT INTO orders (customer_id, restaurant_id, address_id, status, subtotal, delivery_fee, total, payment_method, payment_status, notes, fee_breakdown, created_at, updated_at)
-           VALUES ($1,$2,$3,'pending',$4,0,$4,'cash','pending',$6,$5,now(),now()) RETURNING id`,
+           VALUES ($1,$2,$3,'pending',$4,$7,$8,'cash','pending',$6,$5,now(),now()) RETURNING id`,
           [String(d.customer_id), String(d.restaurant_id), addressId || null, perMeal,
-           JSON.stringify({ payment_mode: 'prepaid_restaurant', subscription_id: String(d.subscription_id), subscription_meal: true }),
-           d.delivery_address ? `Livraison abonnement — ${d.delivery_address}` : 'Livraison abonnement']
+           JSON.stringify({ payment_mode: 'cod', subscription_id: String(d.subscription_id), subscription_meal: true }),
+           d.delivery_address ? `Livraison abonnement — ${d.delivery_address}` : 'Livraison abonnement',
+           deliveryFee, perMeal + deliveryFee]
         );
         await pool.query('UPDATE subscription_deliveries SET order_id=$2 WHERE id=$1', [d.delivery_id, String(order.id)]);
         created++;
