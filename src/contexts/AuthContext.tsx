@@ -168,9 +168,18 @@ function seedLocalRegistry() {
   const existing = readLocalRegistry();
   if (Object.keys(existing).length > 0) {
     // Backfill : s'assurer que tous les profils existants ont des credentials
+    let dirty = false;
     for (const [phone, user] of Object.entries(existing)) {
       autoGenerateCredentials(phone, user.name);
+      // Registres créés avant l'ajout du flag : le seed admin doit rester
+      // super admin (accès aux pages RBAC comme l'admin racine VPS).
+      const seed = SEED_PROFILES.find((p) => normalizeCameroonPhone(p.phone) === phone);
+      if (seed?.isSuperAdmin && !user.isSuperAdmin) {
+        existing[phone] = { ...user, isSuperAdmin: true };
+        dirty = true;
+      }
     }
+    if (dirty) localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(existing));
     return;
   }
   const registry: Record<string, AuthUser> = {};
@@ -272,21 +281,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const sendOtp = useCallback(async (phone: string) => {
+    // Mode mock (dev) : pas de SMS réel, tout code est accepté dans verifyOtp.
+    if (!isSupabaseConfigured || !supabase) return;
     const result = await supabase.auth.sendOtp(normalizeCameroonPhone(phone));
     return result;
   }, []);
 
   const verifyOtp = useCallback(async (phone: string, code: string, requestedRole: UserRole = 'client') => {
-    const json = await supabase.auth.verifyOtp(normalizeCameroonPhone(phone), code, requestedRole);
-    if (json?.user) {
-      const { data } = await supabase.auth.getSession();
-      const resolvedUser: AuthUser = data?.session?.user
-        ? toAuthUserFromSession(data.session.user as Record<string, unknown>)
-        : toAuthUserFromSession(json.user as Record<string, unknown>);
-      setUser(resolvedUser);
-      return resolvedUser;
+    // Mode VPS : vérification serveur STRICTE, sans repli mock (faille
+    // « escalade OTP » corrigée le 20/07/2026 — ne pas réintroduire).
+    if (isSupabaseConfigured && supabase) {
+      const json = await supabase.auth.verifyOtp(normalizeCameroonPhone(phone), code, requestedRole);
+      if (json?.user) {
+        const { data } = await supabase.auth.getSession();
+        const resolvedUser: AuthUser = data?.session?.user
+          ? toAuthUserFromSession(data.session.user as Record<string, unknown>)
+          : toAuthUserFromSession(json.user as Record<string, unknown>);
+        setUser(resolvedUser);
+        return resolvedUser;
+      }
+      throw new Error('Code invalide.');
     }
-    throw new Error('Code invalide.');
+
+    // Mode mock (dev uniquement) : session simulée sur le registre localStorage.
+    // Rôle/approbation fixés à la première « inscription » du numéro, réutilisés ensuite.
+    const key = normalizeCameroonPhone(phone);
+    const registry = readLocalRegistry();
+    const existing = registry[key];
+    if (existing && existing.role !== requestedRole) {
+      throw new RoleMismatchError(existing.role);
+    }
+    const localUser: AuthUser = existing ?? {
+      id: `local-${key}`,
+      phone: key,
+      role: requestedRole,
+      isApproved: isSelfApprovingRole(requestedRole),
+      isSuspended: false,
+    };
+    // La map de suspension de drivers.ts ne concerne que les livreurs — pour
+    // les autres rôles elle écraserait le blocage posé par AdminCustomers
+    // directement dans le registre (LOT-16), qui doit survivre à la reconnexion.
+    if (localUser.role === 'livreur') {
+      const suspensionInfo = getLocalSuspensionInfo(localUser.id);
+      localUser.isSuspended = suspensionInfo.isSuspended;
+      localUser.suspensionReason = suspensionInfo.reason ?? null;
+    }
+    registry[key] = localUser;
+    localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(registry));
+    localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(localUser));
+    setUser(localUser);
+    return localUser;
   }, []);
 
   const signInWithPassword = useCallback(async (identifier: string, password: string) => {

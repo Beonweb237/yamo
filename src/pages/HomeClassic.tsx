@@ -17,6 +17,7 @@ import AppImage from '../components/AppImage';
 import { APP_STORE_URL, PLAY_STORE_URL } from '../data/launchConfig';
 import { useTranslation } from 'react-i18next';
 import { useSeo } from '../hooks/useSeo';
+import { useSiteConfig } from '../hooks/useSiteConfig';
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 30 },
@@ -38,6 +39,8 @@ export default function HomeClassic() {
     path: '/',
   });
   const [searchValue, setSearchValue] = useState('');
+  // Hero éditable en admin (/admin/apparence). Vide = textes par défaut ci-dessous.
+  const { heroTitle, heroSubtitle } = useSiteConfig();
   const topRestaurants = useMemo(
     () => [...restaurants]
       .sort((a, b) => (b.ratingWeighted ?? b.rating) - (a.ratingWeighted ?? a.rating) || b.reviewCount - a.reviewCount)
@@ -100,7 +103,7 @@ export default function HomeClassic() {
               transition={{ duration: 0.6, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
               className="font-poppins font-semibold text-white text-[38px]/[1.15] sm:text-[46px]/[1.13] lg:text-[52px]/[1.12] tracking-normal mb-5 max-w-[620px]"
             >
-              {t("Découvrez les Meilleures Saveurs du Cameroun, ")}<span className="text-gold-accent">{t("Livrées Chez Vous")}</span>
+              {heroTitle ?? (<>{t("Découvrez les Meilleures Saveurs du Cameroun, ")}<span className="text-gold-accent">{t("Livrées Chez Vous")}</span></>)}
             </motion.h1>
 
             {/* Subheadline */}
@@ -110,7 +113,7 @@ export default function HomeClassic() {
               transition={{ duration: 0.5, delay: 0.6 }}
               className="text-white/70 font-inter text-base sm:text-lg leading-relaxed max-w-[500px] mb-8"
             >
-              {t("La meilleure sélection de restaurants et boutiques à Douala et Yaoundé. Rapide, fiable et toujours chaud.")}
+              {heroSubtitle ?? t("La meilleure sélection de restaurants et boutiques à Douala et Yaoundé. Rapide, fiable et toujours chaud.")}
             </motion.p>
 
             {/* Search Bar */}

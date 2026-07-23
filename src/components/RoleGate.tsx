@@ -192,7 +192,7 @@ export default function RoleGate({ allow, children }: { allow: UserRole[]; child
                 {adminError && <p className="text-error text-sm font-inter" role="alert">{adminError}</p>}
                 <button
                   type="submit"
-                  disabled={adminSubmitting || adminCode.length < 6}
+                  disabled={adminSubmitting || adminCode.length < 5}
                   className="w-full bg-green-primary text-white font-inter font-semibold h-[52px] rounded-xl hover:bg-green-dark transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {adminSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("Vérification...")}</> : 'Accéder à l\'administration'}

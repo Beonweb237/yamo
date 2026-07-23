@@ -12,6 +12,8 @@ import { useAuth } from '../contexts/AuthContext';
 import AppImage from '../components/AppImage';
 import GlobalSearch from '../components/GlobalSearch';
 import { useSeo } from '../hooks/useSeo';
+import { useSiteConfig } from '../hooks/useSiteConfig';
+import { effectiveHomeSections, type HomeSectionId } from '../lib/siteConfig';
 
 // Template « Premium » de l'accueil (maquette validée, identité MiamExpress vert/or).
 // En-tête personnalisé + recherche + catégories + restaurants populaires — données RÉELLES.
@@ -24,6 +26,7 @@ export default function HomePremium() {
   const { favorites, toggleFavorite } = useFavorites();
   const { user } = useAuth();
   const { reorder, reordering } = useReorder();
+  const siteConfig = useSiteConfig();
   const [searchOpen, setSearchOpen] = useState(false);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
 
@@ -111,8 +114,16 @@ export default function HomePremium() {
           </Link>
         </div>
 
-        {/* Catégories */}
-        <section className="mb-7">
+        {/* Sections pilotées par l'admin (/admin/apparence) : ordre + activation.
+            'promos' est réservé (branché en CP5 — jamais de fausse promo). */}
+        {effectiveHomeSections(siteConfig).filter((s) => s.enabled).map(({ id }) => renderSection(id))}
+      </div>
+    </div>
+  );
+
+  function renderSection(id: HomeSectionId) {
+    if (id === 'categories') return (
+        <section key={id} className="mb-7">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-poppins font-semibold text-text-primary text-lg">{t('Catégories')}</h2>
             <Link to="/restaurants" className="text-gold-accent font-inter text-xs font-medium hover:underline">{t('Voir tout')}</Link>
@@ -132,9 +143,10 @@ export default function HomePremium() {
             ))}
           </div>
         </section>
+    );
 
-        {/* Populaires */}
-        <section>
+    if (id === 'popular') return (
+        <section key={id} className="mb-7">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-poppins font-semibold text-text-primary text-lg">{t('Populaires')}</h2>
             <Link to="/restaurants" className="text-gold-accent font-inter text-xs font-medium hover:underline">{t('Voir tout')}</Link>
@@ -197,10 +209,10 @@ export default function HomePremium() {
             </div>
           )}
         </section>
+    );
 
-        {/* Vos commandes récentes — reorder 1-clic (masqué si aucune commande réelle) */}
-        {recentOrders.length > 0 && (
-          <section className="mt-7">
+    if (id === 'recent_orders') return recentOrders.length > 0 && (
+          <section key={id} className="mb-7">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-poppins font-semibold text-text-primary text-lg">{t('Vos commandes récentes')}</h2>
               <Link to="/commandes" className="text-gold-accent font-inter text-xs font-medium hover:underline">{t('Voir tout')}</Link>
@@ -234,8 +246,8 @@ export default function HomePremium() {
               })}
             </div>
           </section>
-        )}
-      </div>
-    </div>
-  );
+    );
+
+    return null; // 'promos' : branché en CP5 (PS-07)
+  }
 }

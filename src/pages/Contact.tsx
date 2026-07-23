@@ -18,7 +18,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { contactFAQ } from '../data/mockData';
-import { whatsappLink } from '../data/support';
+import { whatsappLink, getSupportWhatsapp, getSupportPhone, getSupportHours } from '../data/support';
 import { displayCameroonPhone, normalizeCameroonPhone } from '../lib/phone';
 import { useTranslation } from "react-i18next";
 import { useSeo } from '../hooks/useSeo';
@@ -96,7 +96,6 @@ const SUBJECT_LABELS: Record<string, string> = {
   other: 'Autre',
 };
 
-const SUPPORT_WHATSAPP = '237677777777';
 const SUPPORT_EMAIL = 'support@miamexpress.cm';
 
 export default function Contact() {
@@ -127,7 +126,7 @@ export default function Contact() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    window.open(`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(buildMessageBody())}`, '_blank', 'noopener,noreferrer');
+    window.open(`https://wa.me/${getSupportWhatsapp()}?text=${encodeURIComponent(buildMessageBody())}`, '_blank', 'noopener,noreferrer');
     setFormSubmitted(true);
     setTimeout(() => setFormSubmitted(false), 8000);
   };
@@ -171,9 +170,9 @@ export default function Contact() {
             className="flex flex-wrap items-center justify-center gap-6 sm:gap-10"
           >
             {[
-              { icon: Mail, text: 'support@miamexpress.cm' },
-              { icon: Phone, text: '677 77 77 77' },
-              { icon: Clock, text: 'Lun\u2013Sam, 8h\u201322h' },
+              { icon: Mail, text: SUPPORT_EMAIL },
+              { icon: Phone, text: displayCameroonPhone(getSupportPhone()) },
+              { icon: Clock, text: getSupportHours() ?? 'Lun\u2013Sam, 8h\u201322h' },
             ].map((item, i) => (
               <span key={i} className="inline-flex items-center gap-2 text-white font-inter text-sm">
                 <item.icon className="w-5 h-5" />

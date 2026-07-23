@@ -31,7 +31,8 @@ export function demoAccountsForRole(role: UserRole): DemoAccount[] {
 // démarrage et upsertés par le seed démo). Import type-only côté AuthContext
 // pour éviter tout cycle runtime.
 export const SEED_PROFILES: AuthUser[] = [
-  { id: 'seed-admin', phone: '690000001', email: 'demo.admin@gmail.com', role: 'admin', isApproved: true, isSuspended: false, name: 'Demo Admin' },
+  // Super admin en mock : accès à toutes les pages RBAC (comme l'admin racine VPS).
+  { id: 'seed-admin', phone: '690000001', email: 'demo.admin@gmail.com', role: 'admin', isApproved: true, isSuspended: false, name: 'Demo Admin', isSuperAdmin: true },
   { id: 'seed-client', phone: '690000002', email: 'ngo.marie@gmail.com', role: 'client', isApproved: true, isSuspended: false, name: 'Marie Ngo' },
   { id: 'seed-resto-ok', phone: '690000003', email: 'essomba.paul@yahoo.fr', role: 'restaurant', isApproved: true, isSuspended: false, name: 'Paul Essomba' },
   { id: 'seed-resto-pend', phone: '690000004', email: 'manga.christelle@gmail.com', role: 'restaurant', isApproved: false, isSuspended: false, name: 'Christelle Manga' },

@@ -8,7 +8,7 @@ import { hasOrderReview, submitOrderReview } from '../lib/reviews';
 import { fetchOrders, getOrderPreparationMessage, getDriverPhone, getDriverDisplayName, cancelOrder, customerCancelPolicy, declareGuaranteePaid, remainingDueAtDelivery, getRestaurantMerchantInfo, type Order, type OrderStatus } from '../lib/orders';
 import { reportIncident } from '../lib/incidents';
 import { fetchDriversStats, type DriverStats } from '../lib/drivers';
-import { whatsappLink, SUPPORT_PHONE } from '../data/support';
+import { whatsappLink, getSupportPhone } from '../data/support';
 import { phoneForWhatsapp } from '../lib/phone';
 import { usePolling } from '../hooks/usePolling';
 import { toast } from 'sonner';
@@ -721,7 +721,7 @@ export default function Orders() {
                       </div>
                       <div className="flex gap-1.5 flex-wrap">
                         <a
-                          href={`tel:${driverPhone ?? SUPPORT_PHONE}`}
+                          href={`tel:${driverPhone ?? getSupportPhone()}`}
                           aria-label={driverPhone ? 'Appeler le livreur' : 'Appeler le support MiamExpress'}
                           className="text-xs bg-bg-secondary rounded-full px-3.5 py-2.5 text-text-secondary font-inter hover:bg-green-light hover:text-green-primary transition-colors inline-flex items-center"
                         >
